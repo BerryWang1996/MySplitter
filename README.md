@@ -1,8 +1,8 @@
 # MySplitter
-Light SQL R/W splitter and mulitple datasource middleware. It's Developing now.
+Lightweight database read / write separation and multi data source middleware. It's Developing now.
 
 # How to use
-It's very simple to use "MySplitter". 
+It's very easily to use "MySplitter". 
 1. Change your datasource to "com.mysplitter.MySplitterDataSource".
 2. Create mysplitter.yml to project resources floder.
 3. Configure mysplitter.yml like "Configuration".
