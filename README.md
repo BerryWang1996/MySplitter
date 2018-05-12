@@ -1,13 +1,22 @@
-# MySplitter
+# 介绍 - Introduce
+
+轻量级数据库读写分离与多数据源中间件，正在开发中。
+
 Lightweight database read / write separation and multi data source middleware. It's Developing now.
 
-# How to use
+# 使用方法 - How to use
+
+使用它非常简单
+1. 修改datasource为com.mysplitter.MySplitterDataSource，由DataSource管理连接。
+2. 在项目resources目录创建mysplitter.yml文件。
+3. 参考下面配置文件进行配置。
+
 It's very easily to use "MySplitter". 
 1. Change your datasource to "com.mysplitter.MySplitterDataSource".
 2. Create mysplitter.yml to project resources floder.
 3. Configure mysplitter.yml like "Configuration".
 
-# Configuration
+# 配置文件 - Configuration
 ### mysplitter.yml
 ```
 mysplitter:
