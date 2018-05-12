@@ -5,9 +5,9 @@ Light SQL R/W splitter and mulitple repository middleware. It's Developing now.
 It's very simple to use "MySplitter". 
 1. Change your datasource to "com.mysplitter.MySplitterDataSource".
 2. Create mysplitter.yml to project resources floder.
-3. Configure mysplitter.yml like "Settings".
+3. Configure mysplitter.yml like "Configuration".
 
-# Settings
+# Configuration
 ### mysplitter.yml
 ```
 mysplitter:
