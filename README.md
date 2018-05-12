@@ -13,7 +13,7 @@ mysplitter:
       #datasource settings
   writers:
     ha-mode:
-      switch-opportunity: on-error # scheduled on-error-dissolve (support one)
+      switch-opportunity: on-error # scheduled when-error-dissolve (support one)
       heartbeat-model: 
         rate: 1s # be-used (support one)
       detection-sql: SELECT 1
