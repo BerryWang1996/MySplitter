@@ -5,7 +5,8 @@ Light SQL R/W splitter.It's Developing now.
 ### mysplitter.yml
 ```
 mysplitter:
-  datasource: druid #dbcp c3p0
+  mysplitter:
+  datasource-class: com.alibaba.druid.pool.DruidDataSource # your datasource (e.g. org.apache.commons.dbcp.BasicDataSource)
   ha-mode:
     switch-opportunity: on-error # scheduled on-error-dissolve (support one)
     heartbeat-model: 
