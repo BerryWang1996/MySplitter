@@ -1,5 +1,5 @@
 # MySplitter
-Light SQL R/W splitter and mulitple repository middleware. It's Developing now.
+Light SQL R/W splitter and mulitple datasource middleware. It's Developing now.
 
 # How to use
 It's very simple to use "MySplitter". 
