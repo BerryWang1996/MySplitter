@@ -5,20 +5,20 @@ Light SQL R/W splitter.It's Developing now.
 ### mysplitter.yml
 ```
 mysplitter:
-  datasource: druid #dbcp c3p0 (support one)
+  datasource: druid #dbcp c3p0
+  ha-mode:
+    switch-opportunity: on-error # scheduled on-error-dissolve (support one)
+    heartbeat-model: 
+      rate: 1s # be-used (support one)
+    detection-sql: SELECT 1
+    died-alert-handler: 
+      com.xxx.xxx # must implements com.mysplitter.advise.DatasourceDiedAlerterAdvise
   readers:
     reader:
       #datasource settings
     reader:
       #datasource settings
   writers:
-    ha-mode:
-      switch-opportunity: on-error # scheduled when-error-dissolve (support one)
-      heartbeat-model: 
-        rate: 1s # be-used (support one)
-      detection-sql: SELECT 1
-      died-alert-handler: 
-        com.xxx.xxx # must implements com.mysplitter.advise.DatasourceDiedAlerterAdvise
     writer:
       #datasource settings
     writer:
@@ -27,5 +27,5 @@ mysplitter:
     enabled: true
     level: info
     show-sql: true
-    show-sql-pretty: true
+    show-sql-prttey: true
 ```
