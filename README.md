@@ -1,5 +1,11 @@
 # MySplitter
-Light SQL R/W splitter.It's Developing now.
+Light SQL R/W splitter and mulitple repository middleware. It's Developing now.
+
+# How to use
+It's very simple to use "MySplitter". 
+1. Change your datasource to "com.mysplitter.MySplitterDataSource".
+2. Create mysplitter.yml to project resources floder.
+3. Configure mysplitter.yml like "Settings".
 
 # Settings
 ### mysplitter.yml
@@ -13,24 +19,27 @@ mysplitter:
     detection-sql: SELECT 1
     died-alert-handler: 
       com.xxx.xxx # must implements com.mysplitter.advise.DatasourceDiedAlerterAdvise(optional)
-  readers:
-    reader:
-      name: read-slave-1
-      # datasource-class (optional high priority)
-      # datasource settings
-    reader:
-      name: read-slave-2
-      # datasource-class (optional high priority)
-      # datasource settings
-  writers:
-    writer:
-      name: write-master-1
-      # datasource-class (optional high priority)
-      # datasource settings
-    writer:
-      name: write-slave-2
-      # datasource-class (optional high priority)
-      # datasource settings
+  repositorys: 
+    repository: # mulitple repository
+      name: default
+      readers:
+        reader:
+          name: read-slave-1
+          # datasource-class (optional high priority)
+          # datasource settings
+        reader:
+          name: read-slave-2
+          # datasource-class (optional high priority)
+          # datasource settings
+      writers:
+        writer:
+          name: write-master-1
+          # datasource-class (optional high priority)
+          # datasource settings
+        writer:
+          name: write-slave-2
+          # datasource-class (optional high priority)
+          # datasource settings
   log:
     enabled: true
     level: info
