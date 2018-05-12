@@ -15,13 +15,17 @@ mysplitter:
       com.xxx.xxx # must implements com.mysplitter.advise.DatasourceDiedAlerterAdvise
   readers:
     reader:
+      name: read-slave-1
       #datasource settings
     reader:
+      name: read-slave-2
       #datasource settings
   writers:
     writer:
+      name: write-master-1
       #datasource settings
     writer:
+      name: write-slave-2
       #datasource settings
   log:
     enabled: true
