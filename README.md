@@ -27,5 +27,5 @@ mysplitter:
     enabled: true
     level: info
     show-sql: true
-    show-sql-prttey: true
+    show-sql-pretty: true
 ```
