@@ -10,12 +10,12 @@ Lightweight database read / write separation and multi data source middleware. I
 ## 使用方法 - How to use
 
 使用它非常简单
-1. 修改datasource为com.mysplitter.MySplitterDataSource，由DataSource管理连接。
+1. 修改datasource为com.mysplitter.MySplitterDataSourceRouter，由MySplitte管理连接。
 2. 在项目resources目录创建mysplitter.yml文件。
 3. 参考下面配置文件进行配置。
 
 It's very easily to use "MySplitter". 
-1. Change your datasource to "com.mysplitter.MySplitterDataSource".
+1. Change your datasource to "com.mysplitter.MySplitterDataSourceRouter".
 2. Create mysplitter.yml to project resources floder.
 3. Configure mysplitter.yml like "Configuration".
 
