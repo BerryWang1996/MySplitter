@@ -23,38 +23,51 @@ It's very easily to use "MySplitter".
 ### mysplitter.yml
 ```
 mysplitter:
-  common-datasource-class: com.alibaba.druid.pool.DruidDataSource # datasource factory class
-  ha-mode:
-    switch-opportunity: on-error # scheduled on-error-dissolve (support one)
-    heartbeat-model: 
-      rate: 1s # be-used (support one)
-    detection-sql: SELECT 1
-    died-alert-handler: com.xxx.xxx # implements com.mysplitter.advise.DatasourceDiedAlerterAdvise(optional)
-  datasources: 
-    datasource: # mulitple datasource
-      name: default # do not change default datasource name
-      # datasource-class: (optional)
+  common:
+    datasourceClass: com.alibaba.druid.pool.DruidDataSource # datasource factory class
+    highAvailable:
+      enableLazyLoadingDataSource: true
+      switchOpportunity: on-error # scheduled on-error-dissolve (support one)
+      heartbeatRate: 1s # s=second, m=minute, h=hour, 0=disabled
+      detectionSql: SELECT 1
+      diedAlertHandler: com.xxx.xxx # implements com.mysplitter.advise.DatasourceDiedAlerterAdvise(optional)
+    loadBalance:
+      read:
+        enabled: true
+        strategy: polling # weight (default 1, min 1, change weight in reader or writer.)
+        datasourceName: default
+      write:
+        enabled: true
+        strategy: polling # weight
+        datasourceName: default
+  databases:
+    database-default: # database-DatabaseName e.g.database-master database-192.168.1.1:3306
+      # datasourceClass: (optional)
       readers:
         reader:
           name: read-slave-1
-          # datasource-class: (optional high priority)
-          # datasource settings
+          # datasourceClass: (optional high priority)
+          configuration: # datasource configuration
         reader:
           name: read-slave-2
-          # datasource-class: (optional high priority)
-          # datasource settings
+          # datasourceClass: (optional high priority)
+          configuration: # datasource configuration
       writers:
         writer:
           name: write-master-1
-          # datasource-class: (optional high priority)
-          # datasource settings
+          # datasourceClass: (optional high priority)
+          configuration: # datasource configuration
         writer:
           name: write-slave-2
-          # datasource-class: (optional high priority)
-          # datasource settings
+          # datasourceClass: (optional high priority)
+          configuration: # datasource configuration
+    # database-other: ...
+  databasesRouting: # ignore when only one database
+    mode: bySqlDatabasePrefix
+    # routingHandler: com.xxx.xxx # implements com.mysplitter.advise.MySplitterRoutingAdvise
   log:
     enabled: true
     level: info
-    show-sql: true
-    show-sql-prttey: true
+    showSql: true
+    showSqlPretty: true
 ```
