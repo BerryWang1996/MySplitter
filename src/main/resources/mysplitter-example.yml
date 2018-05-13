@@ -1,0 +1,48 @@
+mysplitter:
+  common:
+    datasourceClass: com.alibaba.druid.pool.DruidDataSource # datasource factory class
+    highAvailable:
+      enableLazyLoadingDataSource: true
+      switchOpportunity: on-error # scheduled on-error-dissolve (support one)
+      heartbeatRate: 1s # s=second, m=minute, h=hour, 0=disabled
+      detectionSql: SELECT 1
+      diedAlertHandler: com.xxx.xxx # implements com.mysplitter.advise.DatasourceDiedAlerterAdvise(optional)
+    loadBalance:
+      read:
+        enabled: true
+        strategy: polling # weight (default 1, min 1, change weight in reader or writer.)
+        datasourceName: default
+      write:
+        enabled: true
+        strategy: polling # weight
+        datasourceName: default
+  databases:
+    database-default: # database-DatabaseName e.g.database-master database-192.168.1.1:3306
+      # datasourceClass: (optional)
+      readers:
+        reader:
+          name: read-slave-1
+          # datasourceClass: (optional high priority)
+          configuration: # datasource configuration
+        reader:
+          name: read-slave-2
+          # datasourceClass: (optional high priority)
+          configuration: # datasource configuration
+      writers:
+        writer:
+          name: write-master-1
+          # datasourceClass: (optional high priority)
+          configuration: # datasource configuration
+        writer:
+          name: write-slave-2
+          # datasourceClass: (optional high priority)
+          configuration: # datasource configuration
+    # database-other: ...
+  databasesRouting: # ignore when only one database
+    mode: bySqlDatabasePrefix
+    # routingHandler: com.xxx.xxx # implements com.mysplitter.advise.MySplitterRoutingAdvise
+  log:
+    enabled: true
+    level: info
+    showSql: true
+    showSqlPretty: true
