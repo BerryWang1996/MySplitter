@@ -8,6 +8,10 @@ package com.mysplitter.config;
  */
 public class MySplitterHighAvailableConfig {
 
+    public static final String DEFAULT_DETECTION_SQL = "SELECT 1";
+
+    public static final String DEFAULT_HEARTBEAT_RATE = "1s";
+
     private boolean enableLazyLoadingDataSource;
 
     private String switchOpportunity;

@@ -8,29 +8,9 @@ package com.mysplitter.config;
  */
 public class MySplitterLogConfig {
 
-    private boolean enabled;
-
-    private String level;
-
     private boolean showSql;
 
     private boolean showSqlPretty;
-
-    public boolean isEnabled() {
-        return enabled;
-    }
-
-    public void setEnabled(boolean enabled) {
-        this.enabled = enabled;
-    }
-
-    public String getLevel() {
-        return level;
-    }
-
-    public void setLevel(String level) {
-        this.level = level;
-    }
 
     public boolean isShowSql() {
         return showSql;
@@ -51,9 +31,7 @@ public class MySplitterLogConfig {
     @Override
     public String toString() {
         return "MySplitterLogConfig{" +
-                "enabled=" + enabled +
-                ", level='" + level + '\'' +
-                ", showSql=" + showSql +
+                "showSql=" + showSql +
                 ", showSqlPretty=" + showSqlPretty +
                 '}';
     }

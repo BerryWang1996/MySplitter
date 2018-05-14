@@ -18,6 +18,8 @@ public class MySplitterDataBaseConfig {
 
     private Map<String, MySplitterLoadBalanceConfig> loadBalance;
 
+    private Map<String, MySplitterIntegrateConfig> integrates;
+
     private Map<String, MySplitterReaderConfig> readers;
 
     private Map<String, MySplitterWriterConfig> writers;
@@ -54,6 +56,14 @@ public class MySplitterDataBaseConfig {
         this.loadBalance = loadBalance;
     }
 
+    public Map<String, MySplitterIntegrateConfig> getIntegrates() {
+        return integrates;
+    }
+
+    public void setIntegrates(Map<String, MySplitterIntegrateConfig> integrates) {
+        this.integrates = integrates;
+    }
+
     public Map<String, MySplitterReaderConfig> getReaders() {
         return readers;
     }
@@ -77,6 +87,7 @@ public class MySplitterDataBaseConfig {
                 ", datasourceClass='" + datasourceClass + '\'' +
                 ", highAvailable=" + highAvailable +
                 ", loadBalance=" + loadBalance +
+                ", integrates=" + integrates +
                 ", readers=" + readers +
                 ", writers=" + writers +
                 '}';

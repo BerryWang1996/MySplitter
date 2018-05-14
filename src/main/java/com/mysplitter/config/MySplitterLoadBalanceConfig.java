@@ -12,7 +12,7 @@ public class MySplitterLoadBalanceConfig {
 
     private String strategy;
 
-    private String datasourceName;
+    private String databaseName;
 
     public boolean isEnabled() {
         return enabled;
@@ -30,12 +30,12 @@ public class MySplitterLoadBalanceConfig {
         this.strategy = strategy;
     }
 
-    public String getDatasourceName() {
-        return datasourceName;
+    public String getDatabaseName() {
+        return databaseName;
     }
 
-    public void setDatasourceName(String datasourceName) {
-        this.datasourceName = datasourceName;
+    public void setDatabaseName(String databaseName) {
+        this.databaseName = databaseName;
     }
 
     @Override
@@ -43,7 +43,7 @@ public class MySplitterLoadBalanceConfig {
         return "MySplitterLoadBalanceConfig{" +
                 "enabled=" + enabled +
                 ", strategy='" + strategy + '\'' +
-                ", datasourceName='" + datasourceName + '\'' +
+                ", databaseName='" + databaseName + '\'' +
                 '}';
     }
 }
