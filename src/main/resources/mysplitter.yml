@@ -6,14 +6,14 @@ mysplitter:
       switchOpportunity: on-error # scheduled on-error-dissolve (support one)
       detectionSql: SELECT 1
       heartbeatRate: 1s # s=second, m=minute, h=hour, 0=disabled
-      diedAlertHandler: MyDatasourceDiedAlerter # implements com.mysplitter.advise.DatasourceDiedAlerterAdvise(optional)
+      diedAlertHandler: com.mysplitter.MyDatasourceDiedAlerter # implements com.mysplitter.advise.DatasourceDiedAlerterAdvise(optional)
     loadBalance:
       read:
         enabled: true
-        strategy: polling # weight (default 1, disable when lte 0, change weight in reader or writer.)
+        strategy: polling # random weight (default 1, disable when lte 0, change weight in reader or writer.)
       write:
         enabled: true
-        strategy: polling # weight
+        strategy: polling # random
   databases:
     database-a: # database-DatabaseName e.g.database-master database-192.168.1.1:3306
       # datasourceClass: (optional)
