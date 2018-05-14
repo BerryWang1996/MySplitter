@@ -10,21 +10,11 @@ import java.util.Map;
  */
 public class MySplitterWriterConfig {
 
-    private String name;
-
     private String datasourceClass;
 
     private Integer weight;
 
     private Map<String, Object> configuration;
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
 
     public String getDatasourceClass() {
         return datasourceClass;
@@ -53,8 +43,7 @@ public class MySplitterWriterConfig {
     @Override
     public String toString() {
         return "MySplitterWriterConfig{" +
-                "name='" + name + '\'' +
-                ", datasourceClass='" + datasourceClass + '\'' +
+                "datasourceClass='" + datasourceClass + '\'' +
                 ", weight=" + weight +
                 ", configuration=" + configuration +
                 '}';
