@@ -30,7 +30,7 @@ public class ConfigurationUtil {
 
     private static String[] supportSwitchOpportunities = {"on-error", "scheduled", "on-error-dissolve"};
 
-    private static String[] supportStrategy = {"polling", "weight"};
+    private static String[] supportStrategy = {"polling", "random"};
 
     static {
         // 读取配置文件
