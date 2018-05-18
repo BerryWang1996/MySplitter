@@ -1,6 +1,7 @@
 package com.mysplitter.config;
 
 import java.io.Serializable;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -11,13 +12,29 @@ import java.util.Map;
  */
 public class MySplitterConfig implements Serializable {
 
+    private String databasesRoutingHandler;
+
+    private List<String> filters;
+
     private MySplitterCommonConfig common;
 
     private Map<String, MySplitterDataBaseConfig> databases;
 
-    private MySplitterDatabaseRoutingConfig databasesRouting;
+    public String getDatabasesRoutingHandler() {
+        return databasesRoutingHandler;
+    }
 
-    private MySplitterLogConfig log;
+    public void setDatabasesRoutingHandler(String databasesRoutingHandler) {
+        this.databasesRoutingHandler = databasesRoutingHandler;
+    }
+
+    public List<String> getFilters() {
+        return filters;
+    }
+
+    public void setFilters(List<String> filters) {
+        this.filters = filters;
+    }
 
     public MySplitterCommonConfig getCommon() {
         return common;
@@ -35,29 +52,13 @@ public class MySplitterConfig implements Serializable {
         this.databases = databases;
     }
 
-    public MySplitterDatabaseRoutingConfig getDatabasesRouting() {
-        return databasesRouting;
-    }
-
-    public void setDatabasesRouting(MySplitterDatabaseRoutingConfig databasesRouting) {
-        this.databasesRouting = databasesRouting;
-    }
-
-    public MySplitterLogConfig getLog() {
-        return log;
-    }
-
-    public void setLog(MySplitterLogConfig log) {
-        this.log = log;
-    }
-
     @Override
     public String toString() {
         return "MySplitterConfig{" +
-                "common=" + common +
+                "databasesRoutingHandler='" + databasesRoutingHandler + '\'' +
+                ", filters=" + filters +
+                ", common=" + common +
                 ", databases=" + databases +
-                ", databasesRouting=" + databasesRouting +
-                ", log=" + log +
                 '}';
     }
 }

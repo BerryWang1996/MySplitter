@@ -1,0 +1,181 @@
+{
+  "mysplitter": {
+    "common": {
+      "datasourceClass": "com.mchange.v2.c3p0.ComboPooledDataSource",
+      "highAvailable": {
+        "integrate": {
+          "alivedHeartbeatRate": "1s",
+          "detectionSql": "SELECT 1",
+          "diedAlertHandler": "com.mysplitter.MyDatasourceDiedAlertHandler",
+          "diedHeartbeatRate": "20s",
+          "enabled": false,
+          "lazyLoad": true,
+          "switchOpportunity": "on-error"
+        },
+        "read": {
+          "alivedHeartbeatRate": "1s",
+          "detectionSql": "SELECT 1",
+          "diedAlertHandler": "com.mysplitter.MyDatasourceDiedAlertHandler",
+          "diedHeartbeatRate": "20s",
+          "enabled": true,
+          "lazyLoad": true,
+          "switchOpportunity": "on-error"
+        },
+        "write": {
+          "alivedHeartbeatRate": "1s",
+          "detectionSql": "SELECT 1",
+          "diedAlertHandler": "com.mysplitter.MyDatasourceDiedAlertHandler",
+          "diedHeartbeatRate": "20s",
+          "enabled": true,
+          "lazyLoad": false,
+          "switchOpportunity": "on-error"
+        }
+      },
+      "loadBalance": {
+        "read": {
+          "enabled": true,
+          "strategy": "polling"
+        },
+        "write": {
+          "enabled": true,
+          "strategy": "polling"
+        }
+      }
+    },
+    "databases": {
+      "database-a": {
+        "highAvailable": {
+          "integrate": {
+            "alivedHeartbeatRate": "1s",
+            "detectionSql": "SELECT 1",
+            "diedAlertHandler": "com.mysplitter.MyDatasourceDiedAlertHandler",
+            "diedHeartbeatRate": "20s",
+            "enabled": false,
+            "lazyLoad": true,
+            "switchOpportunity": "on-error"
+          },
+          "read": {
+            "alivedHeartbeatRate": "1s",
+            "detectionSql": "SELECT 1",
+            "diedAlertHandler": "com.mysplitter.MyDatasourceDiedAlertHandler",
+            "diedHeartbeatRate": "20s",
+            "enabled": true,
+            "lazyLoad": true,
+            "switchOpportunity": "on-error"
+          },
+          "write": {
+            "alivedHeartbeatRate": "1s",
+            "detectionSql": "SELECT 1",
+            "diedAlertHandler": "com.mysplitter.MyDatasourceDiedAlertHandler",
+            "diedHeartbeatRate": "20s",
+            "enabled": true,
+            "lazyLoad": false,
+            "switchOpportunity": "on-error"
+          }
+        },
+        "loadBalance": {
+          "read": {
+            "enabled": true,
+            "strategy": "polling"
+          },
+          "write": {
+            "enabled": true,
+            "strategy": "polling"
+          }
+        },
+        "readers": {
+          "reader-read-slave-1": {
+            "configuration": {
+              "url": "192.168.1.101:3306",
+              "username": "root",
+              "password": "admin",
+              "driverClassName": "com.jdbc.mysql.Driver"
+            },
+            "datasourceClass": "com.mchange.v2.c3p0.ComboPooledDataSource",
+            "weight": 1
+          },
+          "reader-read-slave-2": {
+            "configuration": {
+              "url": "192.168.1.101:3306",
+              "username": "root",
+              "password": "admin",
+              "driverClassName": "com.jdbc.mysql.Driver"
+            },
+            "datasourceClass": "com.mchange.v2.c3p0.ComboPooledDataSource",
+            "weight": 1
+          }
+        },
+        "writers": {
+          "writer-write-master-1": {
+            "configuration": {
+              "url": "192.168.1.101:3306",
+              "username": "root",
+              "password": "admin",
+              "driverClassName": "com.jdbc.mysql.Driver"
+            },
+            "datasourceClass": "com.alibaba.druid.pool.DruidDataSource",
+            "weight": 1
+          }
+        }
+      },
+      "database-b": {
+        "highAvailable": {
+          "integrate": {
+            "alivedHeartbeatRate": "1s",
+            "detectionSql": "SELECT 1",
+            "diedAlertHandler": "com.mysplitter.MyDatasourceDiedAlertHandler",
+            "diedHeartbeatRate": "20s",
+            "enabled": false,
+            "lazyLoad": true,
+            "switchOpportunity": "on-error"
+          },
+          "read": {
+            "alivedHeartbeatRate": "1s",
+            "detectionSql": "SELECT 1",
+            "diedAlertHandler": "com.mysplitter.MyDatasourceDiedAlertHandler",
+            "diedHeartbeatRate": "20s",
+            "enabled": true,
+            "lazyLoad": true,
+            "switchOpportunity": "on-error"
+          },
+          "write": {
+            "alivedHeartbeatRate": "1s",
+            "detectionSql": "SELECT 1",
+            "diedAlertHandler": "com.mysplitter.MyDatasourceDiedAlertHandler",
+            "diedHeartbeatRate": "20s",
+            "enabled": true,
+            "lazyLoad": false,
+            "switchOpportunity": "on-error"
+          }
+        },
+        "integrates": {
+          "integrate-slave-1": {
+            "configuration": {
+              "url": "192.168.1.101:3306",
+              "username": "root",
+              "password": "admin",
+              "driverClassName": "com.jdbc.mysql.Driver"
+            },
+            "datasourceClass": "com.zaxxer.hikari.HikariDataSource",
+            "weight": 1
+          }
+        },
+        "loadBalance": {
+          "read": {
+            "enabled": true,
+            "strategy": "polling"
+          },
+          "write": {
+            "enabled": true,
+            "strategy": "polling"
+          }
+        }
+      }
+    },
+    "databasesRoutingHandler": "com.mysplitter.MyDatabasesRouter",
+    "filters": [
+      "com.mysplitter.MyDatasourceFilters1",
+      "com.mysplitter.MyDatasourceFilters2"
+    ]
+  }
+}

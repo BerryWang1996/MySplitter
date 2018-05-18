@@ -6,5 +6,8 @@ package com.mysplitter.advise;
  * @Author: wangbor
  * @Date: 2018/5/14 11:00
  */
-public interface DatasourceDiedAlerterAdvise {
+public interface MySplitterDatasourceDiedAlerterAdvise {
+
+    void diedAlerter(String databaseName, String nodeName);
+
 }

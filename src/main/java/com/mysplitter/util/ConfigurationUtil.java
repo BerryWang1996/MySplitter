@@ -1,9 +1,10 @@
 package com.mysplitter.util;
 
-import com.mysplitter.advise.DatasourceDiedAlerterAdvise;
+import com.mysplitter.advise.MySplitterDatabasesRoutingHandlerAdvise;
+import com.mysplitter.advise.MySplitterDatasourceDiedAlerterAdvise;
+import com.mysplitter.advise.MySplitterFilterAdvise;
 import com.mysplitter.config.*;
 import com.mysplitter.exceptions.DataSourceClassNotDefine;
-import com.mysplitter.exceptions.DataSourceConfigurationNotDefine;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
@@ -11,12 +12,11 @@ import org.yaml.snakeyaml.constructor.Constructor;
 import org.yaml.snakeyaml.representer.Representer;
 import org.yaml.snakeyaml.resolver.Resolver;
 
-import javax.naming.OperationNotSupportedException;
 import java.io.InputStream;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 配置文件工具类
@@ -31,6 +31,10 @@ public class ConfigurationUtil {
     private static String[] supportSwitchOpportunities = {"on-error", "scheduled", "on-error-dissolve"};
 
     private static String[] supportStrategy = {"polling", "random"};
+
+    private static String[] supportHaNodeMode = {"integrate", "read", "write", "others"};
+
+    private static String[] supportLbNodeMode = {"read", "write"};
 
     static {
         // 读取配置文件
@@ -54,178 +58,281 @@ public class ConfigurationUtil {
 
     public static void checkMySplitterConfig(MySplitterRootConfig mySplitterRootConfig) throws Exception {
         MySplitterConfig mySplitterConfig = mySplitterRootConfig.getMysplitter();
-        // 检查datasourceClass是否缺失，以及是否正确
-        String datasourceClass = mySplitterConfig.getCommon().getDatasourceClass();
-        if (StringUtil.isBlank(datasourceClass)) {
-            Map<String, MySplitterDataBaseConfig> databases = mySplitterConfig.getDatabases();
-            for (String databaseKey : databases.keySet()) {
-                MySplitterDataBaseConfig mySplitterDataBaseConfig = databases.get(databaseKey);
-                if (StringUtil.isBlank(mySplitterDataBaseConfig.getDatasourceClass())) {
-                    Map<String, MySplitterIntegrateConfig> integrates = mySplitterDataBaseConfig.getIntegrates();
-                    for (String integrateKey : integrates.keySet()) {
-                        MySplitterIntegrateConfig mySplitterIntegrateConfig = integrates.get(integrateKey);
-                        if (StringUtil.isBlank(mySplitterIntegrateConfig.getDatasourceClass())) {
-                            throw new DataSourceClassNotDefine(databaseKey, integrateKey);
-                        } else {
-                            ConfigurationUtil.isClassNameLegal(mySplitterDataBaseConfig.getDatasourceClass());
-                        }
-                    }
-                    Map<String, MySplitterReaderConfig> readers = mySplitterDataBaseConfig.getReaders();
-                    for (String readerKey : readers.keySet()) {
-                        MySplitterReaderConfig mySplitterReaderConfig = readers.get(readerKey);
-                        if (StringUtil.isBlank(mySplitterReaderConfig.getDatasourceClass())) {
-                            throw new DataSourceClassNotDefine(databaseKey, readerKey);
-                        } else {
-                            ConfigurationUtil.isClassNameLegal(mySplitterDataBaseConfig.getDatasourceClass());
-                        }
-                    }
-                    Map<String, MySplitterWriterConfig> writers = mySplitterDataBaseConfig.getWriters();
-                    for (String writerKey : writers.keySet()) {
-                        MySplitterWriterConfig mySplitterWriterConfig = writers.get(writerKey);
-                        if (StringUtil.isBlank(mySplitterWriterConfig.getDatasourceClass())) {
-                            throw new DataSourceClassNotDefine(databaseKey, writerKey);
-                        } else {
-                            ConfigurationUtil.isClassNameLegal(mySplitterDataBaseConfig.getDatasourceClass());
-                        }
-                    }
-                } else {
-                    ConfigurationUtil.isClassNameLegal(mySplitterDataBaseConfig.getDatasourceClass());
-                }
+        Map<String, MySplitterDataBaseConfig> databases = mySplitterConfig.getDatabases();
+        // 检查filters
+        List<String> filters = mySplitterConfig.getFilters();
+        if (filters != null && filters.size() > 0) {
+            for (String filter : filters) {
+                isFilterLegal(filter);
             }
-        } else {
-            ConfigurationUtil.isClassNameLegal(datasourceClass);
         }
         // 检查highAvailable
-        MySplitterHighAvailableConfig highAvailable = mySplitterConfig.getCommon().getHighAvailable();
-        if (highAvailable == null) {
-            highAvailable = new MySplitterHighAvailableConfig();
+        Map<String, MySplitterHighAvailableConfig> commonHaConfigMap = mySplitterConfig.getCommon().getHighAvailable();
+        if (commonHaConfigMap == null || commonHaConfigMap.size() == 0) {
+            // 如果common的highAvailable是空，就设置关闭，以便于子节点获取
+            commonHaConfigMap = new ConcurrentHashMap<String, MySplitterHighAvailableConfig>(1);
+            MySplitterHighAvailableConfig mySplitterHighAvailableConfig = new MySplitterHighAvailableConfig();
+            mySplitterHighAvailableConfig.setEnabled(false);
+            commonHaConfigMap.put("others", mySplitterHighAvailableConfig);
+        } else {
+            // 如果common的highAvailable不是空，检查highAvailable key是否在允许的范围内
+            isHighAvailableMapLegal(commonHaConfigMap);
         }
-        // 如果切换时机不在定义的范围内，报错
-        String switchOpportunity = highAvailable.getSwitchOpportunity();
-        // 设置为小写
-        if (StringUtil.isNotBlank(switchOpportunity)) {
-            highAvailable.setSwitchOpportunity(highAvailable.getSwitchOpportunity().toLowerCase());
-        }
-        if (!ConfigurationUtil.isHighAvailableSwitchOpportunityLegal(switchOpportunity)) {
-            throw new IllegalArgumentException("HighAvailable switch opportunity not support " +
-                    switchOpportunity + "!");
-        }
-        // 如果不存在默认sql，设置
-        String detectionSql = highAvailable.getDetectionSql();
-        if (StringUtil.isBlank(detectionSql)) {
-            highAvailable.setDetectionSql(MySplitterHighAvailableConfig.DEFAULT_DETECTION_SQL);
-        }
-        // 如果不存在心跳速度，设置
-        if (StringUtil.isBlank(highAvailable.getHeartbeatRate())) {
-            highAvailable.setHeartbeatRate(MySplitterHighAvailableConfig.DEFAULT_HEARTBEAT_RATE);
-        }
-        // 心跳速度全部小写
-        highAvailable.setHeartbeatRate(highAvailable.getHeartbeatRate().toLowerCase());
-        // 心跳配置不符合规范，报错
-        if (!ConfigurationUtil.isHighAvailableHeartbeatRateLegal(highAvailable.getHeartbeatRate())) {
-            throw new IllegalArgumentException("HighAvailable heartbeat rate not support " +
-                    switchOpportunity + "!");
-        }
-        // 如果数据源异常警告处理器填写，检查数据源错误警告处理器是否存在
-        if (StringUtil.isNotBlank(highAvailable.getDiedAlertHandler())) {
-            ConfigurationUtil.isHighAvailableDiedAlertHandlerLegal(highAvailable.getDiedAlertHandler());
+        // 查看每个datasource是否配置highAvailable
+        for (String databaseKey : databases.keySet()) {
+            MySplitterDataBaseConfig mySplitterDataBaseConfig = databases.get(databaseKey);
+            if (mySplitterDataBaseConfig.getHighAvailable() != null &&
+                    mySplitterDataBaseConfig.getHighAvailable().size() > 0) {
+                // 如果配置，检查highAvailable key是否在允许的范围内
+                isHighAvailableMapLegal(mySplitterDataBaseConfig.getHighAvailable());
+            } else {
+                // 如果没有配置，使用common的配置
+                mySplitterDataBaseConfig.setHighAvailable(commonHaConfigMap);
+            }
         }
         // 检查loadBalance
-        Map<String, MySplitterLoadBalanceConfig> loadBalance = mySplitterConfig.getCommon().getLoadBalance();
-        if (loadBalance == null) {
-            loadBalance = new HashMap<String, MySplitterLoadBalanceConfig>();
-        }
-        for (String s : loadBalance.keySet()) {
-            if (!("read".equals(s) || "write".equals(s))) {
-                throw new OperationNotSupportedException("LoadBalance do not support key " + s + "!");
-            }
-        }
-        if (loadBalance.get("read") != null) {
-            MySplitterLoadBalanceConfig read = loadBalance.get("read");
-            boolean enabled = read.isEnabled();
-            if (enabled) {
-                // 转换为小写
-                if (StringUtil.isNotBlank(read.getStrategy())) {
-                    read.setStrategy(read.getStrategy().toLowerCase());
-                }
-                if (!ConfigurationUtil.isLoadBalanceStrategyLegal(read.getStrategy())) {
-                    throw new IllegalArgumentException("LoadBalance strategy not support " +
-                            read.getStrategy() + "!");
-                }
-            }
+        Map<String, MySplitterLoadBalanceConfig> commonLoadBalance = mySplitterConfig.getCommon().getLoadBalance();
+        if (commonLoadBalance == null || commonLoadBalance.size() == 0) {
+            // 如果common的loadBalance是空，就设置read和write关闭，以便于子节点获取
+            Map<String, MySplitterLoadBalanceConfig> loadBalanceMap =
+                    new ConcurrentHashMap<String, MySplitterLoadBalanceConfig>();
+            // 创建一个关闭负载均衡的对象
+            MySplitterLoadBalanceConfig closedLoadBalanceConfig = new MySplitterLoadBalanceConfig();
+            closedLoadBalanceConfig.setEnabled(false);
+            loadBalanceMap.put("read", closedLoadBalanceConfig);
+            loadBalanceMap.put("write", closedLoadBalanceConfig);
+            mySplitterConfig.getCommon().setLoadBalance(loadBalanceMap);
         } else {
-            MySplitterLoadBalanceConfig balanceConfig = new MySplitterLoadBalanceConfig();
-            balanceConfig.setEnabled(false);
-            loadBalance.put("read", balanceConfig);
+            // 如果common的loadBalance不是空，检查loadBalance key是否在允许的范围内，loadBalance 配置是否正确，weight不存在则修改为1
+            isLoadBalanceMapLegal(commonLoadBalance);
         }
-        if (loadBalance.get("write") != null) {
-            MySplitterLoadBalanceConfig write = loadBalance.get("write");
-            boolean enabled = write.isEnabled();
-            if (enabled) {
-                // 转换为小写
-                if (StringUtil.isNotBlank(write.getStrategy())) {
-                    write.setStrategy(write.getStrategy().toLowerCase());
-                }
-                if (!ConfigurationUtil.isLoadBalanceStrategyLegal(write.getStrategy())) {
-                    throw new IllegalArgumentException("LoadBalance strategy not support " +
-                            write.getStrategy() + "!");
-                }
+        // 查看每个datasource是否配置loadBalance
+        for (String databaseKey : databases.keySet()) {
+            MySplitterDataBaseConfig mySplitterDataBaseConfig = databases.get(databaseKey);
+            if (mySplitterDataBaseConfig.getLoadBalance() != null &&
+                    mySplitterDataBaseConfig.getLoadBalance().size() > 0) {
+                // 如果配置，检查loadBalance key是否在允许的范围内
+                isLoadBalanceMapLegal(mySplitterDataBaseConfig.getLoadBalance());
+            } else {
+                // 如果没有配置，使用common的配置
+                mySplitterDataBaseConfig.setLoadBalance(commonLoadBalance);
             }
-        } else {
-            MySplitterLoadBalanceConfig balanceConfig = new MySplitterLoadBalanceConfig();
-            balanceConfig.setEnabled(false);
-            loadBalance.put("write", balanceConfig);
         }
         // 检查databases
-        Map<String, MySplitterDataBaseConfig> databases = mySplitterConfig.getDatabases();
         if (databases.size() == 0) {
-            throw new IllegalArgumentException("Databases don't have any configurations!");
+            throw new IllegalArgumentException("Databases configuration is empty!");
         }
         for (String databaseKey : databases.keySet()) {
             MySplitterDataBaseConfig mySplitterDataBaseConfig = databases.get(databaseKey);
             // 如果没有设置reader或者writer，报错
-            if (mySplitterDataBaseConfig.getReaders().size() == 0 &&
-                    mySplitterDataBaseConfig.getWriters().size() == 0) {
-                throw new IllegalArgumentException("Database must contains reader or writer!");
+            if ((mySplitterDataBaseConfig.getReaders() == null ||
+                    mySplitterDataBaseConfig.getReaders().size() == 0) &&
+                    (mySplitterDataBaseConfig.getWriters() == null ||
+                            mySplitterDataBaseConfig.getWriters().size() == 0) &&
+                    (mySplitterDataBaseConfig.getIntegrates() == null ||
+                            mySplitterDataBaseConfig.getIntegrates().size() == 0)) {
+                throw new IllegalArgumentException("Database named " + databaseKey + " must contains one of reader " +
+                        "writer or integrates!");
             }
-            // 如果没有对数据源进行配置，报错
-            if (mySplitterDataBaseConfig.getReaders().size() > 0) {
-                Map<String, MySplitterReaderConfig> readers = mySplitterDataBaseConfig.getReaders();
-                for (String readerKey : readers.keySet()) {
-                    MySplitterReaderConfig mySplitterReaderConfig = readers.get(readerKey);
-                    if (mySplitterReaderConfig.getConfiguration() == null ||
-                            mySplitterReaderConfig.getConfiguration().size() == 0) {
-                        throw new DataSourceConfigurationNotDefine(databaseKey, readerKey);
-                    }
+            // 如果设置了integrates但是设置了reader或writer，报错
+            if ((mySplitterDataBaseConfig.getIntegrates() != null &&
+                    mySplitterDataBaseConfig.getIntegrates().size() > 0) &&
+                    (((mySplitterDataBaseConfig.getReaders() != null &&
+                            mySplitterDataBaseConfig.getReaders().size() > 0)) ||
+                            ((mySplitterDataBaseConfig.getWriters() != null &&
+                                    mySplitterDataBaseConfig.getWriters().size() > 0)))) {
+                throw new IllegalArgumentException("Database named " + databaseKey + " contains integrates, caused " +
+                        "reader and writer is invalid!");
+            }
+        }
+        // 检查数据源实现类是否都已经定义，如果子节点没有设置，将从父节点获取并在子节点设置，同时判断负载均衡权重是否设置（随机负载均衡用），如果没设置，设置为1
+        for (String databaseKey : databases.keySet()) {
+            MySplitterDataBaseConfig mySplitterDataBaseConfig = databases.get(databaseKey);
+            Map<String, MySplitterDatasourceNodeConfig> integrates = mySplitterDataBaseConfig.getIntegrates();
+            if (integrates != null) {
+                for (String integrateKey : integrates.keySet()) {
+                    MySplitterDatasourceNodeConfig mySplitterDatasourceNodeConfig = integrates.get(integrateKey);
+                    checkAndImproveDatasourceNode(databaseKey, integrateKey,
+                            mySplitterDatasourceNodeConfig,
+                            mySplitterDataBaseConfig,
+                            mySplitterConfig.getCommon());
                 }
-            } else {
-                Map<String, MySplitterWriterConfig> writers = mySplitterDataBaseConfig.getWriters();
+            }
+            Map<String, MySplitterDatasourceNodeConfig> writers = mySplitterDataBaseConfig.getWriters();
+            if (writers != null) {
                 for (String writerKey : writers.keySet()) {
-                    MySplitterWriterConfig mySplitterWriterConfig = writers.get(writerKey);
-                    if (mySplitterWriterConfig.getConfiguration() == null ||
-                            mySplitterWriterConfig.getConfiguration().size() == 0) {
-                        throw new DataSourceConfigurationNotDefine(databaseKey, writerKey);
-                    }
+                    MySplitterDatasourceNodeConfig mySplitterDatasourceNodeConfig = writers.get(writerKey);
+                    checkAndImproveDatasourceNode(databaseKey, writerKey,
+                            mySplitterDatasourceNodeConfig,
+                            mySplitterDataBaseConfig,
+                            mySplitterConfig.getCommon());
+
+                }
+            }
+            Map<String, MySplitterDatasourceNodeConfig> readers = mySplitterDataBaseConfig.getReaders();
+            if (readers != null) {
+                for (String readerKey : readers.keySet()) {
+                    MySplitterDatasourceNodeConfig mySplitterDatasourceNodeConfig = readers.get(readerKey);
+                    checkAndImproveDatasourceNode(databaseKey, readerKey,
+                            mySplitterDatasourceNodeConfig,
+                            mySplitterDataBaseConfig,
+                            mySplitterConfig.getCommon());
                 }
             }
         }
-        // 检查log
-        if (mySplitterConfig.getLog() == null) {
-            mySplitterConfig.setLog(new MySplitterLogConfig());
+        // 如果有多个数据库检查是否包含多数据库路由，并且是否合法
+        if (databases.size() > 1) {
+            ConfigurationUtil.isDatabasesRoutingHandlerLegal(mySplitterConfig.getDatabasesRoutingHandler());
         }
     }
 
-    private static boolean isHighAvailableSwitchOpportunityLegal(String switchOpportunity) {
-        if (StringUtil.isBlank(switchOpportunity)) {
-            return false;
-        }
-        String[] strings = supportSwitchOpportunities;
-        for (String string : strings) {
-            if (string.equals(switchOpportunity)) {
-                return true;
+    /**
+     * 检查LoadBalance是否合法
+     */
+    private static void isLoadBalanceMapLegal(Map<String, MySplitterLoadBalanceConfig> loadBalanceMap) {
+        for (String loadBalanceKey : loadBalanceMap.keySet()) {
+            if (!Arrays.asList(supportLbNodeMode).contains(loadBalanceKey)) {
+                throw new IllegalArgumentException("MySplitter loadBalance not support key " + loadBalanceKey + "! " +
+                        "Only supported one of " + Arrays.toString(supportLbNodeMode) + ".");
+            }
+            MySplitterLoadBalanceConfig mySplitterLoadBalanceConfig = loadBalanceMap.get(loadBalanceKey);
+            String strategy = mySplitterLoadBalanceConfig.getStrategy();
+            if (StringUtil.isBlank(strategy)) {
+                throw new IllegalArgumentException("MySplitter loadBalance strategy is empty!" +
+                        "Only supported one of " + Arrays.toString(supportStrategy) + ".");
+            }
+            List<String> strings = Arrays.asList(supportStrategy);
+            if (!strings.contains(strategy)) {
+                throw new IllegalArgumentException("MySplitter loadBalance not support key " + strategy + "! " +
+                        "Only supported one of " + Arrays.toString(supportStrategy) + ".");
             }
         }
-        return false;
+    }
+
+    /**
+     * 检查HighAvailable是否合法
+     */
+    private static void isHighAvailableMapLegal(Map<String, MySplitterHighAvailableConfig> haConfigMap) {
+        for (String haKey : haConfigMap.keySet()) {
+            // 检查key是否存在
+            if (!Arrays.asList(supportHaNodeMode).contains(haKey)) {
+                throw new IllegalArgumentException("MySplitter highAvailable not support key " + haKey + "! Only " +
+                        "supported one of " + Arrays.toString(supportHaNodeMode) + ".");
+            }
+            // 检查配置是否正确
+            MySplitterHighAvailableConfig mySplitterHighAvailableConfig = haConfigMap.get(haKey);
+            if (mySplitterHighAvailableConfig.isEnabled()) {
+                // 检查心跳sql语句
+                if (StringUtil.isBlank(mySplitterHighAvailableConfig.getDetectionSql())) {
+                    throw new IllegalArgumentException("MySplitter highAvailable detection sql is empty!");
+                }
+                // 检查切换时机
+                if (StringUtil.isBlank(mySplitterHighAvailableConfig.getSwitchOpportunity())) {
+                    throw new IllegalArgumentException("MySplitter highAvailable switch opportunity is empty!");
+                }
+                List<String> supportSwitchOpportunitiesList = Arrays.asList(supportSwitchOpportunities);
+                String switchOpportunity = mySplitterHighAvailableConfig.getSwitchOpportunity();
+                if (!supportSwitchOpportunitiesList.contains(switchOpportunity)) {
+                    throw new IllegalArgumentException("MySplitter highAvailable switch opportunity not support key "
+                            + switchOpportunity + "! Only supported one of "
+                            + Arrays.toString(supportSwitchOpportunities) + ".");
+                }
+                // 检查存活数据源检查速率和死亡数据源检查速率
+                String alivedHeartbeatRate = mySplitterHighAvailableConfig.getAlivedHeartbeatRate();
+                if (!isHighAvailableHeartbeatRateLegal(alivedHeartbeatRate)) {
+                    throw new IllegalArgumentException("MySplitter highAvailable alived heartbeat rate is not support "
+                            + alivedHeartbeatRate + "!");
+                }
+                String diedHeartbeatRate = mySplitterHighAvailableConfig.getDiedHeartbeatRate();
+                if (!isHighAvailableHeartbeatRateLegal(diedHeartbeatRate)) {
+                    throw new IllegalArgumentException("MySplitter highAvailable died heartbeat rate is not support "
+                            + diedHeartbeatRate + "!");
+                }
+                // 检查死亡警告处理器
+                isHighAvailableDiedAlertHandlerLegal(mySplitterHighAvailableConfig.getDiedAlertHandler());
+            }
+        }
+    }
+
+    /**
+     * 检查过滤器是否正确
+     */
+    private static void isFilterLegal(String MysplitterFilter) throws ClassNotFoundException {
+        if (StringUtil.isBlank(MysplitterFilter)) {
+            throw new IllegalArgumentException("MySplitter filter list contains empty class name.");
+        } else {
+            Class<?> aClass = Class.forName(MysplitterFilter);
+            Class<?>[] interfaces = aClass.getInterfaces();
+            for (Class<?> anInterface : interfaces) {
+                if (anInterface.getName().equals(MySplitterFilterAdvise.class.getName())) {
+                    return;
+                }
+            }
+            throw new IllegalArgumentException("MySplitter filter not support " + MysplitterFilter + ", may not " +
+                    "implements com.mysplitter.advise.MySplitterFilterAdvise!");
+        }
+    }
+
+    /**
+     * 检查数据源节点是否正确，并且如果没有配置，使用父节点的配置，同时判断负载均衡权重是否设置（随机负载均衡用），如果没设置，设置为1
+     */
+    private static void checkAndImproveDatasourceNode(String databaseName,
+                                                      String dataSourceNodeName,
+                                                      MySplitterDatasourceNodeConfig mySplitterDatasourceNodeConfig,
+                                                      MySplitterDataBaseConfig mySplitterDataBaseConfig,
+                                                      MySplitterCommonConfig common)
+            throws DataSourceClassNotDefine, ClassNotFoundException {
+        // 检查数据源节点是否正确，并且如果没有配置，使用父节点的配置
+        String datasourceClass = mySplitterDatasourceNodeConfig.getDatasourceClass();
+        if (StringUtil.isBlank(datasourceClass)) {
+            datasourceClass = mySplitterDataBaseConfig.getDatasourceClass();
+            if (StringUtil.isBlank(datasourceClass)) {
+                datasourceClass = common.getDatasourceClass();
+                if (StringUtil.isBlank(datasourceClass)) {
+                    throw new DataSourceClassNotDefine(databaseName, dataSourceNodeName);
+                }
+            }
+        }
+        if (isDatasourceClassLegal(datasourceClass)) {
+            mySplitterDatasourceNodeConfig.setDatasourceClass(datasourceClass);
+        }
+        // 判断负载均衡权重是否设置（随机负载均衡用），如果没设置，设置为1
+        Integer weight = mySplitterDatasourceNodeConfig.getWeight();
+        if (weight == null) {
+            mySplitterDatasourceNodeConfig.setWeight(1);
+        }
+    }
+
+    /**
+     * 判断定义的数据源是否是合法的（存在这个类）
+     */
+    private static boolean isDatasourceClassLegal(String datasourceClass) throws ClassNotFoundException {
+        try {
+            Thread.currentThread().getContextClassLoader().loadClass(datasourceClass);
+        } catch (ClassNotFoundException e) {
+            throw new ClassNotFoundException("Datasource class " + datasourceClass + " in mysplitter" +
+                    ".yml is not legal.");
+        }
+        return true;
+    }
+
+    /**
+     * 判断多数据库路由处理器是否是合法的（存在这个类，并且继承MySplitterDatabasesRoutingHandlerAdvise接口
+     */
+    private static void isDatabasesRoutingHandlerLegal(String databasesRoutingHandler) throws ClassNotFoundException {
+        if (StringUtil.isBlank(databasesRoutingHandler)) {
+            throw new IllegalArgumentException("DatabasesRoutingHandler is not define.");
+        } else {
+            Class<?> aClass = Class.forName(databasesRoutingHandler);
+            Class<?>[] interfaces = aClass.getInterfaces();
+            for (Class<?> anInterface : interfaces) {
+                if (anInterface.getName().equals(MySplitterDatabasesRoutingHandlerAdvise.class.getName())) {
+                    return;
+                }
+            }
+            throw new IllegalArgumentException("DatabasesRoutingHandler not support " + databasesRoutingHandler + ", " +
+                    "may not implements com.mysplitter.advise.MySplitterDatabasesRoutingHandlerAdvise!");
+        }
     }
 
     private static boolean isHighAvailableHeartbeatRateLegal(String heartbeatRate) {
@@ -237,33 +344,30 @@ public class ConfigurationUtil {
                 } catch (NumberFormatException ignored) {
                 }
             }
+        } else if (heartbeatRate.equals("0")) {
+            return true;
         }
         return false;
     }
 
-    private static boolean isHighAvailableDiedAlertHandlerLegal(String diedAlertHandler) throws ClassNotFoundException {
-        Class<?> aClass = Class.forName(diedAlertHandler);
+    private static boolean isHighAvailableDiedAlertHandlerLegal(String diedAlertHandler) {
+        Class<?> aClass = null;
+        try {
+            aClass = Class.forName(diedAlertHandler);
+        } catch (ClassNotFoundException e) {
+            throw new IllegalArgumentException("HighAvailable died alert handler " + diedAlertHandler + " in " +
+                    "mysplitter" +
+                    ".yml is not legal!");
+        }
         Class<?>[] interfaces = aClass.getInterfaces();
         for (Class<?> anInterface : interfaces) {
-            if (anInterface.getName().equals(DatasourceDiedAlerterAdvise.class.getName())) {
+            if (anInterface.getName().equals(MySplitterDatasourceDiedAlerterAdvise.class.getName())) {
                 return true;
             }
         }
         throw new IllegalArgumentException("HighAvailable died alert handler not support " +
                 diedAlertHandler + ", may not implements com.mysplitter.advise" +
-                ".DatasourceDiedAlerterAdvise!");
-    }
-
-    private static boolean isLoadBalanceStrategyLegal(String strategy) {
-        if (StringUtil.isBlank(strategy)) {
-            return false;
-        }
-        List<String> strings = Arrays.asList(supportStrategy);
-        return strings.contains(strategy);
-    }
-
-    private static void isClassNameLegal(String datasourceClass) throws ClassNotFoundException {
-        Thread.currentThread().getContextClassLoader().loadClass(datasourceClass);
+                ".MySplitterDatasourceDiedAlerterAdvise!");
     }
 
 }
