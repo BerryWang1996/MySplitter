@@ -3,12 +3,12 @@ package com.mysplitter.config;
 import java.util.Map;
 
 /**
- * 读数据源配置对象
+ * 数据源节点配置对象
  *
  * @Author: wangbor
  * @Date: 2018/5/13 18:45
  */
-public class MySplitterReaderConfig {
+public class MySplitterDatasourceNodeConfig {
 
     private String datasourceClass;
 

@@ -11,12 +11,12 @@ It's Developing now.
 ## 使用方法 - How to use
 
 使用它非常简单
-1. 修改datasource为com.mysplitter.MySplitterDataSourceRouter，由MySplitter管理连接。
+1. 修改datasource为com.mysplitter.MySplitterDataSource，由MySplitter管理连接。
 2. 在项目resources目录创建mysplitter.yml文件。
 3. 参考文档部分进行配置。
 
 It's very easily to use "MySplitter". 
-1. Change your datasource to "com.mysplitter.MySplitterDataSourceRouter".
+1. Change your datasource to "com.mysplitter.MySplitterDataSource".
 2. Create mysplitter.yml to project resources folder.
 3. Configure like the reference document.
 
@@ -42,7 +42,7 @@ mysplitter:
       switchOpportunity: on-error # scheduled on-error-dissolve (support one)
       detectionSql: SELECT 1
       heartbeatRate: 1s # s=second, m=minute, h=hour, 0=disabled
-      diedAlertHandler: MyDatasourceDiedAlerter # implements com.mysplitter.advise.DatasourceDiedAlerterAdvise(optional)
+      diedAlertHandler: MyDatasourceDiedAlerter # implements com.mysplitter.advise.MySplitterDatasourceDiedAlerterAdvise(optional)
     loadBalance:
       read:
         enabled: true

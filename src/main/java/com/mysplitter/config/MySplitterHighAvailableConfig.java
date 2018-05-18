@@ -8,26 +8,36 @@ package com.mysplitter.config;
  */
 public class MySplitterHighAvailableConfig {
 
-    public static final String DEFAULT_DETECTION_SQL = "SELECT 1";
-
-    public static final String DEFAULT_HEARTBEAT_RATE = "1s";
-
-    private boolean enableLazyLoadingDataSource;
-
-    private String switchOpportunity;
-
-    private String heartbeatRate;
-
+    private boolean enabled;
+    private boolean lazyLoad;
     private String detectionSql;
-
+    private String switchOpportunity;
+    private String alivedHeartbeatRate;
+    private String diedHeartbeatRate;
     private String diedAlertHandler;
 
-    public boolean isEnableLazyLoadingDataSource() {
-        return enableLazyLoadingDataSource;
+    public boolean isEnabled() {
+        return enabled;
     }
 
-    public void setEnableLazyLoadingDataSource(boolean enableLazyLoadingDataSource) {
-        this.enableLazyLoadingDataSource = enableLazyLoadingDataSource;
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
+
+    public boolean isLazyLoad() {
+        return lazyLoad;
+    }
+
+    public void setLazyLoad(boolean lazyLoad) {
+        this.lazyLoad = lazyLoad;
+    }
+
+    public String getDetectionSql() {
+        return detectionSql;
+    }
+
+    public void setDetectionSql(String detectionSql) {
+        this.detectionSql = detectionSql;
     }
 
     public String getSwitchOpportunity() {
@@ -38,20 +48,20 @@ public class MySplitterHighAvailableConfig {
         this.switchOpportunity = switchOpportunity;
     }
 
-    public String getHeartbeatRate() {
-        return heartbeatRate;
+    public String getAlivedHeartbeatRate() {
+        return alivedHeartbeatRate;
     }
 
-    public void setHeartbeatRate(String heartbeatRate) {
-        this.heartbeatRate = heartbeatRate;
+    public void setAlivedHeartbeatRate(String alivedHeartbeatRate) {
+        this.alivedHeartbeatRate = alivedHeartbeatRate;
     }
 
-    public String getDetectionSql() {
-        return detectionSql;
+    public String getDiedHeartbeatRate() {
+        return diedHeartbeatRate;
     }
 
-    public void setDetectionSql(String detectionSql) {
-        this.detectionSql = detectionSql;
+    public void setDiedHeartbeatRate(String diedHeartbeatRate) {
+        this.diedHeartbeatRate = diedHeartbeatRate;
     }
 
     public String getDiedAlertHandler() {
@@ -65,10 +75,12 @@ public class MySplitterHighAvailableConfig {
     @Override
     public String toString() {
         return "MySplitterHighAvailableConfig{" +
-                "enableLazyLoadingDataSource=" + enableLazyLoadingDataSource +
-                ", switchOpportunity='" + switchOpportunity + '\'' +
-                ", heartbeatRate='" + heartbeatRate + '\'' +
+                "enabled=" + enabled +
+                ", lazyLoad=" + lazyLoad +
                 ", detectionSql='" + detectionSql + '\'' +
+                ", switchOpportunity='" + switchOpportunity + '\'' +
+                ", alivedHeartbeatRate='" + alivedHeartbeatRate + '\'' +
+                ", diedHeartbeatRate='" + diedHeartbeatRate + '\'' +
                 ", diedAlertHandler='" + diedAlertHandler + '\'' +
                 '}';
     }

@@ -12,7 +12,7 @@ public class MySplitterCommonConfig {
 
     private String datasourceClass;
 
-    private MySplitterHighAvailableConfig highAvailable;
+    private Map<String, MySplitterHighAvailableConfig> highAvailable;
 
     private Map<String, MySplitterLoadBalanceConfig> loadBalance;
 
@@ -24,11 +24,11 @@ public class MySplitterCommonConfig {
         this.datasourceClass = datasourceClass;
     }
 
-    public MySplitterHighAvailableConfig getHighAvailable() {
+    public Map<String, MySplitterHighAvailableConfig> getHighAvailable() {
         return highAvailable;
     }
 
-    public void setHighAvailable(MySplitterHighAvailableConfig highAvailable) {
+    public void setHighAvailable(Map<String, MySplitterHighAvailableConfig> highAvailable) {
         this.highAvailable = highAvailable;
     }
 
