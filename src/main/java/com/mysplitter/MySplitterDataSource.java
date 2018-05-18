@@ -25,6 +25,8 @@ public class MySplitterDataSource implements DataSource, Serializable {
 
     private static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(MySplitterDataSource.class);
 
+    private static final String DEFAULT_CONFIGURATION_FILE_NAME = "mysplitter.yml";
+
     private MySplitterDatasourceManager datasourceManager = new MySplitterDatasourceManager(this);
 
     private AtomicBoolean isInitialized = new AtomicBoolean(false);
@@ -43,7 +45,7 @@ public class MySplitterDataSource implements DataSource, Serializable {
             try {
                 // 获取配置文件
                 LOGGER.info("MySplitter is initializing.");
-                mySplitterConfig = ConfigurationUtil.getMySplitterConfig();
+                mySplitterConfig = ConfigurationUtil.getMySplitterConfig(DEFAULT_CONFIGURATION_FILE_NAME);
                 // 对配置文件进行检查
                 ConfigurationUtil.checkMySplitterConfig(mySplitterConfig);
                 LOGGER.info("MySplitter configuration passed.");
