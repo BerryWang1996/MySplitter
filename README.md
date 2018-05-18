@@ -35,32 +35,55 @@ The document contains three parts
 ### 配置文件 - Configuration
 ```
 mysplitter:
+  databasesRoutingHandler: com.mysplitter.MyDatabasesRouter # ignore when only one database. com.xxx.xxx # implements com.mysplitter.advise.MySplitterDatabasesRoutingHandlerAdvise
+  filters: # implements com.mysplitter.advise.MySplitterFilterAdvise(optional)
+    - com.mysplitter.MyDatasourceFilters1
+    - com.mysplitter.MyDatasourceFilters2
   common:
-    datasourceClass: com.alibaba.druid.pool.DruidDataSource # datasource factory class
+    datasourceClass: com.mchange.v2.c3p0.ComboPooledDataSource
     highAvailable:
-      enableLazyLoadingDataSource: true # if true, create datasource when switch, heartbeat would't check uncreated datasource.
-      switchOpportunity: on-error # scheduled on-error-dissolve (support one)
-      detectionSql: SELECT 1
-      heartbeatRate: 1s # s=second, m=minute, h=hour, 0=disabled
-      diedAlertHandler: MyDatasourceDiedAlerter # implements com.mysplitter.advise.MySplitterDatasourceDiedAlerterAdvise(optional)
+      integrate:
+        enabled: false
+        lazyLoad: true
+        detectionSql: SELECT 1
+        switchOpportunity: on-error # scheduled on-error-dissolve (support one)
+        alivedHeartbeatRate: 1s # s=second, m=minute, h=hour
+        diedHeartbeatRate: 20s # s=second, m=minute, h=hour
+        diedAlertHandler: com.mysplitter.MyDatasourceDiedAlertHandler # implements com.mysplitter.advise.MySplitterDatasourceDiedAlertAdvise(optional)
+      read:
+        enabled: true
+        lazyLoad: true # if true, create datasource when switch, heartbeat would't check uncreated datasource.
+        detectionSql: SELECT 1
+        switchOpportunity: on-error # scheduled on-error-dissolve (support one)
+        alivedHeartbeatRate: 1s # s=second, m=minute, h=hour
+        diedHeartbeatRate: 20s # s=second, m=minute, h=hour
+        diedAlertHandler: com.mysplitter.MyDatasourceDiedAlertHandler # implements com.mysplitter.advise.MySplitterDatasourceDiedAlertAdvise(optional)
+      write:
+        enabled: true
+        lazyLoad: false
+        detectionSql: SELECT 1
+        switchOpportunity: on-error # scheduled on-error-dissolve (support one)
+        alivedHeartbeatRate: 1s # s=second, m=minute, h=hour
+        diedHeartbeatRate: 20s # s=second, m=minute, h=hour
+        diedAlertHandler: com.mysplitter.MyDatasourceDiedAlertHandler # implements com.mysplitter.advise.MySplitterDatasourceDiedAlertAdvise(optional)
+#      others:
+#        enabled: true
+#        lazyLoad: false
+#        detectionSql: SELECT 1
+#        switchOpportunity: on-error # scheduled on-error-dissolve (support one)
+#        alivedHeartbeatRate: 1s # s=second, m=minute, h=hour
+#        diedHeartbeatRate: 20s # s=second, m=minute, h=hour
+#        diedAlertHandler: com.mysplitter.MyDatasourceDied # implements com.mysplitter.advise.MySplitterDatasourceDiedAlertAdvise(optional)
     loadBalance:
       read:
         enabled: true
-        strategy: polling # weight (default 1, disable when lte 0, change weight in reader or writer.)
+        strategy: polling # random weight (default 1, change weight in reader or writer.)
       write:
         enabled: true
-        strategy: polling # weight
+        strategy: polling # random
   databases:
     database-a: # database-DatabaseName e.g.database-master database-192.168.1.1:3306
-      # datasourceClass: (optional)
-      integrates:
-        integrate-slave-1:
-          # datasourceClass: (optional high priority)
-          configuration: # datasource configuration
-            url: 192.168.1.101:3306
-            username: root
-            password: admin
-            driverClassName: com.jdbc.mysql.Driver
+#      datasourceClass: com.alibaba.druid.pool.DruidDataSource
       readers:
         reader-read-slave-1:
           # datasourceClass: (optional high priority)
@@ -78,25 +101,22 @@ mysplitter:
             driverClassName: com.jdbc.mysql.Driver
       writers:
         writer-write-master-1:
-          # datasourceClass: (optional high priority)
+          datasourceClass: com.alibaba.druid.pool.DruidDataSource
           configuration: # datasource configuration
             url: 192.168.1.101:3306
             username: root
             password: admin
             driverClassName: com.jdbc.mysql.Driver
-        writer-write-slave-2:
-          # datasourceClass: (optional high priority)
+    database-b: # database-DatabaseName e.g.database-master database-192.168.1.1:3306
+      # datasourceClass: (optional)
+      integrates:
+        integrate-slave-1:
+          datasourceClass: com.zaxxer.hikari.HikariDataSource
           configuration: # datasource configuration
             url: 192.168.1.101:3306
             username: root
             password: admin
             driverClassName: com.jdbc.mysql.Driver
-  databasesRouting: # ignore when only one database
-    mode: bySqlDatabasePrefix
-    # routingHandler: com.xxx.xxx # implements com.mysplitter.advise.MySplitterRoutingAdvise
-  log:
-    showSql: true
-    showSqlPretty: true
 ```
 
 ### 已知问题 - Problems
