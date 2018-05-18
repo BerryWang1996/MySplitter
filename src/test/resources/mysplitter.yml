@@ -11,33 +11,33 @@ mysplitter:
         lazyLoad: true
         detectionSql: SELECT 1
         switchOpportunity: on-error # scheduled on-error-dissolve (support one)
-        alivedHeartbeatRate: 1s # s=second, m=minute, h=hour
-        diedHeartbeatRate: 20s # s=second, m=minute, h=hour
-        diedAlertHandler: com.mysplitter.MyDatasourceDiedAlertHandler # implements com.mysplitter.advise.MySplitterDatasourceDiedAlertAdvise(optional)
+        healthyHeartbeatRate: 1s # s=second, m=minute, h=hour
+        illHeartbeatRate: 20s # s=second, m=minute, h=hour
+        illAlertHandler: com.mysplitter.MyDatasourceIllAlertHandler # implements com.mysplitter.advise.MySplitterDatasourceIllAlertAdvise(optional)
       read:
         enabled: true
         lazyLoad: true # if true, create datasource when switch, heartbeat would't check uncreated datasource.
         detectionSql: SELECT 1
         switchOpportunity: on-error # scheduled on-error-dissolve (support one)
-        alivedHeartbeatRate: 1s # s=second, m=minute, h=hour
-        diedHeartbeatRate: 20s # s=second, m=minute, h=hour
-        diedAlertHandler: com.mysplitter.MyDatasourceDiedAlertHandler # implements com.mysplitter.advise.MySplitterDatasourceDiedAlertAdvise(optional)
+        healthyHeartbeatRate: 1s # s=second, m=minute, h=hour
+        illHeartbeatRate: 20s # s=second, m=minute, h=hour
+        illAlertHandler: com.mysplitter.MyDatasourceIllAlertHandler # implements com.mysplitter.advise.MySplitterDatasourceIllAlertAdvise(optional)
       write:
         enabled: true
         lazyLoad: false
         detectionSql: SELECT 1
         switchOpportunity: on-error # scheduled on-error-dissolve (support one)
-        alivedHeartbeatRate: 1s # s=second, m=minute, h=hour
-        diedHeartbeatRate: 20s # s=second, m=minute, h=hour
-        diedAlertHandler: com.mysplitter.MyDatasourceDiedAlertHandler # implements com.mysplitter.advise.MySplitterDatasourceDiedAlertAdvise(optional)
+        healthyHeartbeatRate: 1s # s=second, m=minute, h=hour
+        illHeartbeatRate: 20s # s=second, m=minute, h=hour
+        illAlertHandler: com.mysplitter.MyDatasourceIllAlertHandler # implements com.mysplitter.advise.MySplitterDatasourceIllAlertAdvise(optional)
 #      others:
 #        enabled: true
 #        lazyLoad: false
 #        detectionSql: SELECT 1
 #        switchOpportunity: on-error # scheduled on-error-dissolve (support one)
-#        alivedHeartbeatRate: 1s # s=second, m=minute, h=hour
-#        diedHeartbeatRate: 20s # s=second, m=minute, h=hour
-#        diedAlertHandler: com.mysplitter.MyDatasourceDied # implements com.mysplitter.advise.MySplitterDatasourceDiedAlertAdvise(optional)
+#        healthyHeartbeatRate: 1s # s=second, m=minute, h=hour
+#        illHeartbeatRate: 20s # s=second, m=minute, h=hour
+#        illAlertHandler: com.mysplitter.MyDatasourceIll # implements com.mysplitter.advise.MySplitterDatasourceIllAlertAdvise(optional)
     loadBalance:
       read:
         enabled: true

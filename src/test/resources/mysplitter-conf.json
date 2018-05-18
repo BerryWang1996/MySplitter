@@ -4,28 +4,28 @@
       "datasourceClass": "com.mchange.v2.c3p0.ComboPooledDataSource",
       "highAvailable": {
         "integrate": {
-          "alivedHeartbeatRate": "1s",
+          "healthyHeartbeatRate": "1s",
           "detectionSql": "SELECT 1",
-          "diedAlertHandler": "com.mysplitter.MyDatasourceDiedAlertHandler",
-          "diedHeartbeatRate": "20s",
+          "illAlertHandler": "com.mysplitter.MyDatasourceIllAlertHandler",
+          "illHeartbeatRate": "20s",
           "enabled": false,
           "lazyLoad": true,
           "switchOpportunity": "on-error"
         },
         "read": {
-          "alivedHeartbeatRate": "1s",
+          "healthyHeartbeatRate": "1s",
           "detectionSql": "SELECT 1",
-          "diedAlertHandler": "com.mysplitter.MyDatasourceDiedAlertHandler",
-          "diedHeartbeatRate": "20s",
+          "illAlertHandler": "com.mysplitter.MyDatasourceIllAlertHandler",
+          "illHeartbeatRate": "20s",
           "enabled": true,
           "lazyLoad": true,
           "switchOpportunity": "on-error"
         },
         "write": {
-          "alivedHeartbeatRate": "1s",
+          "healthyHeartbeatRate": "1s",
           "detectionSql": "SELECT 1",
-          "diedAlertHandler": "com.mysplitter.MyDatasourceDiedAlertHandler",
-          "diedHeartbeatRate": "20s",
+          "illAlertHandler": "com.mysplitter.MyDatasourceIllAlertHandler",
+          "illHeartbeatRate": "20s",
           "enabled": true,
           "lazyLoad": false,
           "switchOpportunity": "on-error"
@@ -46,28 +46,28 @@
       "database-a": {
         "highAvailable": {
           "integrate": {
-            "alivedHeartbeatRate": "1s",
+            "healthyHeartbeatRate": "1s",
             "detectionSql": "SELECT 1",
-            "diedAlertHandler": "com.mysplitter.MyDatasourceDiedAlertHandler",
-            "diedHeartbeatRate": "20s",
+            "illAlertHandler": "com.mysplitter.MyDatasourceIllAlertHandler",
+            "illHeartbeatRate": "20s",
             "enabled": false,
             "lazyLoad": true,
             "switchOpportunity": "on-error"
           },
           "read": {
-            "alivedHeartbeatRate": "1s",
+            "healthyHeartbeatRate": "1s",
             "detectionSql": "SELECT 1",
-            "diedAlertHandler": "com.mysplitter.MyDatasourceDiedAlertHandler",
-            "diedHeartbeatRate": "20s",
+            "illAlertHandler": "com.mysplitter.MyDatasourceIllAlertHandler",
+            "illHeartbeatRate": "20s",
             "enabled": true,
             "lazyLoad": true,
             "switchOpportunity": "on-error"
           },
           "write": {
-            "alivedHeartbeatRate": "1s",
+            "healthyHeartbeatRate": "1s",
             "detectionSql": "SELECT 1",
-            "diedAlertHandler": "com.mysplitter.MyDatasourceDiedAlertHandler",
-            "diedHeartbeatRate": "20s",
+            "illAlertHandler": "com.mysplitter.MyDatasourceIllAlertHandler",
+            "illHeartbeatRate": "20s",
             "enabled": true,
             "lazyLoad": false,
             "switchOpportunity": "on-error"
@@ -121,28 +121,28 @@
       "database-b": {
         "highAvailable": {
           "integrate": {
-            "alivedHeartbeatRate": "1s",
+            "healthyHeartbeatRate": "1s",
             "detectionSql": "SELECT 1",
-            "diedAlertHandler": "com.mysplitter.MyDatasourceDiedAlertHandler",
-            "diedHeartbeatRate": "20s",
+            "illAlertHandler": "com.mysplitter.MyDatasourceIllAlertHandler",
+            "illHeartbeatRate": "20s",
             "enabled": false,
             "lazyLoad": true,
             "switchOpportunity": "on-error"
           },
           "read": {
-            "alivedHeartbeatRate": "1s",
+            "healthyHeartbeatRate": "1s",
             "detectionSql": "SELECT 1",
-            "diedAlertHandler": "com.mysplitter.MyDatasourceDiedAlertHandler",
-            "diedHeartbeatRate": "20s",
+            "illAlertHandler": "com.mysplitter.MyDatasourceIllAlertHandler",
+            "illHeartbeatRate": "20s",
             "enabled": true,
             "lazyLoad": true,
             "switchOpportunity": "on-error"
           },
           "write": {
-            "alivedHeartbeatRate": "1s",
+            "healthyHeartbeatRate": "1s",
             "detectionSql": "SELECT 1",
-            "diedAlertHandler": "com.mysplitter.MyDatasourceDiedAlertHandler",
-            "diedHeartbeatRate": "20s",
+            "illAlertHandler": "com.mysplitter.MyDatasourceIllAlertHandler",
+            "illHeartbeatRate": "20s",
             "enabled": true,
             "lazyLoad": false,
             "switchOpportunity": "on-error"

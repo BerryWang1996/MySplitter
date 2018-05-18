@@ -34,9 +34,9 @@ class MySplitterDatasourceManager {
     private Map<String, MySplitterDatasourceNodeConfig> standByDatasourceMap =
             new ConcurrentHashMap<String, MySplitterDatasourceNodeConfig>();
 
-    private Map<String, DataSourceWarpper> aliveDatasourceMap = new ConcurrentHashMap<String, DataSourceWarpper>();
+    private Map<String, DataSourceWarpper> healthyDatasourceMap = new ConcurrentHashMap<String, DataSourceWarpper>();
 
-    private Map<String, DataSourceWarpper> diedDatasourceMap = new ConcurrentHashMap<String, DataSourceWarpper>();
+    private Map<String, DataSourceWarpper> illDatasourceMap = new ConcurrentHashMap<String, DataSourceWarpper>();
 
     void init() {
         LOGGER.debug("MySplitterDatasourceManager is initializing.");
@@ -57,10 +57,10 @@ class MySplitterDatasourceManager {
             // 获取节点的配置
             if (mySplitterDataBaseConfig.getIntegrates() != null &&
                     mySplitterDataBaseConfig.getIntegrates().size() > 0) {
-                // TODO 如果是未启动负载均衡，取map中key为default的节点，或第一个节点，放入存活map，其他的放入备用节点
+                // TODO 如果是未启动负载均衡，取map中key为default的节点，或第一个节点，放入健康的map，其他的放入备用节点
                 // TODO 如果是整合节点，不启动负载均衡
             } else {
-                // TODO 如果是未启动负载均衡，取map中key为default的节点，或第一个节点，放入存活map，其他的放入备用节点
+                // TODO 如果是未启动负载均衡，取map中key为default的节点，或第一个节点，放入健康的map，其他的放入备用节点
                 // TODO 如果是读写分离节点，根据配置使用负载均衡，创建与之对应的负载均衡选择器
             }
         }

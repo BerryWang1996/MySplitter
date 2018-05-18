@@ -1,7 +1,7 @@
 package com.mysplitter.util;
 
 import com.mysplitter.advise.MySplitterDatabasesRoutingHandlerAdvise;
-import com.mysplitter.advise.MySplitterDatasourceDiedAlerterAdvise;
+import com.mysplitter.advise.MySplitterDatasourceIllAlerterAdvise;
 import com.mysplitter.advise.MySplitterFilterAdvise;
 import com.mysplitter.config.*;
 import com.mysplitter.exceptions.DataSourceClassNotDefine;
@@ -316,19 +316,19 @@ public class ConfigurationUtil {
                     throw new IllegalArgumentException("MySplitter highAvailable switch opportunity not support key "
                             + switchOpportunity + "! Only supported one of " + SUPPORT_SWITCH_OPPORTUNITIES_LIST + ".");
                 }
-                // 检查存活数据源检查速率和死亡数据源检查速率
-                String alivedHeartbeatRate = mySplitterHighAvailableConfig.getAlivedHeartbeatRate();
-                if (!isHighAvailableHeartbeatRateLegal(alivedHeartbeatRate)) {
-                    throw new IllegalArgumentException("MySplitter highAvailable alived heartbeat rate is not support "
-                            + alivedHeartbeatRate + "!");
+                // 检查健康的数据源检查速率和不健康的数据源检查速率
+                String healthyHeartbeatRate = mySplitterHighAvailableConfig.getHealthyHeartbeatRate();
+                if (!isHighAvailableHeartbeatRateLegal(healthyHeartbeatRate)) {
+                    throw new IllegalArgumentException("MySplitter highAvailable healthy heartbeat rate is not support "
+                            + healthyHeartbeatRate + "!");
                 }
-                String diedHeartbeatRate = mySplitterHighAvailableConfig.getDiedHeartbeatRate();
-                if (!isHighAvailableHeartbeatRateLegal(diedHeartbeatRate)) {
-                    throw new IllegalArgumentException("MySplitter highAvailable died heartbeat rate is not support "
-                            + diedHeartbeatRate + "!");
+                String illHeartbeatRate = mySplitterHighAvailableConfig.getIllHeartbeatRate();
+                if (!isHighAvailableHeartbeatRateLegal(illHeartbeatRate)) {
+                    throw new IllegalArgumentException("MySplitter highAvailable ill heartbeat rate is not support "
+                            + illHeartbeatRate + "!");
                 }
-                // 检查死亡警告处理器
-                isHighAvailableDiedAlertHandlerLegal(mySplitterHighAvailableConfig.getDiedAlertHandler());
+                // 检查不健康数据源警告处理器
+                isHighAvailableIllAlertHandlerLegal(mySplitterHighAvailableConfig.getIllAlertHandler());
             }
         }
     }
@@ -348,24 +348,24 @@ public class ConfigurationUtil {
         return false;
     }
 
-    private static boolean isHighAvailableDiedAlertHandlerLegal(String diedAlertHandler) {
+    private static boolean isHighAvailableIllAlertHandlerLegal(String illAlertHandler) {
         Class<?> aClass = null;
         try {
-            aClass = Class.forName(diedAlertHandler);
+            aClass = Class.forName(illAlertHandler);
         } catch (ClassNotFoundException e) {
-            throw new IllegalArgumentException("HighAvailable died alert handler " + diedAlertHandler + " in " +
+            throw new IllegalArgumentException("HighAvailable ill alert handler " + illAlertHandler + " in " +
                     "mysplitter" +
                     ".yml is not legal!");
         }
         Class<?>[] interfaces = aClass.getInterfaces();
         for (Class<?> anInterface : interfaces) {
-            if (anInterface.getName().equals(MySplitterDatasourceDiedAlerterAdvise.class.getName())) {
+            if (anInterface.getName().equals(MySplitterDatasourceIllAlerterAdvise.class.getName())) {
                 return true;
             }
         }
-        throw new IllegalArgumentException("HighAvailable died alert handler not support " +
-                diedAlertHandler + ", may not implements com.mysplitter.advise" +
-                ".MySplitterDatasourceDiedAlerterAdvise!");
+        throw new IllegalArgumentException("HighAvailable ill alert handler not support " +
+                illAlertHandler + ", may not implements com.mysplitter.advise" +
+                ".MySplitterDatasourceIllAlerterAdvise!");
     }
 
 }

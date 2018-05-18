@@ -12,9 +12,9 @@ public class MySplitterHighAvailableConfig {
     private boolean lazyLoad;
     private String detectionSql;
     private String switchOpportunity;
-    private String alivedHeartbeatRate;
-    private String diedHeartbeatRate;
-    private String diedAlertHandler;
+    private String healthyHeartbeatRate;
+    private String illHeartbeatRate;
+    private String illAlertHandler;
 
     public boolean isEnabled() {
         return enabled;
@@ -48,28 +48,28 @@ public class MySplitterHighAvailableConfig {
         this.switchOpportunity = switchOpportunity;
     }
 
-    public String getAlivedHeartbeatRate() {
-        return alivedHeartbeatRate;
+    public String getHealthyHeartbeatRate() {
+        return healthyHeartbeatRate;
     }
 
-    public void setAlivedHeartbeatRate(String alivedHeartbeatRate) {
-        this.alivedHeartbeatRate = alivedHeartbeatRate;
+    public void setHealthyHeartbeatRate(String healthyHeartbeatRate) {
+        this.healthyHeartbeatRate = healthyHeartbeatRate;
     }
 
-    public String getDiedHeartbeatRate() {
-        return diedHeartbeatRate;
+    public String getIllHeartbeatRate() {
+        return illHeartbeatRate;
     }
 
-    public void setDiedHeartbeatRate(String diedHeartbeatRate) {
-        this.diedHeartbeatRate = diedHeartbeatRate;
+    public void setIllHeartbeatRate(String illHeartbeatRate) {
+        this.illHeartbeatRate = illHeartbeatRate;
     }
 
-    public String getDiedAlertHandler() {
-        return diedAlertHandler;
+    public String getIllAlertHandler() {
+        return illAlertHandler;
     }
 
-    public void setDiedAlertHandler(String diedAlertHandler) {
-        this.diedAlertHandler = diedAlertHandler;
+    public void setIllAlertHandler(String illAlertHandler) {
+        this.illAlertHandler = illAlertHandler;
     }
 
     @Override
@@ -79,9 +79,9 @@ public class MySplitterHighAvailableConfig {
                 ", lazyLoad=" + lazyLoad +
                 ", detectionSql='" + detectionSql + '\'' +
                 ", switchOpportunity='" + switchOpportunity + '\'' +
-                ", alivedHeartbeatRate='" + alivedHeartbeatRate + '\'' +
-                ", diedHeartbeatRate='" + diedHeartbeatRate + '\'' +
-                ", diedAlertHandler='" + diedAlertHandler + '\'' +
+                ", healthyHeartbeatRate='" + healthyHeartbeatRate + '\'' +
+                ", illHeartbeatRate='" + illHeartbeatRate + '\'' +
+                ", illAlertHandler='" + illAlertHandler + '\'' +
                 '}';
     }
 }
