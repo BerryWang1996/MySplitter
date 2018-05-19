@@ -66,7 +66,6 @@ public class ConfigurationUtil {
         }
         // 检查highAvailable
         Map<String, MySplitterHighAvailableConfig> commonHaConfigMap = mySplitterConfig.getCommon().getHighAvailable();
-        // TODO 逻辑待完善，如果只填写read或write怎么办？
         if (commonHaConfigMap == null || commonHaConfigMap.size() == 0) {
             // 如果common的highAvailable是空，就设置关闭，以便于子节点获取
             commonHaConfigMap = new ConcurrentHashMap<String, MySplitterHighAvailableConfig>(1);
@@ -74,7 +73,14 @@ public class ConfigurationUtil {
             mySplitterHighAvailableConfig.setEnabled(false);
             commonHaConfigMap.put("others", mySplitterHighAvailableConfig);
         } else {
-            // 如果common的highAvailable不是空，检查highAvailable key是否在允许的范围内
+            // 如果common的highAvailable有填写一项或多项，补充空项，然后检查highAvailable key是否在允许的范围内
+            for (String supportHaKey : SUPPORT_HA_NODE_MODE_LIST) {
+                if (commonHaConfigMap.get(supportHaKey) == null) {
+                    MySplitterHighAvailableConfig mySplitterHighAvailableConfig = new MySplitterHighAvailableConfig();
+                    mySplitterHighAvailableConfig.setEnabled(false);
+                    commonHaConfigMap.put(supportHaKey, mySplitterHighAvailableConfig);
+                }
+            }
             isHighAvailableMapLegal(commonHaConfigMap);
         }
         // 查看每个datasource是否配置highAvailable
@@ -91,7 +97,6 @@ public class ConfigurationUtil {
         }
         // 检查loadBalance
         Map<String, MySplitterLoadBalanceConfig> commonLoadBalance = mySplitterConfig.getCommon().getLoadBalance();
-        // TODO 逻辑待完善，如果只填写read或write怎么办？
         if (commonLoadBalance == null || commonLoadBalance.size() == 0) {
             // 如果common的loadBalance是空，就设置read和write关闭，以便于子节点获取
             Map<String, MySplitterLoadBalanceConfig> loadBalanceMap =
@@ -103,7 +108,14 @@ public class ConfigurationUtil {
             loadBalanceMap.put("write", closedLoadBalanceConfig);
             mySplitterConfig.getCommon().setLoadBalance(loadBalanceMap);
         } else {
-            // 如果common的loadBalance不是空，检查loadBalance key是否在允许的范围内，loadBalance 配置是否正确，weight不存在则修改为1
+            // 如果common的loadBalance有填写一项或多项，补充空项，然后检查key是否在允许的范围内，配置是否正确，weight不存在则修改为1
+            for (String supportLbKey : SUPPORT_LB_NODE_MODE_LIST) {
+                if (commonLoadBalance.get(supportLbKey) == null) {
+                    MySplitterLoadBalanceConfig mySplitterLoadBalanceConfig = new MySplitterLoadBalanceConfig();
+                    mySplitterLoadBalanceConfig.setEnabled(false);
+                    commonLoadBalance.put(supportLbKey, mySplitterLoadBalanceConfig);
+                }
+            }
             isLoadBalanceMapLegal(commonLoadBalance);
         }
         // 查看每个datasource是否配置loadBalance
@@ -278,14 +290,16 @@ public class ConfigurationUtil {
                         "Only supported one of " + SUPPORT_LB_NODE_MODE_LIST + ".");
             }
             MySplitterLoadBalanceConfig mySplitterLoadBalanceConfig = loadBalanceMap.get(loadBalanceKey);
-            String strategy = mySplitterLoadBalanceConfig.getStrategy();
-            if (StringUtil.isBlank(strategy)) {
-                throw new IllegalArgumentException("MySplitter loadBalance strategy is empty!" +
-                        "Only supported one of " + SUPPORT_STRATEGY_LIST + ".");
-            }
-            if (!SUPPORT_STRATEGY_LIST.contains(strategy)) {
-                throw new IllegalArgumentException("MySplitter loadBalance not support key " + strategy + "! " +
-                        "Only supported one of " + SUPPORT_STRATEGY_LIST + ".");
+            if (mySplitterLoadBalanceConfig.isEnabled()) {
+                String strategy = mySplitterLoadBalanceConfig.getStrategy();
+                if (StringUtil.isBlank(strategy)) {
+                    throw new IllegalArgumentException("MySplitter loadBalance strategy is empty!" +
+                            "Only supported one of " + SUPPORT_STRATEGY_LIST + ".");
+                }
+                if (!SUPPORT_STRATEGY_LIST.contains(strategy)) {
+                    throw new IllegalArgumentException("MySplitter loadBalance not support key " + strategy + "! " +
+                            "Only supported one of " + SUPPORT_STRATEGY_LIST + ".");
+                }
             }
         }
     }
