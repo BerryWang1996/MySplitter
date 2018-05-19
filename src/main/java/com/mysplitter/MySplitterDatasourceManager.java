@@ -3,7 +3,7 @@ package com.mysplitter;
 import com.mysplitter.advise.MySplitterDatabasesRoutingHandlerAdvise;
 import com.mysplitter.config.MySplitterDataBaseConfig;
 import com.mysplitter.config.MySplitterDatasourceNodeConfig;
-import com.mysplitter.warpper.DataSourceWarpper;
+import com.mysplitter.warpper.DataSourceWrapper;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Constructor;
@@ -34,9 +34,9 @@ class MySplitterDatasourceManager {
     private Map<String, MySplitterDatasourceNodeConfig> standByDatasourceMap =
             new ConcurrentHashMap<String, MySplitterDatasourceNodeConfig>();
 
-    private Map<String, DataSourceWarpper> healthyDatasourceMap = new ConcurrentHashMap<String, DataSourceWarpper>();
+    private Map<String, DataSourceWrapper> healthyDatasourceMap = new ConcurrentHashMap<String, DataSourceWrapper>();
 
-    private Map<String, DataSourceWarpper> illDatasourceMap = new ConcurrentHashMap<String, DataSourceWarpper>();
+    private Map<String, DataSourceWrapper> illDatasourceMap = new ConcurrentHashMap<String, DataSourceWrapper>();
 
     void init() {
         LOGGER.debug("MySplitterDatasourceManager is initializing.");
