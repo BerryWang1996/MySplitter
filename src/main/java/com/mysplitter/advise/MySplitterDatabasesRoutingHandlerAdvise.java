@@ -11,7 +11,7 @@ public interface MySplitterDatabasesRoutingHandlerAdvise {
     /**
      * @return database name (in mysplitter.yml)
      */
-    String routingHandler(String sql);
+    String routerHandler(String sql);
 
     /**
      * @return new sql

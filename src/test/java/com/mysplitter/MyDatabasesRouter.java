@@ -5,7 +5,7 @@ import com.mysplitter.advise.MySplitterDatabasesRoutingHandlerAdvise;
 public class MyDatabasesRouter implements MySplitterDatabasesRoutingHandlerAdvise {
 
     @Override
-    public String routingHandler(String sql) {
+    public String routerHandler(String sql) {
         if (sql.contains("bbb")) {
             return "database-a";
         } else {
