@@ -1,7 +1,7 @@
 package com.mysplitter.util;
 
 import com.mysplitter.advise.MySplitterDatabasesRoutingHandlerAdvise;
-import com.mysplitter.advise.MySplitterDatasourceIllAlerterAdvise;
+import com.mysplitter.advise.MySplitterDataSourceIllAlerterAdvise;
 import com.mysplitter.advise.MySplitterFilterAdvise;
 import com.mysplitter.config.*;
 import com.mysplitter.exceptions.DataSourceClassNotDefine;
@@ -83,7 +83,7 @@ public class ConfigurationUtil {
             }
             isHighAvailableMapLegal(commonHaConfigMap);
         }
-        // 查看每个datasource是否配置highAvailable
+        // 查看每个dataSource是否配置highAvailable
         for (String databaseKey : databases.keySet()) {
             MySplitterDataBaseConfig mySplitterDataBaseConfig = databases.get(databaseKey);
             if (mySplitterDataBaseConfig.getHighAvailable() != null &&
@@ -118,7 +118,7 @@ public class ConfigurationUtil {
             }
             isLoadBalanceMapLegal(commonLoadBalance);
         }
-        // 查看每个datasource是否配置loadBalance
+        // 查看每个dataSource是否配置loadBalance
         for (String databaseKey : databases.keySet()) {
             MySplitterDataBaseConfig mySplitterDataBaseConfig = databases.get(databaseKey);
             if (mySplitterDataBaseConfig.getLoadBalance() != null &&
@@ -160,33 +160,33 @@ public class ConfigurationUtil {
         // 检查数据源实现类是否都已经定义，如果子节点没有设置，将从父节点获取并在子节点设置，同时判断负载均衡权重是否设置（随机负载均衡用），如果没设置，设置为1
         for (String databaseKey : databases.keySet()) {
             MySplitterDataBaseConfig mySplitterDataBaseConfig = databases.get(databaseKey);
-            Map<String, MySplitterDatasourceNodeConfig> integrates = mySplitterDataBaseConfig.getIntegrates();
+            Map<String, MySplitterDataSourceNodeConfig> integrates = mySplitterDataBaseConfig.getIntegrates();
             if (integrates != null) {
                 for (String integrateKey : integrates.keySet()) {
-                    MySplitterDatasourceNodeConfig mySplitterDatasourceNodeConfig = integrates.get(integrateKey);
-                    checkAndImproveDatasourceNode(databaseKey, integrateKey,
-                            mySplitterDatasourceNodeConfig,
+                    MySplitterDataSourceNodeConfig mySplitterDataSourceNodeConfig = integrates.get(integrateKey);
+                    checkAndImproveDataSourceNode(databaseKey, integrateKey,
+                            mySplitterDataSourceNodeConfig,
                             mySplitterDataBaseConfig,
                             mySplitterConfig.getCommon());
                 }
             }
-            Map<String, MySplitterDatasourceNodeConfig> writers = mySplitterDataBaseConfig.getWriters();
+            Map<String, MySplitterDataSourceNodeConfig> writers = mySplitterDataBaseConfig.getWriters();
             if (writers != null) {
                 for (String writerKey : writers.keySet()) {
-                    MySplitterDatasourceNodeConfig mySplitterDatasourceNodeConfig = writers.get(writerKey);
-                    checkAndImproveDatasourceNode(databaseKey, writerKey,
-                            mySplitterDatasourceNodeConfig,
+                    MySplitterDataSourceNodeConfig mySplitterDataSourceNodeConfig = writers.get(writerKey);
+                    checkAndImproveDataSourceNode(databaseKey, writerKey,
+                            mySplitterDataSourceNodeConfig,
                             mySplitterDataBaseConfig,
                             mySplitterConfig.getCommon());
 
                 }
             }
-            Map<String, MySplitterDatasourceNodeConfig> readers = mySplitterDataBaseConfig.getReaders();
+            Map<String, MySplitterDataSourceNodeConfig> readers = mySplitterDataBaseConfig.getReaders();
             if (readers != null) {
                 for (String readerKey : readers.keySet()) {
-                    MySplitterDatasourceNodeConfig mySplitterDatasourceNodeConfig = readers.get(readerKey);
-                    checkAndImproveDatasourceNode(databaseKey, readerKey,
-                            mySplitterDatasourceNodeConfig,
+                    MySplitterDataSourceNodeConfig mySplitterDataSourceNodeConfig = readers.get(readerKey);
+                    checkAndImproveDataSourceNode(databaseKey, readerKey,
+                            mySplitterDataSourceNodeConfig,
                             mySplitterDataBaseConfig,
                             mySplitterConfig.getCommon());
                 }
@@ -221,41 +221,41 @@ public class ConfigurationUtil {
     /**
      * 检查数据源节点是否正确，并且如果没有配置，使用父节点的配置，同时判断负载均衡权重是否设置（随机负载均衡用），如果没设置，设置为1
      */
-    private static void checkAndImproveDatasourceNode(String databaseName,
+    private static void checkAndImproveDataSourceNode(String databaseName,
                                                       String dataSourceNodeName,
-                                                      MySplitterDatasourceNodeConfig mySplitterDatasourceNodeConfig,
+                                                      MySplitterDataSourceNodeConfig mySplitterDataSourceNodeConfig,
                                                       MySplitterDataBaseConfig mySplitterDataBaseConfig,
                                                       MySplitterCommonConfig common)
             throws DataSourceClassNotDefine, ClassNotFoundException {
         // 检查数据源节点是否正确，并且如果没有配置，使用父节点的配置
-        String datasourceClass = mySplitterDatasourceNodeConfig.getDatasourceClass();
-        if (StringUtil.isBlank(datasourceClass)) {
-            datasourceClass = mySplitterDataBaseConfig.getDatasourceClass();
-            if (StringUtil.isBlank(datasourceClass)) {
-                datasourceClass = common.getDatasourceClass();
-                if (StringUtil.isBlank(datasourceClass)) {
+        String dataSourceClass = mySplitterDataSourceNodeConfig.getDataSourceClass();
+        if (StringUtil.isBlank(dataSourceClass)) {
+            dataSourceClass = mySplitterDataBaseConfig.getDataSourceClass();
+            if (StringUtil.isBlank(dataSourceClass)) {
+                dataSourceClass = common.getDataSourceClass();
+                if (StringUtil.isBlank(dataSourceClass)) {
                     throw new DataSourceClassNotDefine(databaseName, dataSourceNodeName);
                 }
             }
         }
-        if (isDatasourceClassLegal(datasourceClass)) {
-            mySplitterDatasourceNodeConfig.setDatasourceClass(datasourceClass);
+        if (isDataSourceClassLegal(dataSourceClass)) {
+            mySplitterDataSourceNodeConfig.setDataSourceClass(dataSourceClass);
         }
         // 判断负载均衡权重是否设置（随机负载均衡用），如果没设置，设置为1
-        Integer weight = mySplitterDatasourceNodeConfig.getWeight();
+        Integer weight = mySplitterDataSourceNodeConfig.getWeight();
         if (weight == null) {
-            mySplitterDatasourceNodeConfig.setWeight(1);
+            mySplitterDataSourceNodeConfig.setWeight(1);
         }
     }
 
     /**
      * 判断定义的数据源是否是合法的（存在这个类）
      */
-    private static boolean isDatasourceClassLegal(String datasourceClass) throws ClassNotFoundException {
+    private static boolean isDataSourceClassLegal(String dataSourceClass) throws ClassNotFoundException {
         try {
-            Thread.currentThread().getContextClassLoader().loadClass(datasourceClass);
+            Thread.currentThread().getContextClassLoader().loadClass(dataSourceClass);
         } catch (ClassNotFoundException e) {
-            throw new ClassNotFoundException("Datasource class " + datasourceClass + " in mysplitter" +
+            throw new ClassNotFoundException("DataSource class " + dataSourceClass + " in mysplitter" +
                     ".yml is not legal.");
         }
         return true;
@@ -373,13 +373,13 @@ public class ConfigurationUtil {
         }
         Class<?>[] interfaces = aClass.getInterfaces();
         for (Class<?> anInterface : interfaces) {
-            if (anInterface.getName().equals(MySplitterDatasourceIllAlerterAdvise.class.getName())) {
+            if (anInterface.getName().equals(MySplitterDataSourceIllAlerterAdvise.class.getName())) {
                 return true;
             }
         }
         throw new IllegalArgumentException("HighAvailable ill alert handler not support " +
                 illAlertHandler + ", may not implements com.mysplitter.advise" +
-                ".MySplitterDatasourceIllAlerterAdvise!");
+                ".MySplitterDataSourceIllAlerterAdvise!");
     }
 
 }

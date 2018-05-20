@@ -13,7 +13,7 @@ public class DataSourceClassNotDefine extends Exception {
     private String databaseName;
 
     public DataSourceClassNotDefine(String databaseName, String readerOrWriterName) {
-        super("Datasource class is not define in " + databaseName + " - " + readerOrWriterName + "! Please check your" +
+        super("DataSource class is not define in " + databaseName + " - " + readerOrWriterName + "! Please check your" +
                 " configuration !");
     }
 }

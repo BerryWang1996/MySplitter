@@ -13,7 +13,7 @@ public class DataSourceConfigurationNotDefine extends Exception {
     private String databaseName;
 
     public DataSourceConfigurationNotDefine(String databaseName, String readerOrWriterName) {
-        super("Datasource configuration is empty in \"" + databaseName + " " + readerOrWriterName + "\"! Please" +
+        super("DataSource configuration is empty in \"" + databaseName + " " + readerOrWriterName + "\"! Please" +
                 " check " + "your configuration !");
     }
 }

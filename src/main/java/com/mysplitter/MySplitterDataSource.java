@@ -27,7 +27,7 @@ public class MySplitterDataSource implements DataSource, Serializable {
 
     private static final String DEFAULT_CONFIGURATION_FILE_NAME = "mysplitter.yml";
 
-    private MySplitterDatasourceManager datasourceManager = new MySplitterDatasourceManager(this);
+    private MySplitterDataSourceManager dataSourceManager = new MySplitterDataSourceManager(this);
 
     private AtomicBoolean isInitialized = new AtomicBoolean(false);
 
@@ -50,7 +50,7 @@ public class MySplitterDataSource implements DataSource, Serializable {
                 ConfigurationUtil.checkMySplitterConfig(mySplitterConfig);
                 LOGGER.info("MySplitter configuration passed.");
                 // 初始化数据源管理器
-                datasourceManager.init();
+                dataSourceManager.init();
                 LOGGER.info("MySplitter has been initialized successful.");
             } catch (Exception e) {
                 new MySplitterInitException(e).printStackTrace();

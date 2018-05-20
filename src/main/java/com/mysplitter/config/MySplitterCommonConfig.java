@@ -10,18 +10,18 @@ import java.util.Map;
  */
 public class MySplitterCommonConfig {
 
-    private String datasourceClass;
+    private String dataSourceClass;
 
     private Map<String, MySplitterHighAvailableConfig> highAvailable;
 
     private Map<String, MySplitterLoadBalanceConfig> loadBalance;
 
-    public String getDatasourceClass() {
-        return datasourceClass;
+    public String getDataSourceClass() {
+        return dataSourceClass;
     }
 
-    public void setDatasourceClass(String datasourceClass) {
-        this.datasourceClass = datasourceClass;
+    public void setDataSourceClass(String dataSourceClass) {
+        this.dataSourceClass = dataSourceClass;
     }
 
     public Map<String, MySplitterHighAvailableConfig> getHighAvailable() {
@@ -43,7 +43,7 @@ public class MySplitterCommonConfig {
     @Override
     public String toString() {
         return "MySplitterCommonConfig{" +
-                "datasourceClass='" + datasourceClass + '\'' +
+                "dataSourceClass='" + dataSourceClass + '\'' +
                 ", highAvailable=" + highAvailable +
                 ", loadBalance=" + loadBalance +
                 '}';

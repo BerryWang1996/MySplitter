@@ -6,7 +6,7 @@ import com.mysplitter.advise.MySplitterFilterAdvise;
  * @Author: wangbor
  * @Date: 2018/5/14 20:59
  */
-public class MyDatasourceFilters2 implements MySplitterFilterAdvise {
+public class MyDataSourceFilters2 implements MySplitterFilterAdvise {
 
     @Override
     public void doFilter() {
