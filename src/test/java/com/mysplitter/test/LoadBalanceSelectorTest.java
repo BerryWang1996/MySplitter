@@ -20,18 +20,19 @@ public class LoadBalanceSelectorTest {
         long start = System.currentTimeMillis();
 
         int totalRun = 1700000;
-        RandomLoadBalanceSelector balanceSelector = new RandomLoadBalanceSelector();
+        RandomLoadBalanceSelector<String> balanceSelector = new RandomLoadBalanceSelector<String>();
         balanceSelector.register("a", 1);
         balanceSelector.register("b", 1);
         balanceSelector.register("c", 1);
         final AtomicInteger a = new AtomicInteger(0);
         final AtomicInteger b = new AtomicInteger(0);
         final AtomicInteger c = new AtomicInteger(0);
+        final AtomicInteger isNull = new AtomicInteger(0);
         final Semaphore semaphore = new Semaphore(100);
         final CountDownLatch countDownLatch = new CountDownLatch(totalRun);
         ExecutorService executorService = Executors.newCachedThreadPool();
         for (int i = 0; i < totalRun; i++) {
-            final RandomLoadBalanceSelector balanceSelector1 = balanceSelector;
+            final RandomLoadBalanceSelector<String> balanceSelector1 = balanceSelector;
             final int index = i;
             executorService.execute(new Runnable() {
                 @Override
@@ -65,6 +66,8 @@ public class LoadBalanceSelectorTest {
                                     System.out.println(acquire);
                                     break;
                             }
+                        } else {
+                            isNull.addAndGet(1);
                         }
                     } catch (InterruptedException e1) {
                         e1.printStackTrace();
@@ -77,13 +80,16 @@ public class LoadBalanceSelectorTest {
         countDownLatch.await();
         long end = System.currentTimeMillis();
         System.out.println("times" + (end - start));
-        int total = a.get() + b.get() + c.get();
+        int total = a.get() + b.get() + c.get() + isNull.get();
         System.out.println("total:" + total);
         System.out.println("a:" + a.get() + " " + new BigDecimal(a.get() + "").divide(new BigDecimal(total + ""), 5,
                 RoundingMode.HALF_UP));
         System.out.println("b:" + b.get() + " " + new BigDecimal(b.get() + "").divide(new BigDecimal(total + ""), 5,
                 RoundingMode.HALF_UP));
         System.out.println("c:" + c.get() + " " + new BigDecimal(c.get() + "").divide(new BigDecimal(total + ""), 5,
+                RoundingMode.HALF_UP));
+        System.out.println("isNull:" + isNull.get() + " " + new BigDecimal(isNull.get() + "").divide(new BigDecimal
+                        (total + ""), 5,
                 RoundingMode.HALF_UP));
         executorService.shutdown();
     }
@@ -93,18 +99,19 @@ public class LoadBalanceSelectorTest {
         long start = System.currentTimeMillis();
 
         int totalRun = 1700000;
-        RoundRobinLoadBalanceSelector balanceSelector = new RoundRobinLoadBalanceSelector();
+        RoundRobinLoadBalanceSelector<String> balanceSelector = new RoundRobinLoadBalanceSelector<String>();
         balanceSelector.register("a", 1);
         balanceSelector.register("b", 1);
         balanceSelector.register("c", 1);
         final AtomicInteger a = new AtomicInteger(0);
         final AtomicInteger b = new AtomicInteger(0);
         final AtomicInteger c = new AtomicInteger(0);
+        final AtomicInteger isNull = new AtomicInteger(0);
         final Semaphore semaphore = new Semaphore(100);
         final CountDownLatch countDownLatch = new CountDownLatch(totalRun);
         ExecutorService executorService = Executors.newCachedThreadPool();
         for (int i = 0; i < totalRun; i++) {
-            final RoundRobinLoadBalanceSelector balanceSelector1 = balanceSelector;
+            final RoundRobinLoadBalanceSelector<String> balanceSelector1 = balanceSelector;
             final int index = i;
             executorService.execute(new Runnable() {
                 @Override
@@ -138,6 +145,8 @@ public class LoadBalanceSelectorTest {
                                     System.out.println(acquire);
                                     break;
                             }
+                        } else {
+                            isNull.addAndGet(1);
                         }
                     } catch (InterruptedException e1) {
                         e1.printStackTrace();
@@ -150,13 +159,16 @@ public class LoadBalanceSelectorTest {
         countDownLatch.await();
         long end = System.currentTimeMillis();
         System.out.println("times" + (end - start));
-        int total = a.get() + b.get() + c.get();
+        int total = a.get() + b.get() + c.get() + isNull.get();
         System.out.println("total:" + total);
         System.out.println("a:" + a.get() + " " + new BigDecimal(a.get() + "").divide(new BigDecimal(total + ""), 5,
                 RoundingMode.HALF_UP));
         System.out.println("b:" + b.get() + " " + new BigDecimal(b.get() + "").divide(new BigDecimal(total + ""), 5,
                 RoundingMode.HALF_UP));
         System.out.println("c:" + c.get() + " " + new BigDecimal(c.get() + "").divide(new BigDecimal(total + ""), 5,
+                RoundingMode.HALF_UP));
+        System.out.println("isNull:" + isNull.get() + " " + new BigDecimal(isNull.get() + "").divide(new BigDecimal
+                        (total + ""), 5,
                 RoundingMode.HALF_UP));
         executorService.shutdown();
     }

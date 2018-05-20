@@ -1,9 +1,7 @@
 package com.mysplitter.selector;
 
-import com.mysplitter.util.StringUtil;
-
 import java.util.List;
-import java.util.concurrent.*;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -12,21 +10,21 @@ import java.util.concurrent.atomic.AtomicInteger;
  * @Author: wangbor
  * @Date: 2018/5/14 19:28
  */
-public class RoundRobinLoadBalanceSelector extends AbstractLoadBalanceSelector {
+public class RoundRobinLoadBalanceSelector<T> extends AbstractLoadBalanceSelector<T> {
 
-    private List<String> list = new CopyOnWriteArrayList<String>();
+    private List<T> list = new CopyOnWriteArrayList<T>();
 
     private AtomicInteger atomicFetch = new AtomicInteger(0);
 
     @Override
-    public synchronized void register(String name, int weight) {
-        if (!list.contains(name)) {
-            list.add(name);
+    public synchronized void register(T object, int weight) {
+        if (!list.contains(object)) {
+            list.add(object);
         }
     }
 
     @Override
-    public synchronized String acquire() {
+    public synchronized T acquire() {
         if (list.size() == 0) {
             return null;
         }
@@ -39,11 +37,11 @@ public class RoundRobinLoadBalanceSelector extends AbstractLoadBalanceSelector {
     }
 
     @Override
-    public synchronized void release(String name) {
-        if (StringUtil.isBlank(name)) {
+    public synchronized void release(T object) {
+        if (object == null) {
             return;
         }
-        list.remove(name);
+        list.remove(object);
     }
 
 }

@@ -6,12 +6,12 @@ package com.mysplitter.selector;
  * @Author: wangbor
  * @Date: 2018/5/14 18:35
  */
-public abstract class AbstractLoadBalanceSelector {
+public abstract class AbstractLoadBalanceSelector<T> {
 
-    public abstract void register(String name, int weight);
+    public abstract void register(T object, int weight);
 
-    public abstract String acquire();
+    public abstract T acquire();
 
-    public abstract void release(String name);
+    public abstract void release(T object);
 
 }
