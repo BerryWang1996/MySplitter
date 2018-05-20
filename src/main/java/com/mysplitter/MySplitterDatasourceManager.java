@@ -1,13 +1,9 @@
 package com.mysplitter;
 
-import com.mysplitter.advise.MySplitterDatabasesRoutingHandlerAdvise;
 import com.mysplitter.config.MySplitterDataBaseConfig;
-import com.mysplitter.warpper.DataSourceWrapper;
 import org.slf4j.LoggerFactory;
 
-import java.lang.reflect.Constructor;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -23,34 +19,25 @@ class MySplitterDataSourceManager {
 
     private MySplitterDataSource router;
 
-    MySplitterDataSourceManager(MySplitterDataSource router) {
-        this.router = router;
-    }
-
     private AtomicBoolean isInitialized = new AtomicBoolean(false);
 
-    private MySplitterDatabasesRoutingHandlerAdvise databasesRoutingHandler;
+    private MySplitterDatabaseManager databaseManager;
 
     private ScheduledThreadPoolExecutor scheduledHighAvailableChecker;
 
-    private Map<String, Map<String, DataSourceWrapper>> standbyDataSourceMap =
-            new ConcurrentHashMap<String, Map<String, DataSourceWrapper>>();
+    MySplitterDataSourceManager(MySplitterDataSource router) {
+        this.router = router;
+        init();
+    }
 
-    private Map<String, Map<String, DataSourceWrapper>> workingDataSourceMap =
-            new ConcurrentHashMap<String, Map<String, DataSourceWrapper>>();
-
-    private Map<String, DataSourceWrapper> healthyDataSourceMap = new ConcurrentHashMap<String, DataSourceWrapper>();
-
-    private Map<String, DataSourceWrapper> illDataSourceMap = new ConcurrentHashMap<String, DataSourceWrapper>();
-
-    void init() {
+    private void init() {
         if (isInitialized.compareAndSet(false, true)) {
             LOGGER.debug("MySplitterDataSourceManager is initializing.");
-            // 如果有多个数据库，启动多数据库路由，否则不启动
-            createDatabasesRoutingHandler();
+            // 创建多数据库管理器
+            databaseManager = new MySplitterDatabaseManager(this.router);
             // 创建高可用检查线程池
             createHighAvailableChecker();
-            // 获取所有的dataSource根据高可用心跳频率创建对应的对象以及定时任务，如果不启动心跳，则放入standByDataSourceMap
+            // 创建数据源节点
             createDataSources();
         }
     }
@@ -58,21 +45,14 @@ class MySplitterDataSourceManager {
     private void createDataSources() {
         if (!isInitialized.get()) {
             LOGGER.debug("MySplitterDataSourceManager is creating DataSources.");
-            // 获取所有的数据库配置
+            // 获取所有的数据库配置，根据读写创建对应的数据源wrapper
             Map<String, MySplitterDataBaseConfig> dbs = this.router.getMySplitterConfig().getMysplitter()
                     .getDatabases();
             for (String dbKey : dbs.keySet()) {
                 MySplitterDataBaseConfig mySplitterDataBaseConfig = dbs.get(dbKey);
-                // 获取节点的配置
-                if (mySplitterDataBaseConfig.getIntegrates() != null &&
-                        mySplitterDataBaseConfig.getIntegrates().size() > 0) {
-                    // TODO 如果是未启动负载均衡，取map中key为default的节点，或第一个节点，放入健康的map，其他的放入备用节点
-                    // TODO 如果是整合节点，不启动负载均衡
-                } else {
-                    // TODO 如果是未启动负载均衡，取map中key为default的节点，或第一个节点，放入健康的map，其他的放入备用节点
-                    // TODO 如果是读写分离节点，根据配置使用负载均衡，创建与之对应的负载均衡选择器
-                }
+                // TODO 根据读和写以及整合数据源，创建wrapper并放入预备数据源map或行动数据源map中，同时根据map创建与之对应的负载均衡选择器
             }
+            // 初始化准备激活的数据源wrapper
         }
     }
 
@@ -82,27 +62,6 @@ class MySplitterDataSourceManager {
             int availableProcessors = Runtime.getRuntime().availableProcessors();
             scheduledHighAvailableChecker = new ScheduledThreadPoolExecutor(availableProcessors, new DaemonThreadFactory
                     ("mysplitter-ha"));
-        }
-    }
-
-    private void createDatabasesRoutingHandler() {
-        if (!isInitialized.get()) {
-            Map<String, MySplitterDataBaseConfig> dbs = this.router.getMySplitterConfig().getMysplitter()
-                    .getDatabases();
-            try {
-                LOGGER.debug("MySplitterDataSourceManager find {} database{} in mysplitter.yml.", dbs.size(), dbs.size()
-                        > 1 ? "s" : "");
-                if (dbs.size() > 1) {
-                    LOGGER.debug("MySplitterDataSourceManager is activating DatabasesRoutingHandler.");
-                    String routerClz = this.router.getMySplitterConfig().getMysplitter().getDatabasesRoutingHandler();
-                    ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-                    Class aClass = classLoader.loadClass(routerClz);
-                    Constructor constructor = aClass.getConstructor();
-                    databasesRoutingHandler = (MySplitterDatabasesRoutingHandlerAdvise) constructor.newInstance();
-                }
-            } catch (Exception e) {
-                LOGGER.debug("MySplitterDataSourceManager activated DatabasesRoutingHandler failed!", e);
-            }
         }
     }
 
