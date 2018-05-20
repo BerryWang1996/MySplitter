@@ -1,4 +1,4 @@
-package com.mysplitter.warpper;
+package com.mysplitter.wrapper;
 
 import java.io.InputStream;
 import java.io.Reader;
