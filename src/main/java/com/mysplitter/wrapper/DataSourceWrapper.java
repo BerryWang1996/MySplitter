@@ -1,4 +1,4 @@
-package com.mysplitter.warpper;
+package com.mysplitter.wrapper;
 
 /**
  * @Author: wangbor
