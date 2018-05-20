@@ -11,12 +11,12 @@ It's Developing now.
 ## 使用方法 - How to use
 
 使用它非常简单
-1. 修改datasource为com.mysplitter.MySplitterDataSource，由MySplitter管理连接。
+1. 修改dataSource为com.mysplitter.MySplitterDataSource，由MySplitter管理连接。
 2. 在项目resources目录创建mysplitter.yml文件。
 3. 参考文档部分进行配置。
 
 It's very easily to use "MySplitter". 
-1. Change your datasource to "com.mysplitter.MySplitterDataSource".
+1. Change your dataSource to "com.mysplitter.MySplitterDataSource".
 2. Create mysplitter.yml to project resources folder.
 3. Configure like the reference document.
 
@@ -37,10 +37,10 @@ The document contains three parts
 mysplitter:
   databasesRoutingHandler: com.mysplitter.MyDatabasesRouter # ignore when only one database. com.xxx.xxx # implements com.mysplitter.advise.MySplitterDatabasesRoutingHandlerAdvise
   filters: # implements com.mysplitter.advise.MySplitterFilterAdvise(optional)
-    - com.mysplitter.MyDatasourceFilters1
-    - com.mysplitter.MyDatasourceFilters2
+    - com.mysplitter.MyDataSourceFilters1
+    - com.mysplitter.MyDataSourceFilters2
   common:
-    datasourceClass: com.mchange.v2.c3p0.ComboPooledDataSource
+    dataSourceClass: com.mchange.v2.c3p0.ComboPooledDataSource
     highAvailable:
       integrate:
         enabled: false
@@ -49,15 +49,15 @@ mysplitter:
         switchOpportunity: on-error # scheduled on-error-dissolve (support one)
         healthyHeartbeatRate: 1s # s=second, m=minute, h=hour
         illHeartbeatRate: 20s # s=second, m=minute, h=hour
-        illAlertHandler: com.mysplitter.MyDatasourceIllAlertHandler # implements com.mysplitter.advise.MySplitterDatasourceIllAlertAdvise(optional)
+        illAlertHandler: com.mysplitter.MyDataSourceIllAlertHandler # implements com.mysplitter.advise.MySplitterDataSourceIllAlertAdvise(optional)
       read:
         enabled: true
-        lazyLoad: true # if true, create datasource when switch, heartbeat would't check uncreated datasource.
+        lazyLoad: true # if true, create dataSource when switch, heartbeat would't check uncreated dataSource.
         detectionSql: SELECT 1
         switchOpportunity: on-error # scheduled on-error-dissolve (support one)
         healthyHeartbeatRate: 1s # s=second, m=minute, h=hour
         illHeartbeatRate: 20s # s=second, m=minute, h=hour
-        illAlertHandler: com.mysplitter.MyDatasourceIllAlertHandler # implements com.mysplitter.advise.MySplitterDatasourceIllAlertAdvise(optional)
+        illAlertHandler: com.mysplitter.MyDataSourceIllAlertHandler # implements com.mysplitter.advise.MySplitterDataSourceIllAlertAdvise(optional)
       write:
         enabled: true
         lazyLoad: false
@@ -65,7 +65,7 @@ mysplitter:
         switchOpportunity: on-error # scheduled on-error-dissolve (support one)
         healthyHeartbeatRate: 1s # s=second, m=minute, h=hour
         illHeartbeatRate: 20s # s=second, m=minute, h=hour
-        illAlertHandler: com.mysplitter.MyDatasourceIllAlertHandler # implements com.mysplitter.advise.MySplitterDatasourceIllAlertAdvise(optional)
+        illAlertHandler: com.mysplitter.MyDataSourceIllAlertHandler # implements com.mysplitter.advise.MySplitterDataSourceIllAlertAdvise(optional)
 #      others:
 #        enabled: true
 #        lazyLoad: false
@@ -73,7 +73,7 @@ mysplitter:
 #        switchOpportunity: on-error # scheduled on-error-dissolve (support one)
 #        healthyHeartbeatRate: 1s # s=second, m=minute, h=hour
 #        illHeartbeatRate: 20s # s=second, m=minute, h=hour
-#        illAlertHandler: com.mysplitter.MyDatasourceIll # implements com.mysplitter.advise.MySplitterDatasourceIllAlertAdvise(optional)
+#        illAlertHandler: com.mysplitter.MyDataSourceIll # implements com.mysplitter.advise.MySplitterDataSourceIllAlertAdvise(optional)
     loadBalance:
       read:
         enabled: true
@@ -83,36 +83,36 @@ mysplitter:
         strategy: polling # random
   databases:
     database-a: # database-DatabaseName e.g.database-master database-192.168.1.1:3306
-#      datasourceClass: com.alibaba.druid.pool.DruidDataSource
+#      dataSourceClass: com.alibaba.druid.pool.DruidDataSource
       readers:
         reader-read-slave-1:
-          # datasourceClass: (optional high priority)
-          configuration: # datasource configuration
+          # dataSourceClass: (optional high priority)
+          configuration: # dataSource configuration
             url: 192.168.1.101:3306
             username: root
             password: admin
             driverClassName: com.jdbc.mysql.Driver
         reader-read-slave-2:
-          # datasourceClass: (optional high priority)
-          configuration: # datasource configuration
+          # dataSourceClass: (optional high priority)
+          configuration: # dataSource configuration
             url: 192.168.1.101:3306
             username: root
             password: admin
             driverClassName: com.jdbc.mysql.Driver
       writers:
         writer-write-master-1:
-          datasourceClass: com.alibaba.druid.pool.DruidDataSource
-          configuration: # datasource configuration
+          dataSourceClass: com.alibaba.druid.pool.DruidDataSource
+          configuration: # dataSource configuration
             url: 192.168.1.101:3306
             username: root
             password: admin
             driverClassName: com.jdbc.mysql.Driver
     database-b: # database-DatabaseName e.g.database-master database-192.168.1.1:3306
-      # datasourceClass: (optional)
+      # dataSourceClass: (optional)
       integrates:
         integrate-slave-1:
-          datasourceClass: com.zaxxer.hikari.HikariDataSource
-          configuration: # datasource configuration
+          dataSourceClass: com.zaxxer.hikari.HikariDataSource
+          configuration: # dataSource configuration
             url: 192.168.1.101:3306
             username: root
             password: admin

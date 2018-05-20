@@ -6,7 +6,7 @@ package com.mysplitter.advise;
  * @Author: wangbor
  * @Date: 2018/5/14 11:00
  */
-public interface MySplitterDatasourceIllAlerterAdvise {
+public interface MySplitterDataSourceIllAlerterAdvise {
 
     void illAlerter(String databaseName, String nodeName);
 

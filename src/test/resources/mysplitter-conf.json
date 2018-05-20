@@ -1,34 +1,38 @@
 {
   "mysplitter": {
     "common": {
-      "datasourceClass": "com.mchange.v2.c3p0.ComboPooledDataSource",
+      "dataSourceClass": "com.mchange.v2.c3p0.ComboPooledDataSource",
       "highAvailable": {
         "integrate": {
-          "healthyHeartbeatRate": "1s",
           "detectionSql": "SELECT 1",
-          "illAlertHandler": "com.mysplitter.MyDatasourceIllAlertHandler",
-          "illHeartbeatRate": "20s",
           "enabled": false,
+          "healthyHeartbeatRate": "1s",
+          "illAlertHandler": "com.mysplitter.MyDataSourceIllAlertHandler",
+          "illHeartbeatRate": "20s",
           "lazyLoad": true,
           "switchOpportunity": "on-error"
         },
         "read": {
-          "healthyHeartbeatRate": "1s",
           "detectionSql": "SELECT 1",
-          "illAlertHandler": "com.mysplitter.MyDatasourceIllAlertHandler",
-          "illHeartbeatRate": "20s",
           "enabled": true,
+          "healthyHeartbeatRate": "1s",
+          "illAlertHandler": "com.mysplitter.MyDataSourceIllAlertHandler",
+          "illHeartbeatRate": "20s",
           "lazyLoad": true,
           "switchOpportunity": "on-error"
         },
         "write": {
-          "healthyHeartbeatRate": "1s",
           "detectionSql": "SELECT 1",
-          "illAlertHandler": "com.mysplitter.MyDatasourceIllAlertHandler",
-          "illHeartbeatRate": "20s",
           "enabled": true,
+          "healthyHeartbeatRate": "1s",
+          "illAlertHandler": "com.mysplitter.MyDataSourceIllAlertHandler",
+          "illHeartbeatRate": "20s",
           "lazyLoad": false,
           "switchOpportunity": "on-error"
+        },
+        "others": {
+          "enabled": false,
+          "lazyLoad": false
         }
       },
       "loadBalance": {
@@ -46,31 +50,35 @@
       "database-a": {
         "highAvailable": {
           "integrate": {
-            "healthyHeartbeatRate": "1s",
             "detectionSql": "SELECT 1",
-            "illAlertHandler": "com.mysplitter.MyDatasourceIllAlertHandler",
-            "illHeartbeatRate": "20s",
             "enabled": false,
+            "healthyHeartbeatRate": "1s",
+            "illAlertHandler": "com.mysplitter.MyDataSourceIllAlertHandler",
+            "illHeartbeatRate": "20s",
             "lazyLoad": true,
             "switchOpportunity": "on-error"
           },
           "read": {
-            "healthyHeartbeatRate": "1s",
             "detectionSql": "SELECT 1",
-            "illAlertHandler": "com.mysplitter.MyDatasourceIllAlertHandler",
-            "illHeartbeatRate": "20s",
             "enabled": true,
+            "healthyHeartbeatRate": "1s",
+            "illAlertHandler": "com.mysplitter.MyDataSourceIllAlertHandler",
+            "illHeartbeatRate": "20s",
             "lazyLoad": true,
             "switchOpportunity": "on-error"
           },
           "write": {
-            "healthyHeartbeatRate": "1s",
             "detectionSql": "SELECT 1",
-            "illAlertHandler": "com.mysplitter.MyDatasourceIllAlertHandler",
-            "illHeartbeatRate": "20s",
             "enabled": true,
+            "healthyHeartbeatRate": "1s",
+            "illAlertHandler": "com.mysplitter.MyDataSourceIllAlertHandler",
+            "illHeartbeatRate": "20s",
             "lazyLoad": false,
             "switchOpportunity": "on-error"
+          },
+          "others": {
+            "enabled": false,
+            "lazyLoad": false
           }
         },
         "loadBalance": {
@@ -91,7 +99,7 @@
               "password": "admin",
               "driverClassName": "com.jdbc.mysql.Driver"
             },
-            "datasourceClass": "com.mchange.v2.c3p0.ComboPooledDataSource",
+            "dataSourceClass": "com.mchange.v2.c3p0.ComboPooledDataSource",
             "weight": 1
           },
           "reader-read-slave-2": {
@@ -101,7 +109,7 @@
               "password": "admin",
               "driverClassName": "com.jdbc.mysql.Driver"
             },
-            "datasourceClass": "com.mchange.v2.c3p0.ComboPooledDataSource",
+            "dataSourceClass": "com.mchange.v2.c3p0.ComboPooledDataSource",
             "weight": 1
           }
         },
@@ -113,7 +121,7 @@
               "password": "admin",
               "driverClassName": "com.jdbc.mysql.Driver"
             },
-            "datasourceClass": "com.alibaba.druid.pool.DruidDataSource",
+            "dataSourceClass": "com.alibaba.druid.pool.DruidDataSource",
             "weight": 1
           }
         }
@@ -121,31 +129,35 @@
       "database-b": {
         "highAvailable": {
           "integrate": {
-            "healthyHeartbeatRate": "1s",
             "detectionSql": "SELECT 1",
-            "illAlertHandler": "com.mysplitter.MyDatasourceIllAlertHandler",
-            "illHeartbeatRate": "20s",
             "enabled": false,
+            "healthyHeartbeatRate": "1s",
+            "illAlertHandler": "com.mysplitter.MyDataSourceIllAlertHandler",
+            "illHeartbeatRate": "20s",
             "lazyLoad": true,
             "switchOpportunity": "on-error"
           },
           "read": {
-            "healthyHeartbeatRate": "1s",
             "detectionSql": "SELECT 1",
-            "illAlertHandler": "com.mysplitter.MyDatasourceIllAlertHandler",
-            "illHeartbeatRate": "20s",
             "enabled": true,
+            "healthyHeartbeatRate": "1s",
+            "illAlertHandler": "com.mysplitter.MyDataSourceIllAlertHandler",
+            "illHeartbeatRate": "20s",
             "lazyLoad": true,
             "switchOpportunity": "on-error"
           },
           "write": {
-            "healthyHeartbeatRate": "1s",
             "detectionSql": "SELECT 1",
-            "illAlertHandler": "com.mysplitter.MyDatasourceIllAlertHandler",
-            "illHeartbeatRate": "20s",
             "enabled": true,
+            "healthyHeartbeatRate": "1s",
+            "illAlertHandler": "com.mysplitter.MyDataSourceIllAlertHandler",
+            "illHeartbeatRate": "20s",
             "lazyLoad": false,
             "switchOpportunity": "on-error"
+          },
+          "others": {
+            "enabled": false,
+            "lazyLoad": false
           }
         },
         "integrates": {
@@ -156,7 +168,7 @@
               "password": "admin",
               "driverClassName": "com.jdbc.mysql.Driver"
             },
-            "datasourceClass": "com.zaxxer.hikari.HikariDataSource",
+            "dataSourceClass": "com.zaxxer.hikari.HikariDataSource",
             "weight": 1
           }
         },
@@ -174,8 +186,8 @@
     },
     "databasesRoutingHandler": "com.mysplitter.MyDatabasesRouter",
     "filters": [
-      "com.mysplitter.MyDatasourceFilters1",
-      "com.mysplitter.MyDatasourceFilters2"
+      "com.mysplitter.MyDataSourceFilters1",
+      "com.mysplitter.MyDataSourceFilters2"
     ]
   }
 }

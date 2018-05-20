@@ -10,24 +10,24 @@ import java.util.Map;
  */
 public class MySplitterDataBaseConfig {
 
-    private String datasourceClass;
+    private String dataSourceClass;
 
     private Map<String, MySplitterHighAvailableConfig> highAvailable;
 
     private Map<String, MySplitterLoadBalanceConfig> loadBalance;
 
-    private Map<String, MySplitterDatasourceNodeConfig> integrates;
+    private Map<String, MySplitterDataSourceNodeConfig> integrates;
 
-    private Map<String, MySplitterDatasourceNodeConfig> readers;
+    private Map<String, MySplitterDataSourceNodeConfig> readers;
 
-    private Map<String, MySplitterDatasourceNodeConfig> writers;
+    private Map<String, MySplitterDataSourceNodeConfig> writers;
 
-    public String getDatasourceClass() {
-        return datasourceClass;
+    public String getDataSourceClass() {
+        return dataSourceClass;
     }
 
-    public void setDatasourceClass(String datasourceClass) {
-        this.datasourceClass = datasourceClass;
+    public void setDataSourceClass(String dataSourceClass) {
+        this.dataSourceClass = dataSourceClass;
     }
 
     public Map<String, MySplitterHighAvailableConfig> getHighAvailable() {
@@ -46,34 +46,34 @@ public class MySplitterDataBaseConfig {
         this.loadBalance = loadBalance;
     }
 
-    public Map<String, MySplitterDatasourceNodeConfig> getIntegrates() {
+    public Map<String, MySplitterDataSourceNodeConfig> getIntegrates() {
         return integrates;
     }
 
-    public void setIntegrates(Map<String, MySplitterDatasourceNodeConfig> integrates) {
+    public void setIntegrates(Map<String, MySplitterDataSourceNodeConfig> integrates) {
         this.integrates = integrates;
     }
 
-    public Map<String, MySplitterDatasourceNodeConfig> getReaders() {
+    public Map<String, MySplitterDataSourceNodeConfig> getReaders() {
         return readers;
     }
 
-    public void setReaders(Map<String, MySplitterDatasourceNodeConfig> readers) {
+    public void setReaders(Map<String, MySplitterDataSourceNodeConfig> readers) {
         this.readers = readers;
     }
 
-    public Map<String, MySplitterDatasourceNodeConfig> getWriters() {
+    public Map<String, MySplitterDataSourceNodeConfig> getWriters() {
         return writers;
     }
 
-    public void setWriters(Map<String, MySplitterDatasourceNodeConfig> writers) {
+    public void setWriters(Map<String, MySplitterDataSourceNodeConfig> writers) {
         this.writers = writers;
     }
 
     @Override
     public String toString() {
         return "MySplitterDataBaseConfig{" +
-                "datasourceClass='" + datasourceClass + '\'' +
+                "dataSourceClass='" + dataSourceClass + '\'' +
                 ", highAvailable=" + highAvailable +
                 ", loadBalance=" + loadBalance +
                 ", integrates=" + integrates +

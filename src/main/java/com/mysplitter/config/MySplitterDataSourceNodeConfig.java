@@ -8,20 +8,20 @@ import java.util.Map;
  * @Author: wangbor
  * @Date: 2018/5/13 18:45
  */
-public class MySplitterDatasourceNodeConfig {
+public class MySplitterDataSourceNodeConfig {
 
-    private String datasourceClass;
+    private String dataSourceClass;
 
     private Integer weight;
 
     private Map<String, Object> configuration;
 
-    public String getDatasourceClass() {
-        return datasourceClass;
+    public String getDataSourceClass() {
+        return dataSourceClass;
     }
 
-    public void setDatasourceClass(String datasourceClass) {
-        this.datasourceClass = datasourceClass;
+    public void setDataSourceClass(String dataSourceClass) {
+        this.dataSourceClass = dataSourceClass;
     }
 
     public Integer getWeight() {
@@ -43,7 +43,7 @@ public class MySplitterDatasourceNodeConfig {
     @Override
     public String toString() {
         return "MySplitterReaderConfig{" +
-                "datasourceClass='" + datasourceClass + '\'' +
+                "dataSourceClass='" + dataSourceClass + '\'' +
                 ", weight=" + weight +
                 ", configuration=" + configuration +
                 '}';
