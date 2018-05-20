@@ -1,5 +1,5 @@
 # MySplitter
-![license-badge](https://img.shields.io/badge/license-apache%202-green.svg?style=flat-square)
+[![license](https://img.shields.io/badge/license-apache%202-green.svg?style=flat-square)](https://www.apache.org/licenses/LICENSE-2.0.html)
 
 ## 介绍 - Introduce
 
