@@ -1,10 +1,8 @@
 package com.mysplitter.selector;
 
-import com.mysplitter.util.StringUtil;
-
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.*;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * 随机权重算法负载均衡选择器
@@ -12,35 +10,35 @@ import java.util.concurrent.*;
  * @Author: wangbor
  * @Date: 2018/5/14 19:28
  */
-public class RandomLoadBalanceSelector extends AbstractLoadBalanceSelector {
+public class RandomLoadBalanceSelector<T> extends AbstractLoadBalanceSelector<T> {
 
-    private List<String> list = new CopyOnWriteArrayList<String>();
+    private List<T> list = new CopyOnWriteArrayList<T>();
 
     @Override
-    public synchronized void register(String name, int weight) {
-        for (String key : list) {
-            if (key.contains(name)) {
-                release(name);
+    public synchronized void register(T object, int weight) {
+        for (T key : list) {
+            if (key == object) {
+                release(object);
             }
         }
         for (int i = 0; i < weight; i++) {
-            list.add(name);
+            list.add(object);
         }
     }
 
     @Override
-    public synchronized String acquire() {
+    public synchronized T acquire() {
         return list.size() == 0 ? null : list.get(new Random().nextInt(list.size()));
     }
 
     @Override
-    public synchronized void release(String name) {
-        if (StringUtil.isBlank(name)) {
+    public synchronized void release(T object) {
+        if (object == null) {
             return;
         }
-        for (String key : list) {
-            if (name.equals(key)) {
-                list.remove(name);
+        for (T objectInList : list) {
+            if (objectInList == object) {
+                list.remove(objectInList);
             }
         }
     }
