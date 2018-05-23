@@ -43,11 +43,11 @@ mysplitter:
     dataSourceClass: com.mchange.v2.c3p0.ComboPooledDataSource
     highAvailable:
       integrate:
-        enabled: false
-        lazyLoad: true
+        enabled: true
+        lazyLoad: false
         detectionSql: SELECT 1
         switchOpportunity: on-error # scheduled on-error-dissolve (support one)
-        healthyHeartbeatRate: 1s # s=second, m=minute, h=hour
+        healthyHeartbeatRate: 10s # s=second, m=minute, h=hour
         illHeartbeatRate: 20s # s=second, m=minute, h=hour
         illAlertHandler: com.mysplitter.MyDataSourceIllAlertHandler # implements com.mysplitter.advise.MySplitterDataSourceIllAlertAdvise(optional)
       read:
@@ -66,14 +66,6 @@ mysplitter:
         healthyHeartbeatRate: 1s # s=second, m=minute, h=hour
         illHeartbeatRate: 20s # s=second, m=minute, h=hour
         illAlertHandler: com.mysplitter.MyDataSourceIllAlertHandler # implements com.mysplitter.advise.MySplitterDataSourceIllAlertAdvise(optional)
-#      others:
-#        enabled: true
-#        lazyLoad: false
-#        detectionSql: SELECT 1
-#        switchOpportunity: on-error # scheduled on-error-dissolve (support one)
-#        healthyHeartbeatRate: 1s # s=second, m=minute, h=hour
-#        illHeartbeatRate: 20s # s=second, m=minute, h=hour
-#        illAlertHandler: com.mysplitter.MyDataSourceIll # implements com.mysplitter.advise.MySplitterDataSourceIllAlertAdvise(optional)
     loadBalance:
       read:
         enabled: true
