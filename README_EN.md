@@ -1,27 +1,27 @@
 # MySplitter 
-[![license](https://img.shields.io/badge/language-english-orange.svg?style=flat-square)](https://github.com/BerryWang1996/MySplitter/blob/master/README_EN.md)
+[![license](https://img.shields.io/badge/language-%E4%B8%AD%E6%96%87-orange.svg?style=flat-square)](https://github.com/BerryWang1996/MySplitter/blob/master/README.md)
 [![license](https://img.shields.io/badge/license-apache%202-green.svg?style=flat-square)](https://www.apache.org/licenses/LICENSE-2.0.html)
 
-## 介绍
+## Introduce
 
-轻量级数据库读写分离、多数据源、高可用、负载均衡数据库连接池中间件，正在开发中。
+Lightweight read / write separation, multiple data sources, high availability, load balancing database connection middleware.
+It's Developing now.
 
+## How to use
 
-## 使用方法
+It's very easily to use "MySplitter". 
+1. Change your dataSource to "com.mysplitter.MySplitterDataSource".
+2. Create mysplitter.yml to project resources folder.
+3. Configure like the reference document.
 
-使用它非常简单
-1. 修改dataSource为com.mysplitter.MySplitterDataSource，由MySplitter管理连接。
-2. 在项目resources目录创建mysplitter.yml文件。
-3. 参考文档部分进行配置。
+## Document
 
+The document contains three parts
+1. Configuration
+2. Problems
+3. MySplitter principle
 
-## 文档
-文档包含3部分内容
-1. 配置文件
-2. 已知问题
-3. 路由原理
-
-### 配置文件
+### Configuration
 ```
 mysplitter:
   databasesRoutingHandler: com.mysplitter.MyDatabasesRouter # ignore when only one database. com.xxx.xxx # implements com.mysplitter.advise.MySplitterDatabasesRoutingHandlerAdvise
@@ -100,10 +100,10 @@ mysplitter:
             driverClassName: com.jdbc.mysql.Driver
 ```
 
-### 常见问题
+### FAQ
 
 // TODO
 
-### 路由原理
+### Principle
 
 // TODO
