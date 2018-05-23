@@ -1,7 +1,7 @@
 package com.mysplitter.util;
 
-import com.mysplitter.advise.MySplitterDatabasesRoutingHandlerAdvise;
 import com.mysplitter.advise.MySplitterDataSourceIllAlerterAdvise;
+import com.mysplitter.advise.MySplitterDatabasesRoutingHandlerAdvise;
 import com.mysplitter.advise.MySplitterFilterAdvise;
 import com.mysplitter.config.*;
 import com.mysplitter.exceptions.DataSourceClassNotDefine;
@@ -33,7 +33,7 @@ public class ConfigurationUtil {
             Arrays.asList("polling", "random");
 
     private static final List<String> SUPPORT_HA_NODE_MODE_LIST =
-            Arrays.asList("integrate", "read", "write", "others");
+            Arrays.asList("integrate", "read", "write");
 
     private static final List<String> SUPPORT_LB_NODE_MODE_LIST =
             Arrays.asList("read", "write");
@@ -108,7 +108,7 @@ public class ConfigurationUtil {
             loadBalanceMap.put("write", closedLoadBalanceConfig);
             mySplitterConfig.getCommon().setLoadBalance(loadBalanceMap);
         } else {
-            // 如果common的loadBalance有填写一项或多项，补充空项，然后检查key是否在允许的范围内，配置是否正确，weight不存在则修改为1
+            // 如果common的loadBalance有填写一项或多项，补充空项，然后检查key是否在允许的范围内，配置是否正确
             for (String supportLbKey : SUPPORT_LB_NODE_MODE_LIST) {
                 if (commonLoadBalance.get(supportLbKey) == null) {
                     MySplitterLoadBalanceConfig mySplitterLoadBalanceConfig = new MySplitterLoadBalanceConfig();
@@ -117,18 +117,27 @@ public class ConfigurationUtil {
                 }
             }
             isLoadBalanceMapLegal(commonLoadBalance);
+            mySplitterConfig.getCommon().setLoadBalance(commonLoadBalance);
         }
         // 查看每个dataSource是否配置loadBalance
         for (String databaseKey : databases.keySet()) {
             MySplitterDataBaseConfig mySplitterDataBaseConfig = databases.get(databaseKey);
-            if (mySplitterDataBaseConfig.getLoadBalance() != null &&
-                    mySplitterDataBaseConfig.getLoadBalance().size() > 0) {
-                // 如果配置，检查loadBalance key是否在允许的范围内
-                isLoadBalanceMapLegal(mySplitterDataBaseConfig.getLoadBalance());
+            Map<String, MySplitterLoadBalanceConfig> nodeLoadBalance = mySplitterDataBaseConfig.getLoadBalance();
+            if (nodeLoadBalance == null || nodeLoadBalance.size() == 0) {
+                // 如果子节点的loadBalance是空，就设置为父节点的loadBalance
+                nodeLoadBalance = mySplitterConfig.getCommon().getLoadBalance();
             } else {
-                // 如果没有配置，使用common的配置
-                mySplitterDataBaseConfig.setLoadBalance(commonLoadBalance);
+                // 如果节点的loadBalance有填写一项或多项，补充空项，然后检查key是否在允许的范围内，配置是否正确
+                for (String supportLbKey : SUPPORT_LB_NODE_MODE_LIST) {
+                    if (nodeLoadBalance.get(supportLbKey) == null) {
+                        MySplitterLoadBalanceConfig mySplitterLoadBalanceConfig = new MySplitterLoadBalanceConfig();
+                        mySplitterLoadBalanceConfig.setEnabled(false);
+                        nodeLoadBalance.put(supportLbKey, mySplitterLoadBalanceConfig);
+                    }
+                }
             }
+            isLoadBalanceMapLegal(nodeLoadBalance);
+            mySplitterDataBaseConfig.setLoadBalance(nodeLoadBalance);
         }
         // 检查databases
         if (databases.size() == 0) {
