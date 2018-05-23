@@ -8,6 +8,6 @@ package com.mysplitter.advise;
  */
 public interface MySplitterDataSourceIllAlerterAdvise {
 
-    void illAlerter(String databaseName, String nodeName);
+    void illAlerter(String databaseName, String nodeName, Exception e);
 
 }
