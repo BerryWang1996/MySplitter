@@ -2,9 +2,9 @@ package com.mysplitter;
 
 import com.mysplitter.advise.MySplitterDatabasesRoutingHandlerAdvise;
 import com.mysplitter.config.MySplitterDataBaseConfig;
+import com.mysplitter.util.ClassLoaderUtil;
 import org.slf4j.LoggerFactory;
 
-import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.Map;
 
@@ -31,11 +31,11 @@ class MySplitterDatabaseManager {
             if (dbs.size() > 1) {
                 LOGGER.debug("MySplitterDatabaseManager is activating DatabasesRoutingHandler.");
                 String routerClz = router.getMySplitterConfig().getMysplitter().getDatabasesRoutingHandler();
-                ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-                Class aClass = classLoader.loadClass(routerClz);
-                Constructor constructor = aClass.getConstructor();
-                databaseRoutingHandler = (MySplitterDatabasesRoutingHandlerAdvise) constructor.newInstance();
+                databaseRoutingHandler =
+                        ClassLoaderUtil.getInstance(routerClz, MySplitterDatabasesRoutingHandlerAdvise.class);
             } else {
+                LOGGER.debug("MySplitterDatabaseManager is activating default DatabasesRoutingHandler, " +
+                        "Caused only one database.");
                 final String dbKey = new ArrayList<String>(dbs.keySet()).get(0);
                 databaseRoutingHandler = new MySplitterDatabasesRoutingHandlerAdvise() {
                     @Override
