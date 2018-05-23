@@ -44,4 +44,9 @@ public class RoundRobinLoadBalanceSelector<T> extends AbstractLoadBalanceSelecto
         list.remove(object);
     }
 
+    @Override
+    public List<T> listAll() {
+        return list;
+    }
+
 }
