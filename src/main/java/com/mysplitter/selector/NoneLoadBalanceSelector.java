@@ -1,34 +1,31 @@
 package com.mysplitter.selector;
 
 import java.util.List;
-import java.util.Random;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * 随机权重算法负载均衡选择器
+ * 无负载均衡选择器
  *
  * @Author: wangbor
  * @Date: 2018/5/14 19:28
  */
-public class RandomLoadBalanceSelector<T> extends AbstractLoadBalanceSelector<T> {
+public class NoneLoadBalanceSelector<T> extends AbstractLoadBalanceSelector<T> {
 
     private List<T> list = new CopyOnWriteArrayList<T>();
 
+    private AtomicInteger atomicFetch = new AtomicInteger(0);
+
     @Override
     public synchronized void register(T object, int weight) {
-        for (T key : list) {
-            if (key == object) {
-                release(object);
-            }
-        }
-        for (int i = 0; i < weight; i++) {
+        if (!list.contains(object)) {
             list.add(object);
         }
     }
 
     @Override
     public synchronized T acquire() {
-        return list.size() == 0 ? null : list.get(new Random().nextInt(list.size()));
+        return list.get(0);
     }
 
     @Override
@@ -36,11 +33,7 @@ public class RandomLoadBalanceSelector<T> extends AbstractLoadBalanceSelector<T>
         if (object == null) {
             return;
         }
-        for (T objectInList : list) {
-            if (objectInList == object) {
-                list.remove(objectInList);
-            }
-        }
+        list.remove(object);
     }
 
     @Override

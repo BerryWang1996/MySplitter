@@ -1,5 +1,7 @@
 package com.mysplitter.selector;
 
+import java.util.List;
+
 /**
  * 负载均衡选择器
  *
@@ -13,5 +15,7 @@ public abstract class AbstractLoadBalanceSelector<T> {
     public abstract T acquire();
 
     public abstract void release(T object);
+
+    public abstract List<T> listAll();
 
 }
