@@ -7,11 +7,11 @@ mysplitter:
     dataSourceClass: com.mchange.v2.c3p0.ComboPooledDataSource
     highAvailable:
       integrate:
-        enabled: true
+        enabled: false
         lazyLoad: false
         detectionSql: SELECT 1
         switchOpportunity: on-error # scheduled on-error-dissolve (support one)
-        healthyHeartbeatRate: 10s # s=second, m=minute, h=hour
+        healthyHeartbeatRate: 1s # s=second, m=minute, h=hour
         illHeartbeatRate: 20s # s=second, m=minute, h=hour
         illAlertHandler: com.mysplitter.MyDataSourceIllAlertHandler # implements com.mysplitter.advise.MySplitterDataSourceIllAlertAdvise(optional)
       read:
@@ -23,7 +23,7 @@ mysplitter:
         illHeartbeatRate: 20s # s=second, m=minute, h=hour
         illAlertHandler: com.mysplitter.MyDataSourceIllAlertHandler # implements com.mysplitter.advise.MySplitterDataSourceIllAlertAdvise(optional)
       write:
-        enabled: true
+        enabled: false
         lazyLoad: false
         detectionSql: SELECT 1
         switchOpportunity: on-error # scheduled on-error-dissolve (support one)
@@ -47,14 +47,21 @@ mysplitter:
             url: 192.168.1.101:3306
             username: root
             password: admin
-            driverClassName: com.jdbc.mysql.Driver
+            driverClassName: com.mysql.jdbc.Driver
         reader-read-slave-2:
           # dataSourceClass: (optional high priority)
           configuration: # dataSource configuration
             url: 192.168.1.101:3306
             username: root
             password: admin
-            driverClassName: com.jdbc.mysql.Driver
+            driverClassName: com.mysql.jdbc.Driver
+        reader-read-slave-3:
+          # dataSourceClass: (optional high priority)
+          configuration: # dataSource configuration
+            url: 192.168.1.101:3306
+            username: root
+            password: admin
+            driverClassName: com.mysql.jdbc.Driver
       writers:
         writer-write-master-1:
           dataSourceClass: com.alibaba.druid.pool.DruidDataSource
@@ -62,7 +69,7 @@ mysplitter:
             url: 192.168.1.101:3306
             username: root
             password: admin
-            driverClassName: com.jdbc.mysql.Driver
+            driverClassName: com.mysql.jdbc.Driver
     database-b: # database-DatabaseName e.g.database-master database-192.168.1.1:3306
       # dataSourceClass: (optional)
       integrates:
@@ -72,4 +79,4 @@ mysplitter:
             url: 192.168.1.101:3306
             username: root
             password: admin
-            driverClassName: com.jdbc.mysql.Driver
+            driverClassName: com.mysql.jdbc.Driver

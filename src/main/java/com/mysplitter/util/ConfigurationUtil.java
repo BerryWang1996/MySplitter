@@ -69,16 +69,25 @@ public class ConfigurationUtil {
         if (commonHaConfigMap == null || commonHaConfigMap.size() == 0) {
             // 如果common的highAvailable是空，就设置关闭，以便于子节点获取
             commonHaConfigMap = new ConcurrentHashMap<String, MySplitterHighAvailableConfig>(1);
-            MySplitterHighAvailableConfig mySplitterHighAvailableConfig = new MySplitterHighAvailableConfig();
-            mySplitterHighAvailableConfig.setEnabled(false);
-            commonHaConfigMap.put("others", mySplitterHighAvailableConfig);
+            for (String supportHaKey : SUPPORT_HA_NODE_MODE_LIST) {
+                MySplitterHighAvailableConfig mySplitterHighAvailableConfig = new MySplitterHighAvailableConfig();
+                mySplitterHighAvailableConfig.setEnabled(false);
+                mySplitterHighAvailableConfig.setIllAlertHandler("com.mysplitter.DefaultDataSourceIllAlertHandler");
+                commonHaConfigMap.put(supportHaKey, mySplitterHighAvailableConfig);
+            }
         } else {
             // 如果common的highAvailable有填写一项或多项，补充空项，然后检查highAvailable key是否在允许的范围内
             for (String supportHaKey : SUPPORT_HA_NODE_MODE_LIST) {
                 if (commonHaConfigMap.get(supportHaKey) == null) {
                     MySplitterHighAvailableConfig mySplitterHighAvailableConfig = new MySplitterHighAvailableConfig();
                     mySplitterHighAvailableConfig.setEnabled(false);
+                    mySplitterHighAvailableConfig.setIllAlertHandler("com.mysplitter.DefaultDataSourceIllAlertHandler");
                     commonHaConfigMap.put(supportHaKey, mySplitterHighAvailableConfig);
+                }
+                // 如果用户没设置数据源异常处理器，设置为默认的数据源异常处理器
+                if (StringUtil.isBlank(commonHaConfigMap.get(supportHaKey).getIllAlertHandler())) {
+                    commonHaConfigMap.get(supportHaKey).setIllAlertHandler("com.mysplitter" +
+                            ".DefaultDataSourceIllAlertHandler");
                 }
             }
             isHighAvailableMapLegal(commonHaConfigMap);

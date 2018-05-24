@@ -2,93 +2,40 @@
   "mysplitter": {
     "common": {
       "dataSourceClass": "com.mchange.v2.c3p0.ComboPooledDataSource",
-      "highAvailable": {
-        "integrate": {
-          "detectionSql": "SELECT 1",
-          "enabled": false,
-          "healthyHeartbeatRate": "1s",
-          "illAlertHandler": "com.mysplitter.MyDataSourceIllAlertHandler",
-          "illHeartbeatRate": "20s",
-          "lazyLoad": true,
-          "switchOpportunity": "on-error"
-        },
-        "read": {
-          "detectionSql": "SELECT 1",
-          "enabled": true,
-          "healthyHeartbeatRate": "1s",
-          "illAlertHandler": "com.mysplitter.MyDataSourceIllAlertHandler",
-          "illHeartbeatRate": "20s",
-          "lazyLoad": true,
-          "switchOpportunity": "on-error"
-        },
-        "write": {
-          "detectionSql": "SELECT 1",
-          "enabled": true,
-          "healthyHeartbeatRate": "1s",
-          "illAlertHandler": "com.mysplitter.MyDataSourceIllAlertHandler",
-          "illHeartbeatRate": "20s",
-          "lazyLoad": false,
-          "switchOpportunity": "on-error"
-        },
-        "others": {
-          "enabled": false,
-          "lazyLoad": false
-        }
-      },
       "loadBalance": {
         "read": {
-          "enabled": true,
-          "strategy": "polling"
+          "enabled": false
         },
         "write": {
-          "enabled": true,
-          "strategy": "polling"
+          "enabled": false
         }
       }
     },
     "databases": {
       "database-a": {
         "highAvailable": {
-          "integrate": {
-            "detectionSql": "SELECT 1",
-            "enabled": false,
-            "healthyHeartbeatRate": "1s",
-            "illAlertHandler": "com.mysplitter.MyDataSourceIllAlertHandler",
-            "illHeartbeatRate": "20s",
-            "lazyLoad": true,
-            "switchOpportunity": "on-error"
-          },
           "read": {
-            "detectionSql": "SELECT 1",
-            "enabled": true,
-            "healthyHeartbeatRate": "1s",
-            "illAlertHandler": "com.mysplitter.MyDataSourceIllAlertHandler",
-            "illHeartbeatRate": "20s",
-            "lazyLoad": true,
-            "switchOpportunity": "on-error"
+            "enabled": false,
+            "illAlertHandler": "com.mysplitter.DefaultDataSourceIllAlertHandler",
+            "lazyLoad": false
           },
           "write": {
-            "detectionSql": "SELECT 1",
-            "enabled": true,
-            "healthyHeartbeatRate": "1s",
-            "illAlertHandler": "com.mysplitter.MyDataSourceIllAlertHandler",
-            "illHeartbeatRate": "20s",
-            "lazyLoad": false,
-            "switchOpportunity": "on-error"
-          },
-          "others": {
             "enabled": false,
+            "illAlertHandler": "com.mysplitter.DefaultDataSourceIllAlertHandler",
+            "lazyLoad": false
+          },
+          "integrate": {
+            "enabled": false,
+            "illAlertHandler": "com.mysplitter.DefaultDataSourceIllAlertHandler",
             "lazyLoad": false
           }
         },
         "loadBalance": {
           "read": {
-            "enabled": true,
-            "strategy": "polling"
+            "enabled": false
           },
           "write": {
-            "enabled": true,
-            "strategy": "polling"
+            "enabled": false
           }
         },
         "readers": {
@@ -123,40 +70,34 @@
             },
             "dataSourceClass": "com.alibaba.druid.pool.DruidDataSource",
             "weight": 1
+          },
+          "writer-write-master-2": {
+            "configuration": {
+              "url": "192.168.1.101:3306",
+              "username": "root",
+              "password": "admin",
+              "driverClassName": "com.jdbc.mysql.Driver"
+            },
+            "dataSourceClass": "com.alibaba.druid.pool.DruidDataSource",
+            "weight": 1
           }
         }
       },
       "database-b": {
         "highAvailable": {
-          "integrate": {
-            "detectionSql": "SELECT 1",
-            "enabled": false,
-            "healthyHeartbeatRate": "1s",
-            "illAlertHandler": "com.mysplitter.MyDataSourceIllAlertHandler",
-            "illHeartbeatRate": "20s",
-            "lazyLoad": true,
-            "switchOpportunity": "on-error"
-          },
           "read": {
-            "detectionSql": "SELECT 1",
-            "enabled": true,
-            "healthyHeartbeatRate": "1s",
-            "illAlertHandler": "com.mysplitter.MyDataSourceIllAlertHandler",
-            "illHeartbeatRate": "20s",
-            "lazyLoad": true,
-            "switchOpportunity": "on-error"
+            "enabled": false,
+            "illAlertHandler": "com.mysplitter.DefaultDataSourceIllAlertHandler",
+            "lazyLoad": false
           },
           "write": {
-            "detectionSql": "SELECT 1",
-            "enabled": true,
-            "healthyHeartbeatRate": "1s",
-            "illAlertHandler": "com.mysplitter.MyDataSourceIllAlertHandler",
-            "illHeartbeatRate": "20s",
-            "lazyLoad": false,
-            "switchOpportunity": "on-error"
-          },
-          "others": {
             "enabled": false,
+            "illAlertHandler": "com.mysplitter.DefaultDataSourceIllAlertHandler",
+            "lazyLoad": false
+          },
+          "integrate": {
+            "enabled": false,
+            "illAlertHandler": "com.mysplitter.DefaultDataSourceIllAlertHandler",
             "lazyLoad": false
           }
         },
@@ -170,16 +111,24 @@
             },
             "dataSourceClass": "com.zaxxer.hikari.HikariDataSource",
             "weight": 1
+          },
+          "integrate-slave-2": {
+            "configuration": {
+              "url": "192.168.1.101:3306",
+              "username": "root",
+              "password": "admin",
+              "driverClassName": "com.jdbc.mysql.Driver"
+            },
+            "dataSourceClass": "com.zaxxer.hikari.HikariDataSource",
+            "weight": 1
           }
         },
         "loadBalance": {
           "read": {
-            "enabled": true,
-            "strategy": "polling"
+            "enabled": false
           },
           "write": {
-            "enabled": true,
-            "strategy": "polling"
+            "enabled": false
           }
         }
       }
