@@ -15,6 +15,7 @@ public class MySplitterDataSourceTest {
         MySplitterRootConfig mySplitterConfig = router.getMySplitterConfig();
         String string = JSON.toJSONString(mySplitterConfig, SerializerFeature.DisableCircularReferenceDetect);
         System.out.println(string);
+        router.close();
     }
 
 }

@@ -40,7 +40,7 @@ public class MySplitterDataSource implements DataSource, Serializable {
         this.mySplitterConfig = mySplitterConfig;
     }
 
-    public void init() {
+    public synchronized void init() {
         if (isInitialized.compareAndSet(false, true)) {
             try {
                 // 获取配置文件
@@ -56,6 +56,17 @@ public class MySplitterDataSource implements DataSource, Serializable {
                 new MySplitterInitException(e).printStackTrace();
                 System.exit(1);
             }
+        }
+    }
+
+    public synchronized void close() {
+        try {
+            if (isInitialized.get()) {
+                this.dataSourceManager.close();
+                isInitialized.set(false);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
@@ -99,4 +110,5 @@ public class MySplitterDataSource implements DataSource, Serializable {
     public MySplitterRootConfig getMySplitterConfig() {
         return mySplitterConfig;
     }
+
 }

@@ -1,5 +1,7 @@
 package com.mysplitter.wrapper;
 
+import com.mysplitter.MySplitterDataSourceManager;
+
 import java.sql.*;
 import java.util.Map;
 import java.util.Properties;
@@ -12,6 +14,12 @@ import java.util.concurrent.Executor;
  * @Date: 2018/5/15 16:41
  */
 public class ConnectionWrapper implements Connection {
+
+    private MySplitterDataSourceManager mySplitterDataSourceManager;
+
+    public ConnectionWrapper(MySplitterDataSourceManager mySplitterDataSourceManager) {
+        this.mySplitterDataSourceManager = mySplitterDataSourceManager;
+    }
 
     @Override
     public Statement createStatement() throws SQLException {
