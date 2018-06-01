@@ -1,10 +1,13 @@
 package com.mysplitter;
 
 import com.mysplitter.advise.MySplitterDataSourceIllAlerterAdvise;
+import com.mysplitter.advise.MySplitterReadAndWriteParserAdvise;
 import com.mysplitter.config.MySplitterDataBaseConfig;
 import com.mysplitter.config.MySplitterDataSourceNodeConfig;
 import com.mysplitter.config.MySplitterHighAvailableConfig;
 import com.mysplitter.config.MySplitterLoadBalanceConfig;
+import com.mysplitter.exceptions.NoHealthyDataSourceException;
+import com.mysplitter.proxy.ConnectionProxy;
 import com.mysplitter.selector.AbstractLoadBalanceSelector;
 import com.mysplitter.selector.NoneLoadBalanceSelector;
 import com.mysplitter.selector.RandomLoadBalanceSelector;
@@ -14,6 +17,8 @@ import com.mysplitter.wrapper.DataSourceWrapper;
 import org.slf4j.LoggerFactory;
 
 import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +45,8 @@ public class MySplitterDataSourceManager {
 
     private MySplitterDatabaseManager databaseManager;
 
+    private MySplitterReadAndWriteParserAdvise readAndWriteParser;
+
     private ScheduledThreadPoolExecutor scheduledHighAvailableChecker;
 
     private Map<String, AbstractLoadBalanceSelector<DataSourceWrapper>> healthyDataSourceSelectorMap =
@@ -63,7 +70,11 @@ public class MySplitterDataSourceManager {
         if (isInitialized.compareAndSet(false, true)) {
             LOGGER.debug("MySplitterDataSourceManager is initializing.");
             // 创建多数据库管理器
-            databaseManager = new MySplitterDatabaseManager(this.router);
+            this.databaseManager = new MySplitterDatabaseManager(this.router);
+            // 创建读写解析器
+            this.readAndWriteParser = ClassLoaderUtil.getInstance(
+                    this.router.getMySplitterConfig().getMysplitter().getReadAndWriteParser(),
+                    MySplitterReadAndWriteParserAdvise.class);
             // 创建高可用检查线程池
             createHighAvailableChecker();
             // 创建数据源节点
@@ -149,7 +160,7 @@ public class MySplitterDataSourceManager {
                                          Map<String, MySplitterHighAvailableConfig> highAvailableConfig)
             throws Exception {
         // 创建选择器
-        String selectorName = generateDataSourceSelectorName(dbKey, "readrs");
+        String selectorName = generateDataSourceSelectorName(dbKey, "readers");
         // 根据负载均衡设置进行设置
         MySplitterLoadBalanceConfig readLoadBalanceConfig = loadBalanceConfig.get("read");
         if (readLoadBalanceConfig.isEnabled() && readers.size() > 1) {
@@ -573,4 +584,34 @@ public class MySplitterDataSourceManager {
         return databaseName + ":" + operation;
     }
 
+    public ConnectionProxy getConnectionProxy() {
+        return new ConnectionProxy(this);
+    }
+
+    public ConnectionProxy getConnectionProxy(String username, String password) {
+        return new ConnectionProxy(this, username, password);
+    }
+
+    public Connection getConnection(String sql) throws SQLException {
+        return getConnection(sql, null, null);
+    }
+
+    public Connection getConnection(String sql, String username, String password) throws SQLException {
+        String targetDatabase = this.databaseManager.routerHandler(sql);
+        String operation = this.readAndWriteParser.parseOperation(sql);
+        DataSource dataSource = this.healthyDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase,
+                operation)).acquire().getRealDataSource();
+        if (dataSource == null) {
+            dataSource = this.healthyDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase,
+                    "integrates")).acquire().getRealDataSource();
+            if (dataSource == null) {
+                throw new NoHealthyDataSourceException();
+            }
+        }
+        if (username != null && password != null) {
+            return dataSource.getConnection(username, password);
+        } else {
+            return dataSource.getConnection();
+        }
+    }
 }
