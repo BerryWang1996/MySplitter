@@ -14,6 +14,8 @@ public class MySplitterConfig implements Serializable {
 
     private String databasesRoutingHandler;
 
+    private String readAndWriteParser;
+
     private List<String> filters;
 
     private MySplitterCommonConfig common;
@@ -26,6 +28,14 @@ public class MySplitterConfig implements Serializable {
 
     public void setDatabasesRoutingHandler(String databasesRoutingHandler) {
         this.databasesRoutingHandler = databasesRoutingHandler;
+    }
+
+    public String getReadAndWriteParser() {
+        return readAndWriteParser;
+    }
+
+    public void setReadAndWriteParser(String readAndWriteParser) {
+        this.readAndWriteParser = readAndWriteParser;
     }
 
     public List<String> getFilters() {
@@ -56,6 +66,7 @@ public class MySplitterConfig implements Serializable {
     public String toString() {
         return "MySplitterConfig{" +
                 "databasesRoutingHandler='" + databasesRoutingHandler + '\'' +
+                ", readAndWriteParser='" + readAndWriteParser + '\'' +
                 ", filters=" + filters +
                 ", common=" + common +
                 ", databases=" + databases +

@@ -3,6 +3,7 @@ package com.mysplitter;
 import com.mysplitter.config.MySplitterRootConfig;
 import com.mysplitter.exceptions.MySplitterInitException;
 import com.mysplitter.util.ConfigurationUtil;
+import com.mysplitter.util.StringUtil;
 import org.slf4j.LoggerFactory;
 
 import javax.sql.DataSource;
@@ -33,7 +34,13 @@ public class MySplitterDataSource implements DataSource, Serializable {
 
     private MySplitterRootConfig mySplitterConfig;
 
+    private String configurationFileName;
+
     public MySplitterDataSource() {
+    }
+
+    public MySplitterDataSource(String configurationFileName) {
+        this.configurationFileName = configurationFileName;
     }
 
     public MySplitterDataSource(MySplitterRootConfig mySplitterConfig) {
@@ -45,7 +52,13 @@ public class MySplitterDataSource implements DataSource, Serializable {
             try {
                 // 获取配置文件
                 LOGGER.info("MySplitter is initializing.");
-                mySplitterConfig = ConfigurationUtil.getMySplitterConfig(DEFAULT_CONFIGURATION_FILE_NAME);
+                if (mySplitterConfig == null) {
+                    if (StringUtil.isBlank(configurationFileName)) {
+                        configurationFileName = DEFAULT_CONFIGURATION_FILE_NAME;
+                    }
+                    LOGGER.info("MySplitter is reading configuration file named {}.", configurationFileName);
+                    mySplitterConfig = ConfigurationUtil.getMySplitterConfig(configurationFileName);
+                }
                 // 对配置文件进行检查
                 ConfigurationUtil.checkMySplitterConfig(mySplitterConfig);
                 LOGGER.info("MySplitter configuration passed.");
@@ -72,12 +85,12 @@ public class MySplitterDataSource implements DataSource, Serializable {
 
     public Connection getConnection() throws SQLException {
         init();
-        return null;
+        return dataSourceManager.getConnectionProxy();
     }
 
     public Connection getConnection(String username, String password) throws SQLException {
         init();
-        return null;
+        return dataSourceManager.getConnectionProxy(username, password);
     }
 
     public <T> T unwrap(Class<T> iface) throws SQLException {

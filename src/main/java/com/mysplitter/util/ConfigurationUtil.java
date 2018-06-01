@@ -3,6 +3,7 @@ package com.mysplitter.util;
 import com.mysplitter.advise.MySplitterDataSourceIllAlerterAdvise;
 import com.mysplitter.advise.MySplitterDatabasesRoutingHandlerAdvise;
 import com.mysplitter.advise.MySplitterFilterAdvise;
+import com.mysplitter.advise.MySplitterReadAndWriteParserAdvise;
 import com.mysplitter.config.*;
 import com.mysplitter.exceptions.DataSourceClassNotDefine;
 import org.yaml.snakeyaml.DumperOptions;
@@ -214,8 +215,13 @@ public class ConfigurationUtil {
         if (databases.size() > 1) {
             ConfigurationUtil.isDatabasesRoutingHandlerLegal(mySplitterConfig.getDatabasesRoutingHandler());
         }
+        // 判断读写解析器是否存在，如果存在，检查是否合法；如果不存在，使用默认的读写解析器
+        if (StringUtil.isBlank(mySplitterConfig.getReadAndWriteParser())) {
+            mySplitterConfig.setReadAndWriteParser("com.mysplitter.DefaultReadAndWriteParser");
+        } else {
+            ConfigurationUtil.isReadAndWriteParserLegal(mySplitterConfig.getReadAndWriteParser());
+        }
     }
-
 
     /**
      * 检查过滤器是否正确
@@ -295,6 +301,25 @@ public class ConfigurationUtil {
             }
             throw new IllegalArgumentException("DatabasesRoutingHandler not support " + databasesRoutingHandler + ", " +
                     "may not implements com.mysplitter.advise.MySplitterDatabasesRoutingHandlerAdvise!");
+        }
+    }
+
+    /**
+     * 判断判断sql读和写的解析器是否合法
+     */
+    private static void isReadAndWriteParserLegal(String readAndWriteParser) throws ClassNotFoundException {
+        if (StringUtil.isBlank(readAndWriteParser)) {
+            throw new IllegalArgumentException("ReadAndWriteParser is not define.");
+        } else {
+            Class<?> aClass = Class.forName(readAndWriteParser);
+            Class<?>[] interfaces = aClass.getInterfaces();
+            for (Class<?> anInterface : interfaces) {
+                if (anInterface.getName().equals(MySplitterReadAndWriteParserAdvise.class.getName())) {
+                    return;
+                }
+            }
+            throw new IllegalArgumentException("ReadAndWriteParser not support " + readAndWriteParser + ", " +
+                    "may not implements com.mysplitter.advise.MySplitterReadAndWriteParserAdvise!");
         }
     }
 
