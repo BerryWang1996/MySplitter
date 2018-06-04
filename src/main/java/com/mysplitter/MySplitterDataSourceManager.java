@@ -599,19 +599,19 @@ public class MySplitterDataSourceManager {
     public Connection getConnection(String sql, String username, String password) throws SQLException {
         String targetDatabase = this.databaseManager.routerHandler(sql);
         String operation = this.readAndWriteParser.parseOperation(sql);
-        DataSource dataSource = this.healthyDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase,
-                operation)).acquire().getRealDataSource();
-        if (dataSource == null) {
-            dataSource = this.healthyDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase,
-                    "integrates")).acquire().getRealDataSource();
-            if (dataSource == null) {
-                throw new NoHealthyDataSourceException();
-            }
+        AbstractLoadBalanceSelector<DataSourceWrapper> selector = this.healthyDataSourceSelectorMap.get
+                (generateDataSourceSelectorName(targetDatabase, operation));
+        if (selector == null) {
+            selector = this.healthyDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase,
+                    "integrates"));
+        }
+        if (selector == null) {
+            throw new NoHealthyDataSourceException();
         }
         if (username != null && password != null) {
-            return dataSource.getConnection(username, password);
+            return selector.acquire().getRealDataSource().getConnection(username, password);
         } else {
-            return dataSource.getConnection();
+            return selector.acquire().getRealDataSource().getConnection();
         }
     }
 }
