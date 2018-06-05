@@ -6,6 +6,6 @@ package com.mysplitter.advise;
  */
 public interface MySplitterFilterAdvise {
 
-    void doFilter();
+    void doFilter(String databaseName, String nodeName, String sql) throws Exception;
 
 }

@@ -1,9 +1,9 @@
-package com.mysplitter.proxy;
+package com.mysplitter;
 
-import com.mysplitter.MySplitterConnectionHolder;
-import com.mysplitter.MySplitterDataSourceManager;
-import com.mysplitter.MySplitterStandByExecuteHolder;
-
+import java.beans.BeanInfo;
+import java.beans.Introspector;
+import java.beans.MethodDescriptor;
+import java.lang.reflect.Method;
 import java.sql.*;
 import java.util.List;
 import java.util.Map;
@@ -16,7 +16,7 @@ import java.util.concurrent.Executor;
  * @Author: wangbor
  * @Date: 2018/5/28 14:49
  */
-public class ConnectionProxy implements Connection {
+public class MySplitterConnectionProxy implements Connection {
 
     private MySplitterDataSourceManager mySplitterDataSourceManager;
 
@@ -30,15 +30,15 @@ public class ConnectionProxy implements Connection {
     // TODO 可以完善，如果重复使用多次是否可以优化？有些方法是不是不需要connectionHolder执行
     private MySplitterConnectionHolder mySplitterConnectionHolder;
 
-    public ConnectionProxy(MySplitterDataSourceManager mySplitterDataSourceManager) {
+    public MySplitterConnectionProxy(MySplitterDataSourceManager mySplitterDataSourceManager) {
         this.mySplitterDataSourceManager = mySplitterDataSourceManager;
         this.mySplitterStandByExecuteHolder = new MySplitterStandByExecuteHolder(this);
         this.mySplitterConnectionHolder = new MySplitterConnectionHolder();
     }
 
-    public ConnectionProxy(MySplitterDataSourceManager mySplitterDataSourceManager,
-                           String username,
-                           String password) {
+    public MySplitterConnectionProxy(MySplitterDataSourceManager mySplitterDataSourceManager,
+                                     String username,
+                                     String password) {
         this.mySplitterDataSourceManager = mySplitterDataSourceManager;
         this.username = username;
         this.password = password;
@@ -54,7 +54,7 @@ public class ConnectionProxy implements Connection {
             connection = this.mySplitterDataSourceManager.getConnection(sql);
         }
         // 执行待执行方法
-        this.mySplitterStandByExecuteHolder.executeAll();
+        this.mySplitterStandByExecuteHolder.executeAll(connection);
         this.mySplitterConnectionHolder.setCurrent(connection);
     }
 
@@ -65,21 +65,18 @@ public class ConnectionProxy implements Connection {
 
     @Override
     public PreparedStatement prepareStatement(String sql) throws SQLException {
-        this.mySplitterStandByExecuteHolder.executeAll();
         setConnectionHolder(sql);
         return this.mySplitterConnectionHolder.getCurrent().prepareStatement(sql);
     }
 
     @Override
     public CallableStatement prepareCall(String sql) throws SQLException {
-        this.mySplitterStandByExecuteHolder.executeAll();
         setConnectionHolder(sql);
         return this.mySplitterConnectionHolder.getCurrent().prepareCall(sql);
     }
 
     @Override
     public String nativeSQL(String sql) throws SQLException {
-        this.mySplitterStandByExecuteHolder.executeAll();
         setConnectionHolder(sql);
         return this.mySplitterConnectionHolder.getCurrent().nativeSQL(sql);
     }
@@ -183,14 +180,12 @@ public class ConnectionProxy implements Connection {
     @Override
     public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency) throws
             SQLException {
-        this.mySplitterStandByExecuteHolder.executeAll();
         setConnectionHolder(sql);
         return this.mySplitterConnectionHolder.getCurrent().prepareStatement(sql, resultSetType, resultSetConcurrency);
     }
 
     @Override
     public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency) throws SQLException {
-        this.mySplitterStandByExecuteHolder.executeAll();
         setConnectionHolder(sql);
         return this.mySplitterConnectionHolder.getCurrent().prepareCall(sql, resultSetType, resultSetConcurrency);
     }
@@ -220,35 +215,71 @@ public class ConnectionProxy implements Connection {
 
     @Override
     public Savepoint setSavepoint() throws SQLException {
-        // TODO 保存点待商榷
+        MySplitterSavepointProxy mySplitterSavepointProxy = new MySplitterSavepointProxy();
         List<Connection> connections = mySplitterConnectionHolder.listAll();
         for (Connection connection : connections) {
-            connection.setSavepoint();
+            mySplitterSavepointProxy.putSavepoint(connection.hashCode(), connection.setSavepoint());
         }
-        return null;
+        return mySplitterSavepointProxy;
     }
 
     @Override
     public Savepoint setSavepoint(String name) throws SQLException {
-        // TODO 保存点待商榷
-        return this.mySplitterConnectionHolder.getCurrent().setSavepoint(name);
+        MySplitterSavepointProxy mySplitterSavepointProxy = new MySplitterSavepointProxy(name);
+        List<Connection> connections = mySplitterConnectionHolder.listAll();
+        for (Connection connection : connections) {
+            mySplitterSavepointProxy.putSavepoint(connection.hashCode(), connection.setSavepoint(name));
+        }
+        return mySplitterSavepointProxy;
     }
 
     @Override
     public void rollback(Savepoint savepoint) throws SQLException {
-        // TODO 保存点待商榷
-        List<Connection> connections = this.mySplitterConnectionHolder.listAll();
-        for (Connection connection : connections) {
-            connection.rollback(savepoint);
+        try {
+            BeanInfo beanInfo = Introspector.getBeanInfo(savepoint.getClass(), Object.class);
+            MethodDescriptor[] methodDescriptors = beanInfo.getMethodDescriptors();
+            for (MethodDescriptor methodDescriptor : methodDescriptors) {
+                Method method = methodDescriptor.getMethod();
+                if ("getSavepoint".equals(method.getName())) {
+                    // 获取所有的连接
+                    List<Connection> connections = this.mySplitterConnectionHolder.listAll();
+                    for (Connection connection : connections) {
+                        // 执行获取连接方法
+                        Savepoint realSavepoint = (Savepoint) method.invoke(savepoint, connection.hashCode());
+                        if (realSavepoint != null) {
+                            connection.rollback(realSavepoint);
+                        }
+                    }
+                    return;
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
     @Override
     public void releaseSavepoint(Savepoint savepoint) throws SQLException {
-        // TODO 保存点待商榷
-        List<Connection> connections = this.mySplitterConnectionHolder.listAll();
-        for (Connection connection : connections) {
-            connection.releaseSavepoint(savepoint);
+        try {
+            BeanInfo beanInfo = Introspector.getBeanInfo(savepoint.getClass(), Object.class);
+            MethodDescriptor[] methodDescriptors = beanInfo.getMethodDescriptors();
+            for (MethodDescriptor methodDescriptor : methodDescriptors) {
+                Method method = methodDescriptor.getMethod();
+                if ("getSavepoint".equals(method.getName())) {
+                    // 获取所有的连接
+                    List<Connection> connections = this.mySplitterConnectionHolder.listAll();
+                    for (Connection connection : connections) {
+                        // 执行获取连接方法
+                        Savepoint realSavepoint = (Savepoint) method.invoke(savepoint, connection.hashCode());
+                        if (realSavepoint != null) {
+                            connection.releaseSavepoint(realSavepoint);
+                        }
+                    }
+                    return;
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
@@ -262,7 +293,6 @@ public class ConnectionProxy implements Connection {
     @Override
     public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency, int
             resultSetHoldability) throws SQLException {
-        this.mySplitterStandByExecuteHolder.executeAll();
         setConnectionHolder(sql);
         return this.mySplitterConnectionHolder.getCurrent().prepareStatement(sql, resultSetType,
                 resultSetConcurrency, resultSetHoldability);
@@ -271,7 +301,6 @@ public class ConnectionProxy implements Connection {
     @Override
     public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency, int
             resultSetHoldability) throws SQLException {
-        this.mySplitterStandByExecuteHolder.executeAll();
         setConnectionHolder(sql);
         return this.mySplitterConnectionHolder.getCurrent().prepareCall(sql, resultSetType, resultSetConcurrency,
                 resultSetHoldability);
@@ -279,21 +308,18 @@ public class ConnectionProxy implements Connection {
 
     @Override
     public PreparedStatement prepareStatement(String sql, int autoGeneratedKeys) throws SQLException {
-        this.mySplitterStandByExecuteHolder.executeAll();
         setConnectionHolder(sql);
         return this.mySplitterConnectionHolder.getCurrent().prepareStatement(sql, autoGeneratedKeys);
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, int[] columnIndexes) throws SQLException {
-        this.mySplitterStandByExecuteHolder.executeAll();
         setConnectionHolder(sql);
         return this.mySplitterConnectionHolder.getCurrent().prepareStatement(sql, columnIndexes);
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, String[] columnNames) throws SQLException {
-        this.mySplitterStandByExecuteHolder.executeAll();
         setConnectionHolder(sql);
         return this.mySplitterConnectionHolder.getCurrent().prepareStatement(sql, columnNames);
     }

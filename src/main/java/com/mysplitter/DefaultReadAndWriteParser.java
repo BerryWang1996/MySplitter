@@ -11,9 +11,9 @@ public class DefaultReadAndWriteParser implements MySplitterReadAndWriteParserAd
     @Override
     public String parseOperation(String sql) {
         if (sql.startsWith("SELECT") || sql.startsWith("select")) {
-            return "reader";
+            return "readers";
         }
-        return "writer";
+        return "writers";
     }
 
 }

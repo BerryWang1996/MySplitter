@@ -1,4 +1,4 @@
-package com.mysplitter.wrapper;
+package com.mysplitter;
 
 import com.mysplitter.config.MySplitterDataSourceNodeConfig;
 import com.mysplitter.util.ClassLoaderUtil;

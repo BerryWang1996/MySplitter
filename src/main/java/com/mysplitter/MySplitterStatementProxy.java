@@ -1,4 +1,4 @@
-package com.mysplitter.wrapper;
+package com.mysplitter;
 
 import java.sql.*;
 
@@ -8,7 +8,7 @@ import java.sql.*;
  * @Author: wangbor
  * @Date: 2018/5/16 11:26
  */
-public class StatementWrapper implements Statement {
+public class MySplitterStatementProxy implements Statement {
 
     @Override
     public ResultSet executeQuery(String sql) throws SQLException {
