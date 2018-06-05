@@ -1,12 +1,13 @@
 package com.mysplitter;
 
+import com.mysplitter.util.ClassLoaderUtil;
+
 import java.beans.BeanInfo;
 import java.beans.IntrospectionException;
 import java.beans.Introspector;
 import java.beans.MethodDescriptor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.lang.reflect.Type;
 import java.util.HashMap;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -19,10 +20,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
  */
 public class MySplitterStandByExecuteHolder {
 
-    public Object object;
+    public Object wrapper;
 
-    public MySplitterStandByExecuteHolder(Object object) {
-        this.object = object;
+    public MySplitterStandByExecuteHolder(Object wrapper) {
+        this.wrapper = wrapper;
     }
 
     private CopyOnWriteArrayList<HashMap<String, Object[]>> standByExecuteList =
@@ -31,15 +32,15 @@ public class MySplitterStandByExecuteHolder {
     public void standBy(String methodName, Object... params) {
         HashMap<String, Object[]> stringHashMap = new HashMap<String, Object[]>(1);
         stringHashMap.put(methodName, params);
-        standByExecuteList.add(stringHashMap);
+        this.standByExecuteList.add(stringHashMap);
     }
 
-    public synchronized void executeAll() {
+    public synchronized void executeAll(Object realObject) {
         try {
-            BeanInfo beanInfo = Introspector.getBeanInfo(object.getClass());
+            BeanInfo beanInfo = Introspector.getBeanInfo(realObject.getClass());
             MethodDescriptor[] methodDescriptors = beanInfo.getMethodDescriptors();
             // 获取所有的待执行列表
-            for (HashMap<String, Object[]> standByExecuteMap : standByExecuteList) {
+            for (HashMap<String, Object[]> standByExecuteMap : this.standByExecuteList) {
                 // 获取所有的方法
                 Set<String> methods = standByExecuteMap.keySet();
                 target:
@@ -49,22 +50,20 @@ public class MySplitterStandByExecuteHolder {
                         // 如果方法名相同
                         if (method.equals(methodDescriptor.getMethod().getName())) {
                             // 如果参数长度相同
-                            Type[] genericParameterTypes = methodDescriptor.getMethod().getGenericParameterTypes();
+                            Class<?>[] genericParameterTypes = methodDescriptor.getMethod().getParameterTypes();
                             Object[] objects = standByExecuteMap.get(method);
                             if (genericParameterTypes.length == objects.length) {
                                 // 如果参数类型相同
-                                for (Type genericParameterType : genericParameterTypes) {
+                                for (Class genericParameterType : genericParameterTypes) {
                                     for (Object o : objects) {
-                                        System.out.println(genericParameterType == o.getClass());
-                                        if (genericParameterType == o.getClass()) {
+                                        if (ClassLoaderUtil.isSameType(genericParameterType, o.getClass())) {
                                             Method method1 = methodDescriptor.getMethod();
-                                            method1.invoke(this.object, standByExecuteMap.get(method));
+                                            method1.invoke(realObject, standByExecuteMap.get(method));
                                             break target;
                                         }
                                     }
                                 }
                             }
-
                         }
                     }
                 }

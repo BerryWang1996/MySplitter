@@ -9,8 +9,7 @@ import com.mysplitter.advise.MySplitterFilterAdvise;
 public class MyDataSourceFilters1 implements MySplitterFilterAdvise {
 
     @Override
-    public void doFilter() {
+    public void doFilter(String databaseName, String nodeName, String sql) throws Exception {
 
     }
-    
 }

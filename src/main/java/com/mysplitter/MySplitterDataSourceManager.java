@@ -7,13 +7,11 @@ import com.mysplitter.config.MySplitterDataSourceNodeConfig;
 import com.mysplitter.config.MySplitterHighAvailableConfig;
 import com.mysplitter.config.MySplitterLoadBalanceConfig;
 import com.mysplitter.exceptions.NoHealthyDataSourceException;
-import com.mysplitter.proxy.ConnectionProxy;
 import com.mysplitter.selector.AbstractLoadBalanceSelector;
 import com.mysplitter.selector.NoneLoadBalanceSelector;
 import com.mysplitter.selector.RandomLoadBalanceSelector;
 import com.mysplitter.selector.RoundRobinLoadBalanceSelector;
 import com.mysplitter.util.ClassLoaderUtil;
-import com.mysplitter.wrapper.DataSourceWrapper;
 import org.slf4j.LoggerFactory;
 
 import javax.sql.DataSource;
@@ -519,6 +517,8 @@ public class MySplitterDataSourceManager {
                         dataSourceWrapper.healthyCheck(detectionSql);
                     } catch (Exception e) {
                         // 如果出现异常提交到异常提醒处理器
+                        LOGGER.error("database:{}, node:{} is ill",
+                                dataSourceWrapper.getDataBaseName(), dataSourceWrapper.getNodeName(), e);
                         MySplitterDataSourceIllAlerterAdvise alerter = dataSourceIllAlerterAdviseMap.get(selectorName);
                         alerter.illAlerter(dataSourceWrapper.getDataBaseName(), dataSourceWrapper.getNodeName(), e);
                         // 将当前数据源节点迁移到异常数据源节点
@@ -549,9 +549,6 @@ public class MySplitterDataSourceManager {
                         Statement statement = realDataSource.getConnection().createStatement();
                         statement.execute(detectionSql);
                     } catch (Exception e) {
-                        // 如果出现异常提交到异常提醒处理器
-                        MySplitterDataSourceIllAlerterAdvise alerter = dataSourceIllAlerterAdviseMap.get(selectorName);
-                        alerter.illAlerter(dataSourceWrapper.getDataBaseName(), dataSourceWrapper.getNodeName(), e);
                         isOk = false;
                     }
                     // 如果没出现异常，将当前节点恢复至正常节点
@@ -584,12 +581,12 @@ public class MySplitterDataSourceManager {
         return databaseName + ":" + operation;
     }
 
-    public ConnectionProxy getConnectionProxy() {
-        return new ConnectionProxy(this);
+    public MySplitterConnectionProxy getConnectionProxy() {
+        return new MySplitterConnectionProxy(this);
     }
 
-    public ConnectionProxy getConnectionProxy(String username, String password) {
-        return new ConnectionProxy(this, username, password);
+    public MySplitterConnectionProxy getConnectionProxy(String username, String password) {
+        return new MySplitterConnectionProxy(this, username, password);
     }
 
     public Connection getConnection(String sql) throws SQLException {
@@ -599,19 +596,42 @@ public class MySplitterDataSourceManager {
     public Connection getConnection(String sql, String username, String password) throws SQLException {
         String targetDatabase = this.databaseManager.routerHandler(sql);
         String operation = this.readAndWriteParser.parseOperation(sql);
-        AbstractLoadBalanceSelector<DataSourceWrapper> selector = this.healthyDataSourceSelectorMap.get
-                (generateDataSourceSelectorName(targetDatabase, operation));
-        if (selector == null) {
-            selector = this.healthyDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase,
+        AbstractLoadBalanceSelector<DataSourceWrapper> healthySelector =
+                this.healthyDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase, operation));
+        if (healthySelector == null) {
+            healthySelector = this.healthyDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase,
                     "integrates"));
         }
-        if (selector == null) {
-            throw new NoHealthyDataSourceException();
+        if (healthySelector == null) {
+            throw new IllegalArgumentException("Can not find database:" + targetDatabase + ", operation:" + operation
+                    + ". May be databasesRoutingHandler or readAndWriteParser return wrong database or operation.");
         }
-        if (username != null && password != null) {
-            return selector.acquire().getRealDataSource().getConnection(username, password);
-        } else {
-            return selector.acquire().getRealDataSource().getConnection();
+        Connection realConnection = null;
+        DataSourceWrapper dataSourceWrapper = null;
+        try {
+            dataSourceWrapper = healthySelector.acquire();
+            if (dataSourceWrapper == null) {
+                throw new NoHealthyDataSourceException();
+            }
+            if (username != null || password != null) {
+                realConnection = dataSourceWrapper.getRealDataSource().getConnection(username, password);
+            } else {
+                realConnection = dataSourceWrapper.getRealDataSource().getConnection();
+            }
+        } catch (SQLException | NoHealthyDataSourceException e) {
+            // 如果获取连接出现异常，将当前连接放入生病数据源
+            if (dataSourceWrapper != null) {
+                // 将当前生病的数据源移除
+                healthySelector.release(dataSourceWrapper);
+                // 将生病的数据源放入生病的map中
+                AbstractLoadBalanceSelector<DataSourceWrapper> illSelector =
+                        this.illDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase, operation));
+                illSelector.register(dataSourceWrapper,
+                        dataSourceWrapper.getMySplitterDataSourceNodeConfig().getWeight());
+            }
+            // TODO 数据源的生成到底由谁来进行控制？是获取连接时控制，还是由定时任务控制？高可用切换时机是否需要考虑？
+            // 判断是否还有数据源，如果数据源没有了，激活待命数据源
         }
+        return realConnection;
     }
 }
