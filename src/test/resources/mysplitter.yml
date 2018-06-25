@@ -5,7 +5,7 @@ mysplitter:
     - com.mysplitter.MyDataSourceFilters1
     - com.mysplitter.MyDataSourceFilters2
   common:
-    dataSourceClass: com.mchange.v2.c3p0.ComboPooledDataSource
+    dataSourceClass: com.alibaba.druid.pool.DruidDataSource
     highAvailable:
       integrate:
         enabled: false
@@ -45,29 +45,21 @@ mysplitter:
         reader-read-slave-1:
           # dataSourceClass: (optional high priority)
           configuration: # dataSource configuration
-            url: 192.168.1.101:3306
+            url: jdbc:mysql://localhost:3306/user
             username: root
             password: admin
             driverClassName: com.mysql.jdbc.Driver
         reader-read-slave-2:
           # dataSourceClass: (optional high priority)
           configuration: # dataSource configuration
-            url: 192.168.1.101:3306
-            username: root
-            password: admin
-            driverClassName: com.mysql.jdbc.Driver
-        reader-read-slave-3:
-          # dataSourceClass: (optional high priority)
-          configuration: # dataSource configuration
-            url: 192.168.1.101:3306
+            url: jdbc:mysql://localhost:3306/user
             username: root
             password: admin
             driverClassName: com.mysql.jdbc.Driver
       writers:
         writer-write-master-1:
-          dataSourceClass: com.alibaba.druid.pool.DruidDataSource
           configuration: # dataSource configuration
-            url: 192.168.1.101:3306
+            url: jdbc:mysql://localhost:3306/user
             username: root
             password: admin
             driverClassName: com.mysql.jdbc.Driver
@@ -77,7 +69,7 @@ mysplitter:
         integrate-slave-1:
           dataSourceClass: com.zaxxer.hikari.HikariDataSource
           configuration: # dataSource configuration
-            url: 192.168.1.101:3306
+            jdbcUrl: jdbc:mysql://localhost:3306/dept
             username: root
             password: admin
             driverClassName: com.mysql.jdbc.Driver

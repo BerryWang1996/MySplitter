@@ -31,18 +31,7 @@ public class MySplitterDataSourceTest {
         String string = JSON.toJSONString(mySplitterConfig, SerializerFeature.DisableCircularReferenceDetect);
         System.out.println(string);
         Connection connection = router.getConnection();
-        // 获取数据源1 user表
-        PreparedStatement preparedStatement = connection.prepareStatement("SELECT * FROM user WHERE id=?");
-        preparedStatement.setLong(1, 1L);
-        ResultSet resultSet = preparedStatement.executeQuery();
-        if (resultSet.next()) {
-            String id = resultSet.getString("id");
-            String username = resultSet.getString("username");
-            String password = resultSet.getString("password");
-            Integer age = resultSet.getInt("age");
-            System.out.println("=====TABLE user RESULT=====:" + id + "-" + username + "-" + password + "-" + age);
-        }
-        // 获取数据源2 dept表
+        // 获取数据源1 dept表
         PreparedStatement preparedStatement2 = connection.prepareStatement("SELECT * FROM dept WHERE id=?");
         preparedStatement2.setLong(1, 1L);
         ResultSet resultSet2 = preparedStatement2.executeQuery();
@@ -50,6 +39,16 @@ public class MySplitterDataSourceTest {
             String id = resultSet2.getString("id");
             String name = resultSet2.getString("name");
             System.out.println("=====TABLE dept RESULT=====:" + id + "-" + name);
+        }
+        // 获取数据源2 user表
+        PreparedStatement preparedStatement = connection.prepareStatement("SELECT * FROM user WHERE id=?");
+        preparedStatement.setLong(1, 1L);
+        ResultSet resultSet = preparedStatement.executeQuery();
+        if (resultSet.next()) {
+            String id = resultSet.getString("id");
+            String username = resultSet.getString("name");
+            Integer age = resultSet.getInt("age");
+            System.out.println("=====TABLE user RESULT=====:" + id + "-" + username + "-" + age);
         }
         router.close();
     }

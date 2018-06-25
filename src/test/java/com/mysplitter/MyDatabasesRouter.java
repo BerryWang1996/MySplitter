@@ -6,7 +6,7 @@ public class MyDatabasesRouter implements MySplitterDatabasesRoutingHandlerAdvis
 
     @Override
     public String routerHandler(String sql) {
-        if (sql.contains("user")) {
+        if (!sql.contains("user")) {
             return "database-b";
         } else {
             return "database-a";
