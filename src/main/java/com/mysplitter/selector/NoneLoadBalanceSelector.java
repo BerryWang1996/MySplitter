@@ -6,9 +6,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * 无负载均衡选择器
- *
- * @Author: wangbor
- * @Date: 2018/5/14 19:28
  */
 public class NoneLoadBalanceSelector<T> extends AbstractLoadBalanceSelector<T> {
 

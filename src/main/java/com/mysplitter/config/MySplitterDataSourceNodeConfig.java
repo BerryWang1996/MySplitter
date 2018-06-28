@@ -4,9 +4,6 @@ import java.util.Map;
 
 /**
  * 数据源节点配置对象
- *
- * @Author: wangbor
- * @Date: 2018/5/13 18:45
  */
 public class MySplitterDataSourceNodeConfig {
 

@@ -5,10 +5,6 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-/**
- * @Author: 王伯瑞
- * @Date: 2018/6/4 10:54
- */
 public class MySplitterConnectionHolder {
 
     private List<Connection> connections = new CopyOnWriteArrayList<Connection>();

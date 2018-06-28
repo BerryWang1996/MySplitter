@@ -2,9 +2,6 @@ package com.mysplitter.config;
 
 /**
  * 负载均衡配置
- *
- * @Author: wangbor
- * @Date: 2018/5/13 21:20
  */
 public class MySplitterLoadBalanceConfig {
 

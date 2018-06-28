@@ -27,9 +27,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * MySplitter数据源管理器，用于获取真实数据源，并执行高可用以及负载均衡等实现
- *
- * @Author: wangbor
- * @Date: 2018/5/18 8:59
  */
 public class MySplitterDataSourceManager {
 

@@ -5,9 +5,6 @@ import java.util.Map;
 
 /**
  * 数据源配置对象
- *
- * @Author: wangbor
- * @Date: 2018/5/13 18:40
  */
 public class MySplitterDataBaseConfig {
 

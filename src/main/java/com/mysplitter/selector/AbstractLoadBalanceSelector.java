@@ -4,9 +4,6 @@ import java.util.List;
 
 /**
  * 负载均衡选择器
- *
- * @Author: wangbor
- * @Date: 2018/5/14 18:35
  */
 public abstract class AbstractLoadBalanceSelector<T> {
 

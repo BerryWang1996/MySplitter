@@ -4,9 +4,6 @@ import java.util.Map;
 
 /**
  * 通用配置对象
- *
- * @Author: wangbor
- * @Date: 2018/5/13 18:23
  */
 public class MySplitterCommonConfig {
 

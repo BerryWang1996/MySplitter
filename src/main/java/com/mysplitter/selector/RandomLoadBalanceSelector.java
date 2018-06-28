@@ -6,9 +6,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * 随机权重算法负载均衡选择器
- *
- * @Author: wangbor
- * @Date: 2018/5/14 19:28
  */
 public class RandomLoadBalanceSelector<T> extends AbstractLoadBalanceSelector<T> {
 

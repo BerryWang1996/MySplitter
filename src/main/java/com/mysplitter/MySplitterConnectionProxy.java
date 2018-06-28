@@ -12,9 +12,6 @@ import java.util.concurrent.Executor;
 
 /**
  * 数据库连接代理
- *
- * @Author: wangbor
- * @Date: 2018/5/28 14:49
  */
 public class MySplitterConnectionProxy implements Connection {
 

@@ -21,9 +21,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 配置文件工具类
- *
- * @Author: wangbor
- * @Date: 2018/5/13 18:15
  */
 public class ConfigurationUtil {
 

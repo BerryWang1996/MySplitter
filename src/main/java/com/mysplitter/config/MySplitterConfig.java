@@ -6,9 +6,6 @@ import java.util.Map;
 
 /**
  * 配置文件对象
- *
- * @Author: wangbor
- * @Date: 2018/5/13 18:17
  */
 public class MySplitterConfig implements Serializable {
 
