@@ -14,9 +14,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * 数据源包装类
- *
- * @Author: wangbor
- * @Date: 2018/5/18 9:49
  */
 public class DataSourceWrapper {
 

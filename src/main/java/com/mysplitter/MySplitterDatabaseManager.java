@@ -10,9 +10,6 @@ import java.util.Map;
 
 /**
  * MySplitter数据库管理器，用于管理多个数据库
- *
- * @Author: wangbor
- * @Date: 2018/5/18 8:59
  */
 class MySplitterDatabaseManager {
 

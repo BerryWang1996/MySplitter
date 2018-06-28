@@ -2,9 +2,6 @@ package com.mysplitter.util;
 
 /**
  * 字符串工具类
- *
- * @Author: wangbor
- * @Date: 2018/5/14 10:06
  */
 public class StringUtil {
 

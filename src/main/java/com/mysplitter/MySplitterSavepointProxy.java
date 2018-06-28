@@ -5,10 +5,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/**
- * @Author: 王伯瑞
- * @Date: 2018/6/5 9:29
- */
 public class MySplitterSavepointProxy implements Savepoint {
 
     private static AtomicInteger atomicInteger = new AtomicInteger(1);

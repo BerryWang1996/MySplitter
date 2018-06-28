@@ -4,9 +4,6 @@ import java.sql.*;
 
 /**
  * Statement包装类
- *
- * @Author: wangbor
- * @Date: 2018/5/16 11:26
  */
 public class MySplitterStatementProxy implements Statement {
 

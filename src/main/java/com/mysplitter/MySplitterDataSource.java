@@ -18,9 +18,6 @@ import java.util.logging.Logger;
 
 /**
  * MySplitter数据源路由，实现DataSource接口
- *
- * @Author: wangbor
- * @Date: 2018/5/14 10:30
  */
 public class MySplitterDataSource implements DataSource, Serializable {
 

@@ -1,9 +1,5 @@
 package com.mysplitter.advise;
 
-/**
- * @Author: wangbor
- * @Date: 2018/5/28 16:13
- */
 public interface MySplitterReadAndWriteParserAdvise {
 
     /**

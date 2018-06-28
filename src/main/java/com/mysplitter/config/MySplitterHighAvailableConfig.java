@@ -2,9 +2,6 @@ package com.mysplitter.config;
 
 /**
  * 高可用配置
- *
- * @Author: wangbor
- * @Date: 2018/5/13 18:22
  */
 public class MySplitterHighAvailableConfig {
 
