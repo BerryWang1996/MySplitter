@@ -51,11 +51,18 @@ class MySplitterDatabaseManager {
         }
     }
 
+    /**
+     * 路由处理
+     */
     public String routerHandler(String sql) {
         return this.databaseRoutingHandler.routerHandler(sql);
     }
 
+    /**
+     * 路由重写sql
+     */
     public String rewriteSql(String sql) {
+        // TODO 重写sql功能没有用到
         return this.databaseRoutingHandler.rewriteSql(sql);
     }
 

@@ -27,12 +27,18 @@ public class MySplitterConnectionProxy implements Connection {
     // TODO 可以完善，如果重复使用多次是否可以优化？有些方法是不是不需要connectionHolder执行
     private MySplitterConnectionHolder mySplitterConnectionHolder;
 
+    /**
+     * 数据库连接代理（不需要用户名和密码）
+     */
     public MySplitterConnectionProxy(MySplitterDataSourceManager mySplitterDataSourceManager) {
         this.mySplitterDataSourceManager = mySplitterDataSourceManager;
         this.mySplitterStandByExecuteHolder = new MySplitterStandByExecuteHolder(this);
         this.mySplitterConnectionHolder = new MySplitterConnectionHolder();
     }
 
+    /**
+     * 数据库连接代理（需要用户名和密码）
+     */
     public MySplitterConnectionProxy(MySplitterDataSourceManager mySplitterDataSourceManager,
                                      String username,
                                      String password) {
@@ -43,7 +49,11 @@ public class MySplitterConnectionProxy implements Connection {
         this.mySplitterConnectionHolder = new MySplitterConnectionHolder();
     }
 
+    /**
+     * 根据sql进行解析设置当前操作真正的连接
+     */
     private void setConnectionHolder(String sql) throws SQLException {
+        // 根据是否设置username和password获取真正的连接
         Connection connection;
         if (username != null || password != null) {
             connection = this.mySplitterDataSourceManager.getConnection(sql, username, password);
@@ -52,11 +62,13 @@ public class MySplitterConnectionProxy implements Connection {
         }
         // 执行待执行方法
         this.mySplitterStandByExecuteHolder.executeAll(connection);
+        // 在连接保持器设置当前的连接
         this.mySplitterConnectionHolder.setCurrent(connection);
     }
 
     @Override
     public Statement createStatement() throws SQLException {
+        // TODO 这个还没有完成
         return null;
     }
 

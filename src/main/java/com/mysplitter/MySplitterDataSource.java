@@ -44,6 +44,9 @@ public class MySplitterDataSource implements DataSource, Serializable {
         this.mySplitterConfig = mySplitterConfig;
     }
 
+    /**
+     * 初始化配置文件，以及创建连接池
+     */
     public synchronized void init() {
         if (isInitialized.compareAndSet(false, true)) {
             try {
@@ -69,6 +72,9 @@ public class MySplitterDataSource implements DataSource, Serializable {
         }
     }
 
+    /**
+     * 关闭所有的连接
+     */
     public synchronized void close() {
         try {
             if (isInitialized.get()) {

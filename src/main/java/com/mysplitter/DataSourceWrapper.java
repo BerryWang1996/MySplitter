@@ -19,8 +19,18 @@ public class DataSourceWrapper {
 
     private static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(DataSourceWrapper.class);
 
+    /**
+     * 标志是否已经初始化
+     */
     private AtomicBoolean isInitialized = new AtomicBoolean(false);
 
+    /**
+     * 包装类构造方法
+     *
+     * @param nodeName                       节点名称
+     * @param dataBaseName                   数据库名称
+     * @param mySplitterDataSourceNodeConfig 节点配置
+     */
     public DataSourceWrapper(String nodeName, String dataBaseName, MySplitterDataSourceNodeConfig
             mySplitterDataSourceNodeConfig) {
         this.nodeName = nodeName;
@@ -36,10 +46,16 @@ public class DataSourceWrapper {
 
     private MySplitterDataSourceNodeConfig mySplitterDataSourceNodeConfig;
 
+    /**
+     * 获取真正数据源
+     */
     public DataSource getRealDataSource() {
         return realDataSource;
     }
 
+    /**
+     * 初始化真正的数据源
+     */
     public synchronized void initRealDataSource() {
         if (isInitialized.compareAndSet(false, true)) {
             try {
@@ -73,6 +89,9 @@ public class DataSourceWrapper {
         }
     }
 
+    /**
+     * 关闭真正的数据源（一般是当高可用lazyload设置为true时会使用）
+     */
     public synchronized void releaseRealDataSource() throws Exception {
         if (isInitialized.get()) {
             // 内省机制查找关闭资源的方法，并执行
@@ -92,18 +111,33 @@ public class DataSourceWrapper {
         }
     }
 
+    /**
+     * 获取节点名称（监控用）
+     */
     public String getNodeName() {
         return nodeName;
     }
 
+    /**
+     * 获取数据库名称（监控用）
+     */
     public String getDataBaseName() {
         return dataBaseName;
     }
 
+    /**
+     * 获取数据源的配置（监控用）
+     */
     public MySplitterDataSourceNodeConfig getMySplitterDataSourceNodeConfig() {
         return mySplitterDataSourceNodeConfig;
     }
 
+    /**
+     * 数据源健康检查（如果数据源不健康，抛出异常）
+     *
+     * @param sql 通过sql检查数据源是否健康
+     * @throws Exception 操作数据源时发生的任何异常
+     */
     public void healthyCheck(String sql) throws Exception {
         this.getRealDataSource().getConnection().createStatement().execute(sql);
     }
