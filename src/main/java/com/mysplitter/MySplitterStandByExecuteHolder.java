@@ -17,15 +17,27 @@ import java.util.concurrent.CopyOnWriteArrayList;
  */
 public class MySplitterStandByExecuteHolder {
 
+    /**
+     * 要执行方法的对象
+     */
     public Object wrapper;
 
     public MySplitterStandByExecuteHolder(Object wrapper) {
         this.wrapper = wrapper;
     }
 
+    /**
+     * 待执行方法列表
+     */
     private CopyOnWriteArrayList<HashMap<String, Object[]>> standByExecuteList =
             new CopyOnWriteArrayList<HashMap<String, Object[]>>();
 
+    /**
+     * 放入待执行方法
+     *
+     * @param methodName 方法名称
+     * @param params     方法参数
+     */
     public void standBy(String methodName, Object... params) {
         HashMap<String, Object[]> stringHashMap = new HashMap<String, Object[]>(1);
         stringHashMap.put(methodName, params);

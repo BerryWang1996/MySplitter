@@ -3,6 +3,9 @@ package com.mysplitter;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * 守护线程工厂类
+ */
 public class DaemonThreadFactory implements ThreadFactory {
 
     private AtomicInteger threadNo = new AtomicInteger(1);

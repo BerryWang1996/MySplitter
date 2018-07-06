@@ -627,7 +627,7 @@ public class MySplitterDataSourceManager {
                         dataSourceWrapper.getMySplitterDataSourceNodeConfig().getWeight());
             }
             // TODO 数据源的生成到底由谁来进行控制？是获取连接时控制，还是由定时任务控制？高可用切换时机是否需要考虑？
-            // 判断是否还有数据源，如果数据源没有了，激活待命数据源
+            // TODO 判断是否还有数据源，如果数据源没有了，激活待命数据源
         }
         return realConnection;
     }
