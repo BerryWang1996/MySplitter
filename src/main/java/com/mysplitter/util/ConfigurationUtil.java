@@ -194,7 +194,6 @@ public class ConfigurationUtil {
                             mySplitterDataSourceNodeConfig,
                             mySplitterDataBaseConfig,
                             mySplitterConfig.getCommon());
-
                 }
             }
             Map<String, MySplitterDataSourceNodeConfig> readers = mySplitterDataBaseConfig.getReaders();
@@ -217,6 +216,67 @@ public class ConfigurationUtil {
             mySplitterConfig.setReadAndWriteParser("com.mysplitter.DefaultReadAndWriteParser");
         } else {
             ConfigurationUtil.isReadAndWriteParserLegal(mySplitterConfig.getReadAndWriteParser());
+        }
+        // 检查是否设置数据库密码加密
+        if (mySplitterConfig.isEnablePasswordEncryption()) {
+            // 如果设置数据库密码加密解密每个数据库密码
+            for (String databaseKey : databases.keySet()) {
+                MySplitterDataBaseConfig mySplitterDataBaseConfig = databases.get(databaseKey);
+                Map<String, MySplitterDataSourceNodeConfig> integrates = mySplitterDataBaseConfig.getIntegrates();
+                if (integrates != null) {
+                    for (String integrateKey : integrates.keySet()) {
+                        MySplitterDataSourceNodeConfig nodeConfig = integrates.get(integrateKey);
+                        Object password = nodeConfig.getConfiguration().get("password");
+                        Object publicKey = nodeConfig.getConfiguration().get("publicKey");
+                        if (password != null && StringUtil.isNotBlank(password.toString())) {
+                            if (publicKey == null || StringUtil.isBlank(publicKey.toString())) {
+                                throw new IllegalArgumentException("You have setting the database password " +
+                                        "encryption, please set the public key!");
+                            }
+                            // 解密密码
+                            String decryptPassword = SecurityUtil.decrypt(publicKey.toString(), password.toString());
+                            // 将解密后的密码重新放入配置文件中
+                            nodeConfig.getConfiguration().put("password", decryptPassword);
+                        }
+                    }
+                }
+                Map<String, MySplitterDataSourceNodeConfig> writers = mySplitterDataBaseConfig.getWriters();
+                if (writers != null) {
+                    for (String writerKey : writers.keySet()) {
+                        MySplitterDataSourceNodeConfig nodeConfig = writers.get(writerKey);
+                        Object password = nodeConfig.getConfiguration().get("password");
+                        Object publicKey = nodeConfig.getConfiguration().get("publicKey");
+                        if (password != null && StringUtil.isNotBlank(password.toString())) {
+                            if (publicKey == null || StringUtil.isBlank(publicKey.toString())) {
+                                throw new IllegalArgumentException("You have setting the database password " +
+                                        "encryption, please set the public key!");
+                            }
+                            // 解密密码
+                            String decryptPassword = SecurityUtil.decrypt(publicKey.toString(), password.toString());
+                            // 将解密后的密码重新放入配置文件中
+                            nodeConfig.getConfiguration().put("password", decryptPassword);
+                        }
+                    }
+                }
+                Map<String, MySplitterDataSourceNodeConfig> readers = mySplitterDataBaseConfig.getReaders();
+                if (readers != null) {
+                    for (String readerKey : readers.keySet()) {
+                        MySplitterDataSourceNodeConfig nodeConfig = readers.get(readerKey);
+                        Object password = nodeConfig.getConfiguration().get("password");
+                        Object publicKey = nodeConfig.getConfiguration().get("publicKey");
+                        if (password != null && StringUtil.isNotBlank(password.toString())) {
+                            if (publicKey == null || StringUtil.isBlank(publicKey.toString())) {
+                                throw new IllegalArgumentException("You have setting the database password " +
+                                        "encryption, please set the public key!");
+                            }
+                            // 解密密码
+                            String decryptPassword = SecurityUtil.decrypt(publicKey.toString(), password.toString());
+                            // 将解密后的密码重新放入配置文件中
+                            nodeConfig.getConfiguration().put("password", decryptPassword);
+                        }
+                    }
+                }
+            }
         }
     }
 
