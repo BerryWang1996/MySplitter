@@ -10,6 +10,8 @@ import java.beans.Introspector;
 import java.beans.MethodDescriptor;
 import java.beans.PropertyDescriptor;
 import java.lang.reflect.Method;
+import java.sql.Connection;
+import java.sql.Statement;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -139,7 +141,12 @@ public class DataSourceWrapper {
      * @throws Exception 操作数据源时发生的任何异常
      */
     public void healthyCheck(String sql) throws Exception {
-        this.getRealDataSource().getConnection().createStatement().execute(sql);
+        try (
+                Connection connection = this.getRealDataSource().getConnection();
+                Statement statement = connection.createStatement()
+        ) {
+            statement.execute(sql);
+        }
     }
 
     @Override
