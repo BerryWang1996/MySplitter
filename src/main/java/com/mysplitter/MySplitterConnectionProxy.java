@@ -29,15 +29,21 @@ public class MySplitterConnectionProxy implements Connection {
 
     /**
      * 数据库连接代理（不需要用户名和密码）
+     *
+     * @param mySplitterDataSourceManager 数据源管理器
      */
     public MySplitterConnectionProxy(MySplitterDataSourceManager mySplitterDataSourceManager) {
         this.mySplitterDataSourceManager = mySplitterDataSourceManager;
-        this.mySplitterStandByExecuteHolder = new MySplitterStandByExecuteHolder(this);
         this.mySplitterConnectionHolder = new MySplitterConnectionHolder();
+        this.mySplitterStandByExecuteHolder = new MySplitterStandByExecuteHolder(this);
     }
 
     /**
      * 数据库连接代理（需要用户名和密码）
+     *
+     * @param mySplitterDataSourceManager 数据源管理器
+     * @param username                    数据源用户名
+     * @param password                    数据源密码
      */
     public MySplitterConnectionProxy(MySplitterDataSourceManager mySplitterDataSourceManager,
                                      String username,
@@ -45,8 +51,8 @@ public class MySplitterConnectionProxy implements Connection {
         this.mySplitterDataSourceManager = mySplitterDataSourceManager;
         this.username = username;
         this.password = password;
-        this.mySplitterStandByExecuteHolder = new MySplitterStandByExecuteHolder(this);
         this.mySplitterConnectionHolder = new MySplitterConnectionHolder();
+        this.mySplitterStandByExecuteHolder = new MySplitterStandByExecuteHolder(this);
     }
 
     /**
@@ -68,8 +74,18 @@ public class MySplitterConnectionProxy implements Connection {
 
     @Override
     public Statement createStatement() throws SQLException {
-        // TODO 这个还没有完成
-        return null;
+        // TODO 未完成
+        if (true) {
+            throw new SQLFeatureNotSupportedException("Operation not support now!");
+        }
+        return new MySplitterStatementProxy(this.mySplitterDataSourceManager,
+                this.mySplitterStandByExecuteHolder,
+                this.mySplitterConnectionHolder,
+                this.username,
+                this.password,
+                null,
+                null,
+                null);
     }
 
     @Override
@@ -183,7 +199,17 @@ public class MySplitterConnectionProxy implements Connection {
     @Override
     public Statement createStatement(int resultSetType, int resultSetConcurrency) throws SQLException {
         // TODO 未完成
-        return null;
+        if (true) {
+            throw new SQLFeatureNotSupportedException("Operation not support now!");
+        }
+        return new MySplitterStatementProxy(this.mySplitterDataSourceManager,
+                this.mySplitterStandByExecuteHolder,
+                this.mySplitterConnectionHolder,
+                this.username,
+                this.password,
+                resultSetType,
+                resultSetConcurrency,
+                null);
     }
 
     @Override
@@ -295,8 +321,18 @@ public class MySplitterConnectionProxy implements Connection {
     @Override
     public Statement createStatement(int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws
             SQLException {
-        // TODO 未完成代理类实现
-        return null;
+        // TODO 未完成
+        if (true) {
+            throw new SQLFeatureNotSupportedException("Operation not support now!");
+        }
+        return new MySplitterStatementProxy(this.mySplitterDataSourceManager,
+                this.mySplitterStandByExecuteHolder,
+                this.mySplitterConnectionHolder,
+                this.username,
+                this.password,
+                resultSetType,
+                resultSetConcurrency,
+                resultSetHoldability);
     }
 
     @Override
