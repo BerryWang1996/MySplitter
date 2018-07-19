@@ -13,6 +13,8 @@ public class MySplitterConfig implements Serializable {
 
     private String readAndWriteParser;
 
+    private boolean enablePasswordEncryption;
+
     private List<String> filters;
 
     private MySplitterCommonConfig common;
@@ -33,6 +35,14 @@ public class MySplitterConfig implements Serializable {
 
     public void setReadAndWriteParser(String readAndWriteParser) {
         this.readAndWriteParser = readAndWriteParser;
+    }
+
+    public boolean isEnablePasswordEncryption() {
+        return enablePasswordEncryption;
+    }
+
+    public void setEnablePasswordEncryption(boolean enablePasswordEncryption) {
+        this.enablePasswordEncryption = enablePasswordEncryption;
     }
 
     public List<String> getFilters() {
