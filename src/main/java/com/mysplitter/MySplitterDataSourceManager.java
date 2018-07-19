@@ -14,7 +14,6 @@ import com.mysplitter.selector.RoundRobinLoadBalanceSelector;
 import com.mysplitter.util.ClassLoaderUtil;
 import org.slf4j.LoggerFactory;
 
-import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -542,9 +541,12 @@ public class MySplitterDataSourceManager {
                 for (DataSourceWrapper dataSourceWrapper : dataSourceWrappers) {
                     boolean isOk = true;
                     try {
-                        DataSource realDataSource = dataSourceWrapper.getRealDataSource();
-                        Statement statement = realDataSource.getConnection().createStatement();
-                        statement.execute(detectionSql);
+                        try (
+                                Connection connection = dataSourceWrapper.getRealDataSource().getConnection();
+                                Statement statement = connection.createStatement()
+                        ) {
+                            statement.execute(detectionSql);
+                        }
                     } catch (Exception e) {
                         isOk = false;
                     }
