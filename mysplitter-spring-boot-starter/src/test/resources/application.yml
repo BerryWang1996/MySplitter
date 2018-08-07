@@ -1,0 +1,4 @@
+spring:
+  datasource:
+    mysplitter:
+      configuration-file: mysplitter.yml

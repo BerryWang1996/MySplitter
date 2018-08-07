@@ -29,6 +29,7 @@ import org.yaml.snakeyaml.constructor.Constructor;
 import org.yaml.snakeyaml.representer.Representer;
 import org.yaml.snakeyaml.resolver.Resolver;
 
+import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.util.Arrays;
 import java.util.List;
@@ -55,9 +56,13 @@ public class ConfigurationUtil {
     private ConfigurationUtil() {
     }
 
-    public static MySplitterRootConfig getMySplitterConfig(String fileName) {
+    public static MySplitterRootConfig getMySplitterConfig(String fileName) throws Exception {
         // 读取配置文件
         final InputStream resource = ConfigurationUtil.class.getClassLoader().getResourceAsStream(fileName);
+        // 如果配置文件不存在报错
+        if (resource == null) {
+            throw new FileNotFoundException("MySplitter configuration file " + fileName + " not found!");
+        }
         // 饿汉式加载配置对象
         Yaml yaml = new Yaml(new Constructor() {
             @Override
@@ -77,6 +82,10 @@ public class ConfigurationUtil {
             for (String filter : filters) {
                 isFilterLegal(filter);
             }
+        }
+        // 检查common是否为空，如果为空创建一个新的
+        if (mySplitterConfig.getCommon() == null) {
+            mySplitterConfig.setCommon(new MySplitterCommonConfig());
         }
         // 检查highAvailable
         Map<String, MySplitterHighAvailableConfig> commonHaConfigMap = mySplitterConfig.getCommon().getHighAvailable();

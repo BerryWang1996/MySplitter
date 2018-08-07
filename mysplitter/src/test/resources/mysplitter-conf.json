@@ -1,0 +1,192 @@
+{
+  "mysplitter": {
+    "common": {
+      "dataSourceClass": "com.alibaba.druid.pool.DruidDataSource",
+      "highAvailable": {
+        "integrate": {
+          "detectionSql": "SELECT 1",
+          "enabled": false,
+          "healthyHeartbeatRate": "1s",
+          "illAlertHandler": "com.mysplitter.MyDataSourceIllAlertHandler",
+          "illHeartbeatRate": "20s",
+          "lazyLoad": false,
+          "switchOpportunity": "on-error"
+        },
+        "read": {
+          "detectionSql": "SELECT 1",
+          "enabled": true,
+          "healthyHeartbeatRate": "1s",
+          "illAlertHandler": "com.mysplitter.MyDataSourceIllAlertHandler",
+          "illHeartbeatRate": "20s",
+          "lazyLoad": true,
+          "switchOpportunity": "on-error"
+        },
+        "write": {
+          "detectionSql": "SELECT 1",
+          "enabled": false,
+          "healthyHeartbeatRate": "1s",
+          "illAlertHandler": "com.mysplitter.MyDataSourceIllAlertHandler",
+          "illHeartbeatRate": "20s",
+          "lazyLoad": false,
+          "switchOpportunity": "on-error"
+        }
+      },
+      "loadBalance": {
+        "read": {
+          "enabled": true,
+          "strategy": "polling"
+        },
+        "write": {
+          "enabled": true,
+          "strategy": "polling"
+        }
+      }
+    },
+    "databases": {
+      "database-a": {
+        "highAvailable": {
+          "integrate": {
+            "detectionSql": "SELECT 1",
+            "enabled": false,
+            "healthyHeartbeatRate": "1s",
+            "illAlertHandler": "com.mysplitter.MyDataSourceIllAlertHandler",
+            "illHeartbeatRate": "20s",
+            "lazyLoad": false,
+            "switchOpportunity": "on-error"
+          },
+          "read": {
+            "detectionSql": "SELECT 1",
+            "enabled": true,
+            "healthyHeartbeatRate": "1s",
+            "illAlertHandler": "com.mysplitter.MyDataSourceIllAlertHandler",
+            "illHeartbeatRate": "20s",
+            "lazyLoad": true,
+            "switchOpportunity": "on-error"
+          },
+          "write": {
+            "detectionSql": "SELECT 1",
+            "enabled": false,
+            "healthyHeartbeatRate": "1s",
+            "illAlertHandler": "com.mysplitter.MyDataSourceIllAlertHandler",
+            "illHeartbeatRate": "20s",
+            "lazyLoad": false,
+            "switchOpportunity": "on-error"
+          }
+        },
+        "loadBalance": {
+          "read": {
+            "enabled": true,
+            "strategy": "polling"
+          },
+          "write": {
+            "enabled": true,
+            "strategy": "polling"
+          }
+        },
+        "readers": {
+          "reader-read-slave-1": {
+            "configuration": {
+              "url": "jdbc:mysql://116.62.158.117:3306/test2",
+              "username": "wbr",
+              "password": "wbr16369928Zooa.",
+              "driverClassName": "com.mysql.jdbc.Driver"
+            },
+            "dataSourceClass": "com.alibaba.druid.pool.DruidDataSource",
+            "weight": 1
+          },
+          "reader-read-slave-2": {
+            "configuration": {
+              "url": "jdbc:mysql://116.62.158.117:3306/test2",
+              "username": "wbr",
+              "password": "wbr16369928Zooa.",
+              "driverClassName": "com.mysql.jdbc.Driver"
+            },
+            "dataSourceClass": "com.alibaba.druid.pool.DruidDataSource",
+            "weight": 1
+          },
+          "reader-read-slave-3": {
+            "configuration": {
+              "url": "jdbc:mysql://116.62.158.117:3306/test2",
+              "username": "wbr",
+              "password": "wbr16369928Zooa.",
+              "driverClassName": "com.mysql.jdbc.Driver"
+            },
+            "dataSourceClass": "com.alibaba.druid.pool.DruidDataSource",
+            "weight": 1
+          }
+        },
+        "writers": {
+          "writer-write-master-1": {
+            "configuration": {
+              "url": "jdbc:mysql://116.62.158.117:3306/test2",
+              "username": "wbr",
+              "password": "wbr16369928Zooa.",
+              "driverClassName": "com.mysql.jdbc.Driver"
+            },
+            "dataSourceClass": "com.alibaba.druid.pool.DruidDataSource",
+            "weight": 1
+          }
+        }
+      },
+      "database-b": {
+        "highAvailable": {
+          "integrate": {
+            "detectionSql": "SELECT 1",
+            "enabled": false,
+            "healthyHeartbeatRate": "1s",
+            "illAlertHandler": "com.mysplitter.MyDataSourceIllAlertHandler",
+            "illHeartbeatRate": "20s",
+            "lazyLoad": false,
+            "switchOpportunity": "on-error"
+          },
+          "read": {
+            "detectionSql": "SELECT 1",
+            "enabled": true,
+            "healthyHeartbeatRate": "1s",
+            "illAlertHandler": "com.mysplitter.MyDataSourceIllAlertHandler",
+            "illHeartbeatRate": "20s",
+            "lazyLoad": true,
+            "switchOpportunity": "on-error"
+          },
+          "write": {
+            "detectionSql": "SELECT 1",
+            "enabled": false,
+            "healthyHeartbeatRate": "1s",
+            "illAlertHandler": "com.mysplitter.MyDataSourceIllAlertHandler",
+            "illHeartbeatRate": "20s",
+            "lazyLoad": false,
+            "switchOpportunity": "on-error"
+          }
+        },
+        "integrates": {
+          "integrate-slave-1": {
+            "configuration": {
+              "jdbcUrl": "jdbc:mysql://116.62.158.117:3306/test",
+              "username": "wbr",
+              "password": "wbr16369928Zooa.",
+              "driverClassName": "com.mysql.jdbc.Driver"
+            },
+            "dataSourceClass": "com.zaxxer.hikari.HikariDataSource",
+            "weight": 1
+          }
+        },
+        "loadBalance": {
+          "read": {
+            "enabled": true,
+            "strategy": "polling"
+          },
+          "write": {
+            "enabled": true,
+            "strategy": "polling"
+          }
+        }
+      }
+    },
+    "databasesRoutingHandler": "com.mysplitter.MyDatabasesRouter",
+    "filters": [
+      "com.mysplitter.MyDataSourceFilters1",
+      "com.mysplitter.MyDataSourceFilters2"
+    ],
+    "readAndWriteParser": "com.mysplitter.DefaultReadAndWriteParser"
+  }
+}
