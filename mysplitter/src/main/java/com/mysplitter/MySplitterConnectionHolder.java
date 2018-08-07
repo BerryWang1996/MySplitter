@@ -39,6 +39,9 @@ public class MySplitterConnectionHolder {
      * 获取当前操作真正的数据连接
      */
     public Connection getCurrent() {
+        if (connections.size() == 0) {
+            return null;
+        }
         return connections.get(connections.size() - 1);
     }
 

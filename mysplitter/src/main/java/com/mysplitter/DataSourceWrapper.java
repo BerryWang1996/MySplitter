@@ -25,6 +25,7 @@ import java.beans.BeanInfo;
 import java.beans.Introspector;
 import java.beans.MethodDescriptor;
 import java.beans.PropertyDescriptor;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.sql.Connection;
 import java.sql.Statement;
@@ -79,7 +80,7 @@ public class DataSourceWrapper {
             try {
                 // 获取真实数据源的全限定名
                 String dataSourceClass = mySplitterDataSourceNodeConfig.getDataSourceClass();
-                LOGGER.debug("MySplitter is initializing data source {}, database named {}, node named {}",
+                LOGGER.info("MySplitter is initializing data source {}, database named {}, node named {}",
                         dataSourceClass, dataBaseName, nodeName);
                 // 创建真实数据源
                 DataSource dataSource = ClassLoaderUtil.getInstance(dataSourceClass, DataSource.class);
@@ -95,12 +96,21 @@ public class DataSourceWrapper {
                         // 获取用户输入的map中的数据并设置
                         Object value = this.mySplitterDataSourceNodeConfig.getConfiguration().get(name);
                         if (value != null) {
-                            writeMethod.invoke(dataSource, value);
+                            writeMethod.invoke(dataSource, value.toString());
                         }
                     }
                 }
                 // 创建引用
                 this.realDataSource = dataSource;
+                // 试图调用init方法初始化数据源
+                for (Method method : dataSource.getClass().getMethods()) {
+                    if ("init".equals(method.getName())) {
+                        try {
+                            method.invoke(dataSource);
+                        } catch (Exception ignored) {
+                        }
+                    }
+                }
             } catch (Exception e) {
                 e.printStackTrace();
             }

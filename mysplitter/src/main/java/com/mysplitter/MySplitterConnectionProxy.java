@@ -90,7 +90,7 @@ public class MySplitterConnectionProxy implements Connection {
 
     @Override
     public Statement createStatement() throws SQLException {
-        // TODO 未完成
+        // TODO Statement 未完成
         if (true) {
             throw new SQLFeatureNotSupportedException("Operation not support now!");
         }
@@ -129,6 +129,10 @@ public class MySplitterConnectionProxy implements Connection {
 
     @Override
     public boolean getAutoCommit() throws SQLException {
+        // TODO 修改如果当前没有设置连接对象，返回false，具体影响后续查看
+        if (this.mySplitterConnectionHolder.getCurrent() == null) {
+            return true;
+        }
         return this.mySplitterConnectionHolder.getCurrent().getAutoCommit();
     }
 
@@ -214,7 +218,7 @@ public class MySplitterConnectionProxy implements Connection {
 
     @Override
     public Statement createStatement(int resultSetType, int resultSetConcurrency) throws SQLException {
-        // TODO 未完成
+        // TODO Statement 未完成
         if (true) {
             throw new SQLFeatureNotSupportedException("Operation not support now!");
         }
@@ -337,7 +341,7 @@ public class MySplitterConnectionProxy implements Connection {
     @Override
     public Statement createStatement(int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws
             SQLException {
-        // TODO 未完成
+        // TODO Statement 未完成
         if (true) {
             throw new SQLFeatureNotSupportedException("Operation not support now!");
         }
