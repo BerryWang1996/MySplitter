@@ -3,8 +3,8 @@ mysplitter:
   readAndWriteParser: com.mysplitter.DefaultReadAndWriteParser
   enablePasswordEncryption: true
   filters: # implements com.mysplitter.advise.DataSourceFilterAdvise(optional)
-    - com.mysplitter.MyDataSourceFilters1
-    - com.mysplitter.MyDataSourceFilters2
+  - com.mysplitter.MyDataSourceFilters1
+  - com.mysplitter.MyDataSourceFilters2
   common:
     dataSourceClass: com.alibaba.druid.pool.DruidDataSource
     highAvailable:
@@ -41,7 +41,7 @@ mysplitter:
         strategy: polling # random
   databases:
     database-a: # database-DatabaseName e.g.database-master database-192.168.1.1:3306
-#      dataSourceClass: com.alibaba.druid.pool.DruidDataSource
+      #      dataSourceClass: com.alibaba.druid.pool.DruidDataSource
       readers:
         reader-read-slave-1:
           # dataSourceClass: (optional high priority)

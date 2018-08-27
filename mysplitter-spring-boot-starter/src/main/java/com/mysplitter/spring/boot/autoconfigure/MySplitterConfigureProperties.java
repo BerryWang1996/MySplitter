@@ -17,7 +17,6 @@
 package com.mysplitter.spring.boot.autoconfigure;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 /**

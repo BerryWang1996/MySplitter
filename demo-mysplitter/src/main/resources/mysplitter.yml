@@ -1,10 +1,7 @@
 mysplitter:
-  databasesRoutingHandler: com.mysplitter.MyDatabasesRouter # ignore when only one database. com.xxx.xxx # implements com.mysplitter.advise.DatabasesRoutingHandlerAdvise
-  readAndWriteParser: com.mysplitter.DefaultReadAndWriteParser
+  databasesRoutingHandler: com.mysplitter.demo.datasource.DatabaseRouter # ignore when only one database. com.xxx.xxx # implements com.mysplitter.advise.MySplitterDatabasesRoutingHandlerAdvise
+  #  readAndWriteParser: com.mysplitter.DefaultReadAndWriteParser
   enablePasswordEncryption: true
-  filters: # implements com.mysplitter.advise.DataSourceFilterAdvise(optional)
-  - com.mysplitter.MyDataSourceFilters1
-  - com.mysplitter.MyDataSourceFilters2
   common:
     dataSourceClass: com.alibaba.druid.pool.DruidDataSource
     highAvailable:
@@ -15,7 +12,7 @@ mysplitter:
         switchOpportunity: on-error # scheduled on-error-dissolve (support one)
         healthyHeartbeatRate: 1s # s=second, m=minute, h=hour
         illHeartbeatRate: 20s # s=second, m=minute, h=hour
-        illAlertHandler: com.mysplitter.MyDataSourceIllAlertHandler # implements com.mysplitter.advise.MySplitterDataSourceIllAlertAdvise(optional)
+        illAlertHandler: com.mysplitter.demo.datasource.DataSourceIllAlertHandler # implements com.mysplitter.advise.MySplitterDataSourceIllAlertAdvise(optional)
       read:
         enabled: true
         lazyLoad: true # if true, create dataSource when switch, heartbeat would't check uncreated dataSource.
@@ -23,7 +20,7 @@ mysplitter:
         switchOpportunity: on-error # scheduled on-error-dissolve (support one)
         healthyHeartbeatRate: 1s # s=second, m=minute, h=hour
         illHeartbeatRate: 20s # s=second, m=minute, h=hour
-        illAlertHandler: com.mysplitter.MyDataSourceIllAlertHandler # implements com.mysplitter.advise.MySplitterDataSourceIllAlertAdvise(optional)
+        illAlertHandler: com.mysplitter.demo.datasource.DataSourceIllAlertHandler # implements com.mysplitter.advise.MySplitterDataSourceIllAlertAdvise(optional)
       write:
         enabled: false
         lazyLoad: false
@@ -31,7 +28,7 @@ mysplitter:
         switchOpportunity: on-error # scheduled on-error-dissolve (support one)
         healthyHeartbeatRate: 1s # s=second, m=minute, h=hour
         illHeartbeatRate: 20s # s=second, m=minute, h=hour
-        illAlertHandler: com.mysplitter.MyDataSourceIllAlertHandler # implements com.mysplitter.advise.MySplitterDataSourceIllAlertAdvise(optional)
+        illAlertHandler: com.mysplitter.demo.datasource.DataSourceIllAlertHandler # implements com.mysplitter.advise.MySplitterDataSourceIllAlertAdvise(optional)
     loadBalance:
       read:
         enabled: true
@@ -46,7 +43,7 @@ mysplitter:
         reader-read-slave-1:
           # dataSourceClass: (optional high priority)
           configuration: # dataSource configuration
-            url: jdbc:mysql://localhost:3306/user
+            url: jdbc:mysql://localhost:3306/user?useSSL=false
             username: root
             password: UtDAi2eqmspIDSHqpoGQU5JC9kpfFeZPBhUxkPnWtNwsTEYFkTh/QAa5wyU7LDufruSYN+0WCUTE6F5X++5tDA==
             publicKey: MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBAKVbfAja9r0HF29S/ph/T+f6UbeNxn4giAzgxweKABRsJ2sI/MNhV8x7jTsCM15xDHKM4G++QqC1Bx0tdgG/BI0CAwEAAQ==
@@ -54,7 +51,7 @@ mysplitter:
         reader-read-slave-2:
           # dataSourceClass: (optional high priority)
           configuration: # dataSource configuration
-            url: jdbc:mysql://localhost:3306/user
+            url: jdbc:mysql://localhost:3306/user?useSSL=false
             username: root
             password: Oe7fcF2TLqytAlvy37C/IWfBhNhBFXmMGceE6GRxYyjJXh3TUdmq8EvebiFb0pB1hF9aH7thnnkthFiy5n3M8Q==
             publicKey: MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBAMWmL+AzrbsKwfrtP/a/aQpQplNsoySxCHUQb0aJw2t8iemRtbxtxJhXmQqPMlAZdYppyK0wB48HTArD2am3/NMCAwEAAQ==
@@ -62,7 +59,7 @@ mysplitter:
       writers:
         writer-write-master-1:
           configuration: # dataSource configuration
-            url: jdbc:mysql://localhost:3306/user
+            url: jdbc:mysql://localhost:3306/user?useSSL=false
             username: root
             password: MAtsEynrB5qJp6oDfmae2Z2Hx1lqPwFDNMKnwUr/P7+HvYy8ZXIm6DKI5VWfLO34Bjcdy+Jsr4+/N++Bxx0Y5w==
             publicKey: MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBAIvm9Ez/X3VOLUGNfATqtyQsK5+TOR66uK6MvHdX89N1K8S3l3bNVB2BKiPZ1hDxZNZfYtbQNUUHKjDyV+eUtq8CAwEAAQ==
@@ -73,7 +70,7 @@ mysplitter:
         integrate-slave-1:
           dataSourceClass: com.zaxxer.hikari.HikariDataSource
           configuration: # dataSource configuration
-            jdbcUrl: jdbc:mysql://localhost:3306/dept
+            jdbcUrl: jdbc:mysql://localhost:3306/dept?useSSL=false
             username: root
             password: iFIge745Qd4z76TgAWMZgIL+Nw0IRBRWbUi+xaGdiPGrHzhT+rfeJojPnnAjJWKazjQ1wMea2fRA/dod6VlRhQ==
             publicKey: MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBAIw2Bfyh3s93qkta5wjW/HgXKe6/1gJvq6P/WAFD1ZIYSIofPK1sdT2A77KIJVfZu2astfoXcKqVkUT1KqOWPYkCAwEAAQ==
