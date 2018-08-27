@@ -35,16 +35,25 @@ public class DemoServiceImpl implements DemoService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void exception(Integer id) {
+
+        if ("0".equals(id.toString())) {
+            throw new IllegalArgumentException("test exception");
+        }
+
         User user = new User();
         user.setName("testException");
         user.setAge(20);
         userMapper.save(user);
 
+        if ("1".equals(id.toString())) {
+            throw new IllegalArgumentException("test exception");
+        }
+
         Department department = new Department();
         department.setName("testException");
         departmentMapper.save(department);
 
-        if (id != null) {
+        if ("2".equals(id.toString())) {
             throw new IllegalArgumentException("test exception");
         }
 

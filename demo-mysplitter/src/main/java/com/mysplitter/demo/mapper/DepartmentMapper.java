@@ -9,7 +9,7 @@ import org.apache.ibatis.annotations.Insert;
  */
 public interface DepartmentMapper {
 
-    @Insert("INSERT INTO dept(name) VALUES(#{name})")
+    @Insert("[database-b] INSERT INTO dept(name) VALUES(#{name})")
     int save(Department department);
 
 }

@@ -78,7 +78,6 @@ class MySplitterDatabaseManager {
      * 路由重写sql
      */
     public String rewriteSql(String sql) {
-        // TODO 重写sql功能没有用到
         return this.databaseRoutingHandler.rewriteSql(sql);
     }
 

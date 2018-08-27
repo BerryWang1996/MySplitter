@@ -72,7 +72,7 @@ public class MySplitterStatementProxy implements Statement {
     /**
      * 根据sql进行解析设置当前操作真正的连接
      */
-    private void setConnectionHolder(String sql) throws SQLException {
+    private void setConnectionHolder(MySplitterSqlWrapper sql) throws SQLException {
         // 根据是否设置username和password获取真正的连接
         Connection connection;
         if (username != null || password != null) {
@@ -107,14 +107,16 @@ public class MySplitterStatementProxy implements Statement {
 
     @Override
     public ResultSet executeQuery(String sql) throws SQLException {
-        setConnectionHolder(sql);
-        return getStatement().executeQuery(sql);
+        MySplitterSqlWrapper sqlWrapper = new MySplitterSqlWrapper(sql);
+        setConnectionHolder(sqlWrapper);
+        return getStatement().executeQuery(sqlWrapper.getSql());
     }
 
     @Override
     public int executeUpdate(String sql) throws SQLException {
-        setConnectionHolder(sql);
-        return getStatement().executeUpdate(sql);
+        MySplitterSqlWrapper sqlWrapper = new MySplitterSqlWrapper(sql);
+        setConnectionHolder(sqlWrapper);
+        return getStatement().executeUpdate(sqlWrapper.getSql());
     }
 
     @Override
