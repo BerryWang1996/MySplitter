@@ -28,7 +28,7 @@ public class DefaultDataSourceIllAlertHandler implements DataSourceIllAlerterAdv
             LoggerFactory.getLogger(DefaultDataSourceIllAlertHandler.class);
 
     @Override
-    public void illAlerter(String databaseName, String nodeName, Exception e) {
+    public void alert(String databaseName, String nodeName, Exception e) {
         LOGGER.error("database:{}, node:{} is ill", databaseName, nodeName, e);
     }
 }

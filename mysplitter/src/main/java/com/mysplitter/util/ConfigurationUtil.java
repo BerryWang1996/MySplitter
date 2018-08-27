@@ -87,6 +87,11 @@ public class ConfigurationUtil {
         if (mySplitterConfig.getCommon() == null) {
             mySplitterConfig.setCommon(new MySplitterCommonConfig());
         }
+        // 检查不健康数据源警告处理器，如果没设置数据源异常处理器，设置为默认的数据源异常处理器
+        if (StringUtil.isBlank(mySplitterConfig.getIllAlertHandler())) {
+            mySplitterConfig.setIllAlertHandler("com.mysplitter.DefaultDataSourceIllAlertHandler");
+        }
+        isHighAvailableIllAlertHandlerLegal(mySplitterConfig.getIllAlertHandler());
         // 检查highAvailable
         Map<String, MySplitterHighAvailableConfig> commonHaConfigMap = mySplitterConfig.getCommon().getHighAvailable();
         if (commonHaConfigMap == null || commonHaConfigMap.size() == 0) {
@@ -95,7 +100,6 @@ public class ConfigurationUtil {
             for (String supportHaKey : SUPPORT_HA_NODE_MODE_LIST) {
                 MySplitterHighAvailableConfig mySplitterHighAvailableConfig = new MySplitterHighAvailableConfig();
                 mySplitterHighAvailableConfig.setEnabled(false);
-                mySplitterHighAvailableConfig.setIllAlertHandler("com.mysplitter.DefaultDataSourceIllAlertHandler");
                 commonHaConfigMap.put(supportHaKey, mySplitterHighAvailableConfig);
             }
         } else {
@@ -104,13 +108,7 @@ public class ConfigurationUtil {
                 if (commonHaConfigMap.get(supportHaKey) == null) {
                     MySplitterHighAvailableConfig mySplitterHighAvailableConfig = new MySplitterHighAvailableConfig();
                     mySplitterHighAvailableConfig.setEnabled(false);
-                    mySplitterHighAvailableConfig.setIllAlertHandler("com.mysplitter.DefaultDataSourceIllAlertHandler");
                     commonHaConfigMap.put(supportHaKey, mySplitterHighAvailableConfig);
-                }
-                // 如果用户没设置数据源异常处理器，设置为默认的数据源异常处理器
-                if (StringUtil.isBlank(commonHaConfigMap.get(supportHaKey).getIllAlertHandler())) {
-                    commonHaConfigMap.get(supportHaKey).setIllAlertHandler("com.mysplitter" +
-                            ".DefaultDataSourceIllAlertHandler");
                 }
             }
             isHighAvailableMapLegal(commonHaConfigMap);
@@ -466,8 +464,6 @@ public class ConfigurationUtil {
                     throw new IllegalArgumentException("MySplitter highAvailable ill heartbeat rate is not support "
                             + illHeartbeatRate + "!");
                 }
-                // 检查不健康数据源警告处理器
-                isHighAvailableIllAlertHandlerLegal(mySplitterHighAvailableConfig.getIllAlertHandler());
             }
         }
     }

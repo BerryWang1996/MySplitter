@@ -8,7 +8,7 @@ public class MyDataSourceIllAlertHandler implements DataSourceIllAlerterAdvise {
     private static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(MyDataSourceIllAlertHandler.class);
 
     @Override
-    public void illAlerter(String databaseName, String nodeName, Exception e) {
+    public void alert(String databaseName, String nodeName, Exception e) {
         LOGGER.error("database:{}, node:{}", databaseName, nodeName, e);
     }
 }
