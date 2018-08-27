@@ -26,15 +26,14 @@ public class DaemonThreadFactory implements ThreadFactory {
 
     private AtomicInteger threadNo = new AtomicInteger(1);
     private final String nameStart;
-    private final String nameEnd = "]";
 
     public DaemonThreadFactory(String poolName) {
-        nameStart = "[" + poolName + "-";
+        nameStart = poolName + "-";
     }
 
     @Override
     public Thread newThread(Runnable r) {
-        String threadName = nameStart + threadNo.getAndIncrement() + nameEnd;
+        String threadName = nameStart + threadNo.getAndIncrement();
         Thread newThread = new Thread(r, threadName);
         newThread.setDaemon(true);
         if (newThread.getPriority() != Thread.NORM_PRIORITY) {
