@@ -19,6 +19,7 @@
     <modules>
         <module>mysplitter</module>
         <module>mysplitter-spring-boot-starter</module>
+        <module>demo</module>
     </modules>
 
     <licenses>
