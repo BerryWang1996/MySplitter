@@ -605,13 +605,17 @@ public class MySplitterDataSourceManager {
         return new MySplitterConnectionProxy(this, username, password);
     }
 
-    public Connection getConnection(String sql) throws SQLException {
+    public Connection getConnection(MySplitterSqlWrapper sql) throws SQLException {
         return getConnection(sql, null, null);
     }
 
-    public Connection getConnection(String sql, String username, String password) throws SQLException {
-        String targetDatabase = this.databaseManager.routerHandler(sql);
-        String operation = this.readAndWriteParser.parseOperation(sql);
+    public Connection getConnection(MySplitterSqlWrapper sql, String username, String password) throws SQLException {
+        String targetDatabase = this.databaseManager.routerHandler(sql.getSql());
+        String rewriteSql = this.databaseManager.rewriteSql(sql.getSql());
+        if (rewriteSql != null) {
+            sql.setSql(rewriteSql);
+        }
+        String operation = this.readAndWriteParser.parseOperation(sql.getSql());
         AbstractLoadBalanceSelector<DataSourceWrapper> healthySelector =
                 this.healthyDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase, operation));
         if (healthySelector == null) {

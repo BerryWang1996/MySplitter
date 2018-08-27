@@ -10,7 +10,7 @@ public class DatabaseRouter implements DatabasesRoutingHandlerAdvise {
 
     @Override
     public String routerHandler(String sql) {
-        if (sql.contains("user")) {
+        if (sql.startsWith("[database-a]")) {
             return "database-a";
         } else {
             return "database-b";
@@ -19,7 +19,11 @@ public class DatabaseRouter implements DatabasesRoutingHandlerAdvise {
 
     @Override
     public String rewriteSql(String sql) {
-        return sql;
+        if (sql.startsWith("[database-a]")) {
+            return sql.substring("[database-a]".length());
+        } else {
+            return sql.substring("[database-b]".length());
+        }
     }
 
 }

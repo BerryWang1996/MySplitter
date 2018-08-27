@@ -9,7 +9,7 @@ import org.apache.ibatis.annotations.Insert;
  */
 public interface UserMapper {
 
-    @Insert("INSERT INTO user(name, age) VALUES(#{name}, #{age})")
+    @Insert("[database-a] INSERT INTO user(name, age) VALUES(#{name}, #{age})")
     int save(User user);
 
 }
