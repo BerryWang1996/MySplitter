@@ -21,6 +21,6 @@ package com.mysplitter.advise;
  */
 public interface DataSourceIllAlerterAdvise {
 
-    void illAlerter(String databaseName, String nodeName, Exception e);
+    void alert(String databaseName, String nodeName, Exception e);
 
 }

@@ -11,7 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 public class DataSourceIllAlertHandler implements DataSourceIllAlerterAdvise {
 
     @Override
-    public void illAlerter(String s, String s1, Exception e) {
+    public void alert(String s, String s1, Exception e) {
         log.warn("Datasource got error.", e);
     }
 

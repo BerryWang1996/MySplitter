@@ -2,6 +2,7 @@ mysplitter:
   databasesRoutingHandler: com.mysplitter.MyDatabasesRouter # ignore when only one database. com.xxx.xxx # implements com.mysplitter.advise.DatabasesRoutingHandlerAdvise
   readAndWriteParser: com.mysplitter.DefaultReadAndWriteParser
   enablePasswordEncryption: true
+  illAlertHandler: com.mysplitter.MyDataSourceIllAlertHandler # implements com.mysplitter.advise.MySplitterDataSourceIllAlertAdvise(optional)
   filters: # implements com.mysplitter.advise.DataSourceFilterAdvise(optional)
   - com.mysplitter.MyDataSourceFilters1
   - com.mysplitter.MyDataSourceFilters2
@@ -15,7 +16,6 @@ mysplitter:
         switchOpportunity: on-error # scheduled on-error-dissolve (support one)
         healthyHeartbeatRate: 1s # s=second, m=minute, h=hour
         illHeartbeatRate: 20s # s=second, m=minute, h=hour
-        illAlertHandler: com.mysplitter.MyDataSourceIllAlertHandler # implements com.mysplitter.advise.MySplitterDataSourceIllAlertAdvise(optional)
       read:
         enabled: true
         lazyLoad: true # if true, create dataSource when switch, heartbeat would't check uncreated dataSource.
@@ -23,7 +23,6 @@ mysplitter:
         switchOpportunity: on-error # scheduled on-error-dissolve (support one)
         healthyHeartbeatRate: 1s # s=second, m=minute, h=hour
         illHeartbeatRate: 20s # s=second, m=minute, h=hour
-        illAlertHandler: com.mysplitter.MyDataSourceIllAlertHandler # implements com.mysplitter.advise.MySplitterDataSourceIllAlertAdvise(optional)
       write:
         enabled: false
         lazyLoad: false
@@ -31,7 +30,6 @@ mysplitter:
         switchOpportunity: on-error # scheduled on-error-dissolve (support one)
         healthyHeartbeatRate: 1s # s=second, m=minute, h=hour
         illHeartbeatRate: 20s # s=second, m=minute, h=hour
-        illAlertHandler: com.mysplitter.MyDataSourceIllAlertHandler # implements com.mysplitter.advise.MySplitterDataSourceIllAlertAdvise(optional)
     loadBalance:
       read:
         enabled: true

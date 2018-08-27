@@ -27,7 +27,6 @@ public class MySplitterHighAvailableConfig {
     private String switchOpportunity;
     private String healthyHeartbeatRate;
     private String illHeartbeatRate;
-    private String illAlertHandler;
 
     public boolean isEnabled() {
         return enabled;
@@ -77,14 +76,6 @@ public class MySplitterHighAvailableConfig {
         this.illHeartbeatRate = illHeartbeatRate;
     }
 
-    public String getIllAlertHandler() {
-        return illAlertHandler;
-    }
-
-    public void setIllAlertHandler(String illAlertHandler) {
-        this.illAlertHandler = illAlertHandler;
-    }
-
     @Override
     public String toString() {
         return "MySplitterHighAvailableConfig{" +
@@ -94,7 +85,6 @@ public class MySplitterHighAvailableConfig {
                 ", switchOpportunity='" + switchOpportunity + '\'' +
                 ", healthyHeartbeatRate='" + healthyHeartbeatRate + '\'' +
                 ", illHeartbeatRate='" + illHeartbeatRate + '\'' +
-                ", illAlertHandler='" + illAlertHandler + '\'' +
                 '}';
     }
 }
