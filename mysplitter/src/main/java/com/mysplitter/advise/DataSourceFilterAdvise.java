@@ -16,7 +16,7 @@
 
 package com.mysplitter.advise;
 
-public interface MySplitterFilterAdvise {
+public interface DataSourceFilterAdvise {
 
     void doFilter(String databaseName, String nodeName, String sql) throws Exception;
 

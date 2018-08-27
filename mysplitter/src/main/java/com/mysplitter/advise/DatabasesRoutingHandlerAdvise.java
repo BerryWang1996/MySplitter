@@ -19,7 +19,7 @@ package com.mysplitter.advise;
 /**
  * 多数据库路由处理器接口类
  */
-public interface MySplitterDatabasesRoutingHandlerAdvise {
+public interface DatabasesRoutingHandlerAdvise {
 
     /**
      * @return database name (in mysplitter.yml)

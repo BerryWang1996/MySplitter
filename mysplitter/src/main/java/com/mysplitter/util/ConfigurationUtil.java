@@ -16,10 +16,10 @@
 
 package com.mysplitter.util;
 
-import com.mysplitter.advise.MySplitterDataSourceIllAlerterAdvise;
-import com.mysplitter.advise.MySplitterDatabasesRoutingHandlerAdvise;
-import com.mysplitter.advise.MySplitterFilterAdvise;
-import com.mysplitter.advise.MySplitterReadAndWriteParserAdvise;
+import com.mysplitter.advise.DataSourceFilterAdvise;
+import com.mysplitter.advise.DataSourceIllAlerterAdvise;
+import com.mysplitter.advise.DatabasesRoutingHandlerAdvise;
+import com.mysplitter.advise.ReadAndWriteParserAdvise;
 import com.mysplitter.config.*;
 import com.mysplitter.exceptions.DataSourceClassNotDefine;
 import org.yaml.snakeyaml.DumperOptions;
@@ -315,12 +315,12 @@ public class ConfigurationUtil {
             Class<?> aClass = Class.forName(MySplitterFilter);
             Class<?>[] interfaces = aClass.getInterfaces();
             for (Class<?> anInterface : interfaces) {
-                if (anInterface.getName().equals(MySplitterFilterAdvise.class.getName())) {
+                if (anInterface.getName().equals(DataSourceFilterAdvise.class.getName())) {
                     return;
                 }
             }
             throw new IllegalArgumentException("MySplitter filter not support " + MySplitterFilter + ", may not " +
-                    "implements com.mysplitter.advise.MySplitterFilterAdvise!");
+                    "implements com.mysplitter.advise.DataSourceFilterAdvise!");
         }
     }
 
@@ -377,12 +377,12 @@ public class ConfigurationUtil {
             Class<?> aClass = Class.forName(databasesRoutingHandler);
             Class<?>[] interfaces = aClass.getInterfaces();
             for (Class<?> anInterface : interfaces) {
-                if (anInterface.getName().equals(MySplitterDatabasesRoutingHandlerAdvise.class.getName())) {
+                if (anInterface.getName().equals(DatabasesRoutingHandlerAdvise.class.getName())) {
                     return;
                 }
             }
             throw new IllegalArgumentException("DatabasesRoutingHandler not support " + databasesRoutingHandler + ", " +
-                    "may not implements com.mysplitter.advise.MySplitterDatabasesRoutingHandlerAdvise!");
+                    "may not implements com.mysplitter.advise.DatabasesRoutingHandlerAdvise!");
         }
     }
 
@@ -396,12 +396,12 @@ public class ConfigurationUtil {
             Class<?> aClass = Class.forName(readAndWriteParser);
             Class<?>[] interfaces = aClass.getInterfaces();
             for (Class<?> anInterface : interfaces) {
-                if (anInterface.getName().equals(MySplitterReadAndWriteParserAdvise.class.getName())) {
+                if (anInterface.getName().equals(ReadAndWriteParserAdvise.class.getName())) {
                     return;
                 }
             }
             throw new IllegalArgumentException("ReadAndWriteParser not support " + readAndWriteParser + ", " +
-                    "may not implements com.mysplitter.advise.MySplitterReadAndWriteParserAdvise!");
+                    "may not implements com.mysplitter.advise.ReadAndWriteParserAdvise!");
         }
     }
 
@@ -498,13 +498,13 @@ public class ConfigurationUtil {
         }
         Class<?>[] interfaces = aClass.getInterfaces();
         for (Class<?> anInterface : interfaces) {
-            if (anInterface.getName().equals(MySplitterDataSourceIllAlerterAdvise.class.getName())) {
+            if (anInterface.getName().equals(DataSourceIllAlerterAdvise.class.getName())) {
                 return true;
             }
         }
         throw new IllegalArgumentException("HighAvailable ill alert handler not support " +
                 illAlertHandler + ", may not implements com.mysplitter.advise" +
-                ".MySplitterDataSourceIllAlerterAdvise!");
+                ".DataSourceIllAlerterAdvise!");
     }
 
 }

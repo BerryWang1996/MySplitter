@@ -1,9 +1,9 @@
 package com.mysplitter;
 
-import com.mysplitter.advise.MySplitterDataSourceIllAlerterAdvise;
+import com.mysplitter.advise.DataSourceIllAlerterAdvise;
 import org.slf4j.LoggerFactory;
 
-public class MyDataSourceIllAlertHandler implements MySplitterDataSourceIllAlerterAdvise {
+public class MyDataSourceIllAlertHandler implements DataSourceIllAlerterAdvise {
 
     private static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(MyDataSourceIllAlertHandler.class);
 

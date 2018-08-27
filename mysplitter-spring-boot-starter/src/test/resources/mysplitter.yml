@@ -1,8 +1,8 @@
 mysplitter:
-  databasesRoutingHandler: com.mysplitter.MyDatabasesRouter # ignore when only one database. com.xxx.xxx # implements com.mysplitter.advise.MySplitterDatabasesRoutingHandlerAdvise
+  databasesRoutingHandler: com.mysplitter.MyDatabasesRouter # ignore when only one database. com.xxx.xxx # implements com.mysplitter.advise.DatabasesRoutingHandlerAdvise
   readAndWriteParser: com.mysplitter.DefaultReadAndWriteParser
   enablePasswordEncryption: true
-  filters: # implements com.mysplitter.advise.MySplitterFilterAdvise(optional)
+  filters: # implements com.mysplitter.advise.DataSourceFilterAdvise(optional)
     - com.mysplitter.MyDataSourceFilters1
     - com.mysplitter.MyDataSourceFilters2
   common:

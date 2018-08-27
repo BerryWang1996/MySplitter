@@ -16,13 +16,13 @@
 
 package com.mysplitter;
 
-import com.mysplitter.advise.MySplitterDataSourceIllAlerterAdvise;
+import com.mysplitter.advise.DataSourceIllAlerterAdvise;
 import org.slf4j.LoggerFactory;
 
 /**
  * 默认的数据源异常提醒
  */
-public class DefaultDataSourceIllAlertHandler implements MySplitterDataSourceIllAlerterAdvise {
+public class DefaultDataSourceIllAlertHandler implements DataSourceIllAlerterAdvise {
 
     private static final org.slf4j.Logger LOGGER =
             LoggerFactory.getLogger(DefaultDataSourceIllAlertHandler.class);

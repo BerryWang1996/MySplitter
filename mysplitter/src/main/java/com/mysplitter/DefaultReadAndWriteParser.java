@@ -16,12 +16,12 @@
 
 package com.mysplitter;
 
-import com.mysplitter.advise.MySplitterReadAndWriteParserAdvise;
+import com.mysplitter.advise.ReadAndWriteParserAdvise;
 
 /**
  * 默认的读写解析器
  */
-public class DefaultReadAndWriteParser implements MySplitterReadAndWriteParserAdvise {
+public class DefaultReadAndWriteParser implements ReadAndWriteParserAdvise {
 
     /**
      * 解析sql是读操作还是写操作
