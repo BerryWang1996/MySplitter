@@ -13,4 +13,6 @@ public interface DemoService {
 
     int saveDepartment(Department user);
 
+    void exception(Integer id);
+
 }

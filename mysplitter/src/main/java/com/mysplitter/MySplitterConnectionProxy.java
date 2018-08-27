@@ -89,13 +89,16 @@ public class MySplitterConnectionProxy implements Connection {
     }
 
     private Connection getCurrentConnection() throws SQLException {
-        Connection current = mySplitterConnectionHolder.getCurrent();
-        if (current == null) {
+        Connection connection = mySplitterConnectionHolder.getCurrent();
+        if (connection == null) {
             // 如果还没有设置当前的数据源，使用默认的数据源
-            current = this.mySplitterDataSourceManager.getDefaultConnection();
-            mySplitterConnectionHolder.setCurrent(current);
+            connection = this.mySplitterDataSourceManager.getDefaultConnection();
+            // 在连接保持器设置当前的连接
+            this.mySplitterConnectionHolder.setCurrent(connection);
         }
-        return current;
+        // 执行待执行方法
+        this.mySplitterStandByExecuteHolder.executeAll(connection);
+        return connection;
     }
 
     @Override
