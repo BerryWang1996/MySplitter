@@ -1,34 +1,32 @@
 mysplitter:
-  databasesRoutingHandler: com.mysplitter.demo.datasource.DatabaseRouter # ignore when only one database. com.xxx.xxx # implements com.mysplitter.advise.MySplitterDatabasesRoutingHandlerAdvise
-  #  readAndWriteParser: com.mysplitter.DefaultReadAndWriteParser
   enablePasswordEncryption: true
+  databasesRoutingHandler: com.mysplitter.demo.datasource.DatabaseRouter # ignore when only one database. com.xxx.xxx # implements com.mysplitter.advise.MySplitterDatabasesRoutingHandlerAdvise
+  readAndWriteParser: com.mysplitter.demo.datasource.ReadAndWriteParser
+  illAlertHandler: com.mysplitter.demo.datasource.DataSourceIllAlertHandler
   common:
     dataSourceClass: com.alibaba.druid.pool.DruidDataSource
     highAvailable:
       integrate:
-        enabled: false
+        enabled: true
         lazyLoad: false
         detectionSql: SELECT 1
         switchOpportunity: on-error # scheduled on-error-dissolve (support one)
         healthyHeartbeatRate: 1s # s=second, m=minute, h=hour
-        illHeartbeatRate: 20s # s=second, m=minute, h=hour
-        illAlertHandler: com.mysplitter.demo.datasource.DataSourceIllAlertHandler # implements com.mysplitter.advise.MySplitterDataSourceIllAlertAdvise(optional)
+        illHeartbeatRate: 5s # s=second, m=minute, h=hour
       read:
         enabled: true
         lazyLoad: true # if true, create dataSource when switch, heartbeat would't check uncreated dataSource.
         detectionSql: SELECT 1
         switchOpportunity: on-error # scheduled on-error-dissolve (support one)
         healthyHeartbeatRate: 1s # s=second, m=minute, h=hour
-        illHeartbeatRate: 20s # s=second, m=minute, h=hour
-        illAlertHandler: com.mysplitter.demo.datasource.DataSourceIllAlertHandler # implements com.mysplitter.advise.MySplitterDataSourceIllAlertAdvise(optional)
+        illHeartbeatRate: 5s # s=second, m=minute, h=hour
       write:
-        enabled: false
+        enabled: true
         lazyLoad: false
         detectionSql: SELECT 1
         switchOpportunity: on-error # scheduled on-error-dissolve (support one)
         healthyHeartbeatRate: 1s # s=second, m=minute, h=hour
-        illHeartbeatRate: 20s # s=second, m=minute, h=hour
-        illAlertHandler: com.mysplitter.demo.datasource.DataSourceIllAlertHandler # implements com.mysplitter.advise.MySplitterDataSourceIllAlertAdvise(optional)
+        illHeartbeatRate: 5s # s=second, m=minute, h=hour
     loadBalance:
       read:
         enabled: true

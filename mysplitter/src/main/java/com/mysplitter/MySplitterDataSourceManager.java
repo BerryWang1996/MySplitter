@@ -49,7 +49,7 @@ public class MySplitterDataSourceManager {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MySplitterDataSourceManager.class);
 
-    private static final Integer DEFAULT_INITIAL_DELAY = 20;
+    private static final Integer DEFAULT_INITIAL_DELAY = 5;
 
     private MySplitterDataSource router;
 
@@ -474,6 +474,7 @@ public class MySplitterDataSourceManager {
         scheduledHighAvailableChecker.scheduleAtFixedRate(new Runnable() {
             @Override
             public void run() {
+                LOGGER.debug("Checking healthy datasource...");
                 // 获取数据源，进行检查
                 AbstractLoadBalanceSelector<DataSourceWrapper> selector =
                         healthyDataSourceSelectorMap.get(selectorName);
@@ -502,6 +503,7 @@ public class MySplitterDataSourceManager {
         scheduledHighAvailableChecker.scheduleAtFixedRate(new Runnable() {
             @Override
             public void run() {
+                LOGGER.debug("Checking ill datasource...");
                 // 获取数据源，进行检查
                 AbstractLoadBalanceSelector<DataSourceWrapper> selector =
                         illDataSourceSelectorMap.get(selectorName);
