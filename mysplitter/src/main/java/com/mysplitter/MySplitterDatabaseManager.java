@@ -16,7 +16,7 @@
 
 package com.mysplitter;
 
-import com.mysplitter.advise.MySplitterDatabasesRoutingHandlerAdvise;
+import com.mysplitter.advise.DatabasesRoutingHandlerAdvise;
 import com.mysplitter.config.MySplitterDataBaseConfig;
 import com.mysplitter.util.ClassLoaderUtil;
 import org.slf4j.LoggerFactory;
@@ -31,7 +31,7 @@ class MySplitterDatabaseManager {
 
     private static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(MySplitterDatabaseManager.class);
 
-    private MySplitterDatabasesRoutingHandlerAdvise databaseRoutingHandler;
+    private DatabasesRoutingHandlerAdvise databaseRoutingHandler;
 
     MySplitterDatabaseManager(MySplitterDataSource router) {
         LOGGER.debug("MySplitterDatabaseManager is initializing.");
@@ -45,12 +45,12 @@ class MySplitterDatabaseManager {
                 LOGGER.debug("MySplitterDatabaseManager is activating DatabasesRoutingHandler.");
                 String routerClz = router.getMySplitterConfig().getMysplitter().getDatabasesRoutingHandler();
                 databaseRoutingHandler =
-                        ClassLoaderUtil.getInstance(routerClz, MySplitterDatabasesRoutingHandlerAdvise.class);
+                        ClassLoaderUtil.getInstance(routerClz, DatabasesRoutingHandlerAdvise.class);
             } else {
                 LOGGER.debug("MySplitterDatabaseManager is activating default DatabasesRoutingHandler, " +
                         "Caused only one database.");
                 final String dbKey = new ArrayList<String>(dbs.keySet()).get(0);
-                databaseRoutingHandler = new MySplitterDatabasesRoutingHandlerAdvise() {
+                databaseRoutingHandler = new DatabasesRoutingHandlerAdvise() {
                     @Override
                     public String routerHandler(String sql) {
                         return dbKey;

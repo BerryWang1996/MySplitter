@@ -88,6 +88,16 @@ public class MySplitterConnectionProxy implements Connection {
         this.mySplitterConnectionHolder.setCurrent(connection);
     }
 
+    private Connection getCurrentConnection() throws SQLException {
+        Connection current = mySplitterConnectionHolder.getCurrent();
+        if (current == null) {
+            // 如果还没有设置当前的数据源，使用默认的数据源
+            current = this.mySplitterDataSourceManager.getDefaultConnection();
+            mySplitterConnectionHolder.setCurrent(current);
+        }
+        return current;
+    }
+
     @Override
     public Statement createStatement() throws SQLException {
         // TODO Statement 未完成
@@ -107,19 +117,19 @@ public class MySplitterConnectionProxy implements Connection {
     @Override
     public PreparedStatement prepareStatement(String sql) throws SQLException {
         setConnectionHolder(sql);
-        return this.mySplitterConnectionHolder.getCurrent().prepareStatement(sql);
+        return getCurrentConnection().prepareStatement(sql);
     }
 
     @Override
     public CallableStatement prepareCall(String sql) throws SQLException {
         setConnectionHolder(sql);
-        return this.mySplitterConnectionHolder.getCurrent().prepareCall(sql);
+        return getCurrentConnection().prepareCall(sql);
     }
 
     @Override
     public String nativeSQL(String sql) throws SQLException {
         setConnectionHolder(sql);
-        return this.mySplitterConnectionHolder.getCurrent().nativeSQL(sql);
+        return getCurrentConnection().nativeSQL(sql);
     }
 
     @Override
@@ -129,11 +139,7 @@ public class MySplitterConnectionProxy implements Connection {
 
     @Override
     public boolean getAutoCommit() throws SQLException {
-        // TODO 修改如果当前没有设置连接对象，返回false，具体影响后续查看
-        if (this.mySplitterConnectionHolder.getCurrent() == null) {
-            return true;
-        }
-        return this.mySplitterConnectionHolder.getCurrent().getAutoCommit();
+        return getCurrentConnection().getAutoCommit();
     }
 
     @Override
@@ -162,12 +168,12 @@ public class MySplitterConnectionProxy implements Connection {
 
     @Override
     public boolean isClosed() throws SQLException {
-        return this.mySplitterConnectionHolder.getCurrent().isClosed();
+        return getCurrentConnection().isClosed();
     }
 
     @Override
     public DatabaseMetaData getMetaData() throws SQLException {
-        return this.mySplitterConnectionHolder.getCurrent().getMetaData();
+        return getCurrentConnection().getMetaData();
     }
 
     @Override
@@ -177,17 +183,17 @@ public class MySplitterConnectionProxy implements Connection {
 
     @Override
     public boolean isReadOnly() throws SQLException {
-        return this.mySplitterConnectionHolder.getCurrent().isReadOnly();
+        return getCurrentConnection().isReadOnly();
     }
 
     @Override
     public void setCatalog(String catalog) throws SQLException {
-        this.mySplitterConnectionHolder.getCurrent().setCatalog(catalog);
+        getCurrentConnection().setCatalog(catalog);
     }
 
     @Override
     public String getCatalog() throws SQLException {
-        return this.mySplitterConnectionHolder.getCurrent().getCatalog();
+        return getCurrentConnection().getCatalog();
     }
 
     @Override
@@ -200,12 +206,12 @@ public class MySplitterConnectionProxy implements Connection {
 
     @Override
     public int getTransactionIsolation() throws SQLException {
-        return this.mySplitterConnectionHolder.getCurrent().getTransactionIsolation();
+        return getCurrentConnection().getTransactionIsolation();
     }
 
     @Override
     public SQLWarning getWarnings() throws SQLException {
-        return this.mySplitterConnectionHolder.getCurrent().getWarnings();
+        return getCurrentConnection().getWarnings();
     }
 
     @Override
@@ -236,23 +242,23 @@ public class MySplitterConnectionProxy implements Connection {
     public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency) throws
             SQLException {
         setConnectionHolder(sql);
-        return this.mySplitterConnectionHolder.getCurrent().prepareStatement(sql, resultSetType, resultSetConcurrency);
+        return getCurrentConnection().prepareStatement(sql, resultSetType, resultSetConcurrency);
     }
 
     @Override
     public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency) throws SQLException {
         setConnectionHolder(sql);
-        return this.mySplitterConnectionHolder.getCurrent().prepareCall(sql, resultSetType, resultSetConcurrency);
+        return getCurrentConnection().prepareCall(sql, resultSetType, resultSetConcurrency);
     }
 
     @Override
     public Map<String, Class<?>> getTypeMap() throws SQLException {
-        return this.mySplitterConnectionHolder.getCurrent().getTypeMap();
+        return getCurrentConnection().getTypeMap();
     }
 
     @Override
     public void setTypeMap(Map<String, Class<?>> map) throws SQLException {
-        this.mySplitterConnectionHolder.getCurrent().setTypeMap(map);
+        getCurrentConnection().setTypeMap(map);
     }
 
     @Override
@@ -265,7 +271,7 @@ public class MySplitterConnectionProxy implements Connection {
 
     @Override
     public int getHoldability() throws SQLException {
-        return this.mySplitterConnectionHolder.getCurrent().getHoldability();
+        return getCurrentConnection().getHoldability();
     }
 
     @Override
@@ -359,7 +365,7 @@ public class MySplitterConnectionProxy implements Connection {
     public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency, int
             resultSetHoldability) throws SQLException {
         setConnectionHolder(sql);
-        return this.mySplitterConnectionHolder.getCurrent().prepareStatement(sql, resultSetType,
+        return getCurrentConnection().prepareStatement(sql, resultSetType,
                 resultSetConcurrency, resultSetHoldability);
     }
 
@@ -367,46 +373,46 @@ public class MySplitterConnectionProxy implements Connection {
     public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency, int
             resultSetHoldability) throws SQLException {
         setConnectionHolder(sql);
-        return this.mySplitterConnectionHolder.getCurrent().prepareCall(sql, resultSetType, resultSetConcurrency,
+        return getCurrentConnection().prepareCall(sql, resultSetType, resultSetConcurrency,
                 resultSetHoldability);
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, int autoGeneratedKeys) throws SQLException {
         setConnectionHolder(sql);
-        return this.mySplitterConnectionHolder.getCurrent().prepareStatement(sql, autoGeneratedKeys);
+        return getCurrentConnection().prepareStatement(sql, autoGeneratedKeys);
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, int[] columnIndexes) throws SQLException {
         setConnectionHolder(sql);
-        return this.mySplitterConnectionHolder.getCurrent().prepareStatement(sql, columnIndexes);
+        return getCurrentConnection().prepareStatement(sql, columnIndexes);
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, String[] columnNames) throws SQLException {
         setConnectionHolder(sql);
-        return this.mySplitterConnectionHolder.getCurrent().prepareStatement(sql, columnNames);
+        return getCurrentConnection().prepareStatement(sql, columnNames);
     }
 
     @Override
     public Clob createClob() throws SQLException {
-        return this.mySplitterConnectionHolder.getCurrent().createClob();
+        return getCurrentConnection().createClob();
     }
 
     @Override
     public Blob createBlob() throws SQLException {
-        return this.mySplitterConnectionHolder.getCurrent().createBlob();
+        return getCurrentConnection().createBlob();
     }
 
     @Override
     public NClob createNClob() throws SQLException {
-        return this.mySplitterConnectionHolder.getCurrent().createNClob();
+        return getCurrentConnection().createNClob();
     }
 
     @Override
     public SQLXML createSQLXML() throws SQLException {
-        return this.mySplitterConnectionHolder.getCurrent().createSQLXML();
+        return getCurrentConnection().createSQLXML();
     }
 
     @Override
@@ -438,32 +444,32 @@ public class MySplitterConnectionProxy implements Connection {
 
     @Override
     public String getClientInfo(String name) throws SQLException {
-        return this.mySplitterConnectionHolder.getCurrent().getClientInfo(name);
+        return getCurrentConnection().getClientInfo(name);
     }
 
     @Override
     public Properties getClientInfo() throws SQLException {
-        return this.mySplitterConnectionHolder.getCurrent().getClientInfo();
+        return getCurrentConnection().getClientInfo();
     }
 
     @Override
     public Array createArrayOf(String typeName, Object[] elements) throws SQLException {
-        return this.mySplitterConnectionHolder.getCurrent().createArrayOf(typeName, elements);
+        return getCurrentConnection().createArrayOf(typeName, elements);
     }
 
     @Override
     public Struct createStruct(String typeName, Object[] attributes) throws SQLException {
-        return this.mySplitterConnectionHolder.getCurrent().createStruct(typeName, attributes);
+        return getCurrentConnection().createStruct(typeName, attributes);
     }
 
     @Override
     public void setSchema(String schema) throws SQLException {
-        this.mySplitterConnectionHolder.getCurrent().setSchema(schema);
+        getCurrentConnection().setSchema(schema);
     }
 
     @Override
     public String getSchema() throws SQLException {
-        return this.mySplitterConnectionHolder.getCurrent().getSchema();
+        return getCurrentConnection().getSchema();
     }
 
     @Override
@@ -478,16 +484,16 @@ public class MySplitterConnectionProxy implements Connection {
 
     @Override
     public int getNetworkTimeout() throws SQLException {
-        return this.mySplitterConnectionHolder.getCurrent().getNetworkTimeout();
+        return getCurrentConnection().getNetworkTimeout();
     }
 
     @Override
     public <T> T unwrap(Class<T> iface) throws SQLException {
-        return this.mySplitterConnectionHolder.getCurrent().unwrap(iface);
+        return getCurrentConnection().unwrap(iface);
     }
 
     @Override
     public boolean isWrapperFor(Class<?> iface) throws SQLException {
-        return this.mySplitterConnectionHolder.getCurrent().isWrapperFor(iface);
+        return getCurrentConnection().isWrapperFor(iface);
     }
 }

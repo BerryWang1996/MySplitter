@@ -16,12 +16,11 @@
 
 package com.mysplitter.advise;
 
-public interface MySplitterReadAndWriteParserAdvise {
+/**
+ * 数据源异常警告处理器接口类
+ */
+public interface DataSourceIllAlerterAdvise {
 
-    /**
-     * @return sql will use writer data source when return "writer" ,
-     * use reader data source when return "reader", use integrates when return others.
-     */
-    String parseOperation(String sql);
+    void illAlerter(String databaseName, String nodeName, Exception e);
 
 }

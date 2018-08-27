@@ -1,8 +1,8 @@
 package com.mysplitter;
 
-import com.mysplitter.advise.MySplitterDatabasesRoutingHandlerAdvise;
+import com.mysplitter.advise.DatabasesRoutingHandlerAdvise;
 
-public class MyDatabasesRouter implements MySplitterDatabasesRoutingHandlerAdvise {
+public class MyDatabasesRouter implements DatabasesRoutingHandlerAdvise {
 
     @Override
     public String routerHandler(String sql) {

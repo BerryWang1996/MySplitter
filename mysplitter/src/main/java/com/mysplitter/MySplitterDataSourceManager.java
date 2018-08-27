@@ -16,8 +16,8 @@
 
 package com.mysplitter;
 
-import com.mysplitter.advise.MySplitterDataSourceIllAlerterAdvise;
-import com.mysplitter.advise.MySplitterReadAndWriteParserAdvise;
+import com.mysplitter.advise.DataSourceIllAlerterAdvise;
+import com.mysplitter.advise.ReadAndWriteParserAdvise;
 import com.mysplitter.config.MySplitterDataBaseConfig;
 import com.mysplitter.config.MySplitterDataSourceNodeConfig;
 import com.mysplitter.config.MySplitterHighAvailableConfig;
@@ -33,6 +33,7 @@ import org.slf4j.LoggerFactory;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -55,7 +56,7 @@ public class MySplitterDataSourceManager {
 
     private MySplitterDatabaseManager databaseManager;
 
-    private MySplitterReadAndWriteParserAdvise readAndWriteParser;
+    private ReadAndWriteParserAdvise readAndWriteParser;
 
     private ScheduledThreadPoolExecutor scheduledHighAvailableChecker;
 
@@ -68,8 +69,8 @@ public class MySplitterDataSourceManager {
     private Map<String, AbstractLoadBalanceSelector<DataSourceWrapper>> standbyDataSourceSelectorMap =
             new ConcurrentHashMap<String, AbstractLoadBalanceSelector<DataSourceWrapper>>();
 
-    private Map<String, MySplitterDataSourceIllAlerterAdvise> dataSourceIllAlerterAdviseMap =
-            new ConcurrentHashMap<String, MySplitterDataSourceIllAlerterAdvise>();
+    private Map<String, DataSourceIllAlerterAdvise> dataSourceIllAlerterAdviseMap =
+            new ConcurrentHashMap<String, DataSourceIllAlerterAdvise>();
 
     MySplitterDataSourceManager(MySplitterDataSource router) throws Exception {
         this.router = router;
@@ -84,7 +85,7 @@ public class MySplitterDataSourceManager {
             // 创建读写解析器
             this.readAndWriteParser = ClassLoaderUtil.getInstance(
                     this.router.getMySplitterConfig().getMysplitter().getReadAndWriteParser(),
-                    MySplitterReadAndWriteParserAdvise.class);
+                    ReadAndWriteParserAdvise.class);
             // 创建高可用检查线程池
             createHighAvailableChecker();
             // 创建数据源节点
@@ -192,8 +193,8 @@ public class MySplitterDataSourceManager {
         MySplitterHighAvailableConfig readHaConfig = highAvailableConfig.get("read");
         // 创建数据源异常处理器
         String illAlertHandler = readHaConfig.getIllAlertHandler();
-        MySplitterDataSourceIllAlerterAdvise instance =
-                ClassLoaderUtil.getInstance(illAlertHandler, MySplitterDataSourceIllAlerterAdvise.class);
+        DataSourceIllAlerterAdvise instance =
+                ClassLoaderUtil.getInstance(illAlertHandler, DataSourceIllAlerterAdvise.class);
         dataSourceIllAlerterAdviseMap.put(selectorName, instance);
         // 如果高可用启动，懒加载不启动，创建所有的数据源到healthyDataSourceSelector
         if (readHaConfig.isEnabled() && !readHaConfig.isLazyLoad()) {
@@ -313,8 +314,8 @@ public class MySplitterDataSourceManager {
         MySplitterHighAvailableConfig writeHaConfig = highAvailableConfig.get("write");
         // 创建数据源异常处理器
         String illAlertHandler = writeHaConfig.getIllAlertHandler();
-        MySplitterDataSourceIllAlerterAdvise instance =
-                ClassLoaderUtil.getInstance(illAlertHandler, MySplitterDataSourceIllAlerterAdvise.class);
+        DataSourceIllAlerterAdvise instance =
+                ClassLoaderUtil.getInstance(illAlertHandler, DataSourceIllAlerterAdvise.class);
         dataSourceIllAlerterAdviseMap.put(selectorName, instance);
         // 如果高可用启动，懒加载不启动，创建所有的数据源到healthyDataSourceSelector
         if (writeHaConfig.isEnabled() && !writeHaConfig.isLazyLoad()) {
@@ -420,8 +421,8 @@ public class MySplitterDataSourceManager {
         MySplitterHighAvailableConfig integrateHaConfig = highAvailableConfig.get("integrate");
         // 创建数据源异常处理器
         String illAlertHandler = integrateHaConfig.getIllAlertHandler();
-        MySplitterDataSourceIllAlerterAdvise instance =
-                ClassLoaderUtil.getInstance(illAlertHandler, MySplitterDataSourceIllAlerterAdvise.class);
+        DataSourceIllAlerterAdvise instance =
+                ClassLoaderUtil.getInstance(illAlertHandler, DataSourceIllAlerterAdvise.class);
         dataSourceIllAlerterAdviseMap.put(selectorName, instance);
         // 如果高可用启动，懒加载不启动，创建所有的数据源到healthyDataSourceSelector
         if (integrateHaConfig.isEnabled() && !integrateHaConfig.isLazyLoad()) {
@@ -531,7 +532,7 @@ public class MySplitterDataSourceManager {
                         // 如果出现异常提交到异常提醒处理器
                         LOGGER.error("database:{}, node:{} is ill",
                                 dataSourceWrapper.getDataBaseName(), dataSourceWrapper.getNodeName(), e);
-                        MySplitterDataSourceIllAlerterAdvise alerter = dataSourceIllAlerterAdviseMap.get(selectorName);
+                        DataSourceIllAlerterAdvise alerter = dataSourceIllAlerterAdviseMap.get(selectorName);
                         alerter.illAlerter(dataSourceWrapper.getDataBaseName(), dataSourceWrapper.getNodeName(), e);
                         // 将当前数据源节点迁移到异常数据源节点
                         selector.release(dataSourceWrapper);
@@ -649,5 +650,13 @@ public class MySplitterDataSourceManager {
             // TODO catch 到 NoHealthyDataSourceException 抛出异常等待恢复
         }
         return realConnection;
+    }
+
+    public Connection getDefaultConnection() throws SQLException {
+        return this.healthyDataSourceSelectorMap
+                .get(new ArrayList<>(this.healthyDataSourceSelectorMap.keySet()).get(0))
+                .acquire()
+                .getRealDataSource()
+                .getConnection();
     }
 }
