@@ -23,6 +23,9 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
+
+import java.io.IOException;
 
 /**
  * Spring boot 自动配置类
@@ -37,8 +40,12 @@ public class MySplitterAutoConfigure {
 
     @Bean(initMethod = "init")
     @ConditionalOnMissingBean
-    public MySplitterDataSource mySplitterDataSource() {
-        return new MySplitterDataSource(properties.getConfigurationFile());
+    public MySplitterDataSource mySplitterDataSource() throws IOException {
+        return new MySplitterDataSource(
+                new PathMatchingResourcePatternResolver()
+                        .getResource(properties.getConfigurationFile())
+                        .getFile()
+                        .getPath());
     }
 
 }
