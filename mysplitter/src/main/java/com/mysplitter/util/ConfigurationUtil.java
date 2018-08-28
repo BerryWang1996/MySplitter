@@ -29,6 +29,8 @@ import org.yaml.snakeyaml.constructor.Constructor;
 import org.yaml.snakeyaml.representer.Representer;
 import org.yaml.snakeyaml.resolver.Resolver;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.util.Arrays;
@@ -57,12 +59,12 @@ public class ConfigurationUtil {
     }
 
     public static MySplitterRootConfig getMySplitterConfig(String fileName) throws Exception {
-        // 读取配置文件
-        final InputStream resource = ConfigurationUtil.class.getClassLoader().getResourceAsStream(fileName);
         // 如果配置文件不存在报错
-        if (resource == null) {
+        if (fileName == null || !new File(fileName).exists()) {
             throw new FileNotFoundException("MySplitter configuration file " + fileName + " not found!");
         }
+        // 读取配置文件
+        final InputStream resource = new FileInputStream(new File(fileName));
         // 饿汉式加载配置对象
         Yaml yaml = new Yaml(new Constructor() {
             @Override

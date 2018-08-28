@@ -24,7 +24,7 @@ import com.mysplitter.config.MySplitterHighAvailableConfig;
 import com.mysplitter.config.MySplitterLoadBalanceConfig;
 import com.mysplitter.exceptions.NoHealthyDataSourceException;
 import com.mysplitter.selector.AbstractLoadBalanceSelector;
-import com.mysplitter.selector.NoneLoadBalanceSelector;
+import com.mysplitter.selector.NoLoadBalanceSelector;
 import com.mysplitter.selector.RandomLoadBalanceSelector;
 import com.mysplitter.selector.RoundRobinLoadBalanceSelector;
 import com.mysplitter.util.ClassLoaderUtil;
@@ -363,9 +363,9 @@ public class MySplitterDataSourceManager {
         // 创建选择器
         String selectorName = generateDataSourceSelectorName(dbKey, "integrates");
         // 整合数据源不进行负载均衡
-        healthyDataSourceSelectorMap.put(selectorName, new NoneLoadBalanceSelector<DataSourceWrapper>());
-        illDataSourceSelectorMap.put(selectorName, new NoneLoadBalanceSelector<DataSourceWrapper>());
-        standbyDataSourceSelectorMap.put(selectorName, new NoneLoadBalanceSelector<DataSourceWrapper>());
+        healthyDataSourceSelectorMap.put(selectorName, new NoLoadBalanceSelector<DataSourceWrapper>());
+        illDataSourceSelectorMap.put(selectorName, new NoLoadBalanceSelector<DataSourceWrapper>());
+        standbyDataSourceSelectorMap.put(selectorName, new NoLoadBalanceSelector<DataSourceWrapper>());
         // 获取整合数据源的配置
         MySplitterHighAvailableConfig integrateHaConfig = highAvailableConfig.get("integrate");
         // 如果高可用启动，懒加载不启动，创建所有的数据源到healthyDataSourceSelector
@@ -461,9 +461,9 @@ public class MySplitterDataSourceManager {
                 standbyDataSourceSelectorMap.put(selectorName, new RandomLoadBalanceSelector<DataSourceWrapper>());
             }
         } else {
-            healthyDataSourceSelectorMap.put(selectorName, new NoneLoadBalanceSelector<DataSourceWrapper>());
-            illDataSourceSelectorMap.put(selectorName, new NoneLoadBalanceSelector<DataSourceWrapper>());
-            standbyDataSourceSelectorMap.put(selectorName, new NoneLoadBalanceSelector<DataSourceWrapper>());
+            healthyDataSourceSelectorMap.put(selectorName, new NoLoadBalanceSelector<DataSourceWrapper>());
+            illDataSourceSelectorMap.put(selectorName, new NoLoadBalanceSelector<DataSourceWrapper>());
+            standbyDataSourceSelectorMap.put(selectorName, new NoLoadBalanceSelector<DataSourceWrapper>());
         }
     }
 

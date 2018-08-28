@@ -1,8 +1,7 @@
 spring:
   datasource:
     mysplitter:
-      configuration-file: mysplitter.yml
+      configuration-file: classpath:mysplitter.yml
 logging:
   level:
-    com.alibaba.druid: fatal
     root: info
