@@ -63,15 +63,111 @@ public class MySplitterDataSourceManager {
     private Map<String, AbstractLoadBalanceSelector<DataSourceWrapper>> illDataSourceSelectorMap =
             new ConcurrentHashMap<String, AbstractLoadBalanceSelector<DataSourceWrapper>>();
 
-    private Map<String, AbstractLoadBalanceSelector<DataSourceWrapper>> standbyDataSourceSelectorMap =
-            new ConcurrentHashMap<String, AbstractLoadBalanceSelector<DataSourceWrapper>>();
+    private ScheduledThreadPoolExecutor illDataSourceFailTimeoutExecutor;
 
     MySplitterDataSourceManager(MySplitterDataSource router) throws Exception {
         this.router = router;
         init();
     }
 
-    private void init() throws Exception {
+
+    MySplitterConnectionProxy getConnectionProxy() {
+        return new MySplitterConnectionProxy(this);
+    }
+
+    MySplitterConnectionProxy getConnectionProxy(String username, String password) {
+        return new MySplitterConnectionProxy(this, username, password);
+    }
+
+    Connection getConnection(MySplitterSqlWrapper sql) throws SQLException {
+        return getConnection(sql, null, null);
+    }
+
+    Connection getConnection(MySplitterSqlWrapper sql, String username, String password) throws SQLException {
+        String targetDatabase = this.databaseManager.routerHandler(sql.getSql());
+        String rewriteSql = this.databaseManager.rewriteSql(sql.getSql());
+        if (rewriteSql != null) {
+            sql.setSql(rewriteSql);
+        }
+        String operation = this.readAndWriteParser.parseOperation(sql.getSql());
+        AbstractLoadBalanceSelector<DataSourceWrapper> healthySelector =
+                this.healthyDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase, operation));
+        if (healthySelector == null) {
+            healthySelector =
+                    this.healthyDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase, "integrates"));
+        }
+        if (healthySelector == null) {
+            throw new IllegalArgumentException("Can not find database:" + targetDatabase + ", operation:" + operation
+                    + ". May be databasesRoutingHandler or readAndWriteParser return wrong database or operation.");
+        }
+        Connection realConnection = null;
+        DataSourceWrapper dataSourceWrapper = null;
+        try {
+            dataSourceWrapper = healthySelector.acquire();
+            if (dataSourceWrapper == null) {
+                throw new NoHealthyDataSourceException();
+            }
+            if (username != null || password != null) {
+                realConnection = dataSourceWrapper.getRealDataSource().getConnection(username, password);
+            } else {
+                realConnection = dataSourceWrapper.getRealDataSource().getConnection();
+            }
+        } catch (NoHealthyDataSourceException e) {
+            // 如果一个健康的数据源都没有了，尝试从不健康的数据源获取
+            AbstractLoadBalanceSelector<DataSourceWrapper> illSelector =
+                    illDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase, operation));
+            if (illSelector == null) {
+                illSelector = this.healthyDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase,
+                        "integrates"));
+            }
+            List<DataSourceWrapper> dataSourceWrappers = illSelector.listAll();
+            int totalIllCount = dataSourceWrappers.size();
+            // 此时可能会出现异常
+            for (int i = 0; i < totalIllCount; i++) {
+                dataSourceWrapper = dataSourceWrappers.get(i);
+                try {
+                    if (username != null || password != null) {
+                        realConnection = dataSourceWrapper.getRealDataSource().getConnection(username, password);
+                    } else {
+                        realConnection = dataSourceWrapper.getRealDataSource().getConnection();
+                    }
+                    // 如果没出现异常，放入健康数据源map
+                    illSelector.release(dataSourceWrapper);
+                    this.healthyDataSourceSelectorMap
+                            .get(generateDataSourceSelectorName(targetDatabase, operation))
+                            .register(dataSourceWrapper, dataSourceWrapper.getNodeConfig().getWeight());
+                    // 跳出循环
+                    break;
+                } catch (Exception e1) {
+                    // 如果遍历到最后一个数据源还是出现异常不再进行处理（抛出异常），其他的忽略
+                    if (totalIllCount == i - 1) {
+                        throw e1;
+                    }
+                }
+            }
+        } catch (SQLException e1) {
+            // 如果获取连接出现异常，放入连接异常数据源map
+            healthySelector.release(dataSourceWrapper);
+            this.illDataSourceSelectorMap
+                    .get(generateDataSourceSelectorName(targetDatabase, operation))
+                    .register(dataSourceWrapper, dataSourceWrapper.getNodeConfig().getWeight());
+            // 异常提醒
+            dataSourceIllAlerter.alert(dataSourceWrapper.getDataBaseName(), dataSourceWrapper.getNodeName(), e1);
+            // 提交到期自动移入健康数据源的任务
+            submitDataSourceFailTimeoutTask(targetDatabase, operation, dataSourceWrapper);
+        }
+        return realConnection;
+    }
+
+    Connection getDefaultConnection() throws SQLException {
+        return this.healthyDataSourceSelectorMap
+                .get(new ArrayList<>(this.healthyDataSourceSelectorMap.keySet()).get(0))
+                .acquire()
+                .getRealDataSource()
+                .getConnection();
+    }
+
+    void init() throws Exception {
         if (isInitialized.compareAndSet(false, true)) {
             LOGGER.debug("MySplitterDataSourceManager is initializing.");
             // 创建多数据库管理器
@@ -80,22 +176,21 @@ public class MySplitterDataSourceManager {
             createReadAndWriteParser();
             // 创建数据源异常提醒
             createDataSourceIllAlerter();
+            // 创建异常数据源定时任务执行线程池
+            createIllDataSourceFailTimeoutExecutor();
             // 创建数据源节点
             createDataSources();
         }
     }
 
-    public void close() throws Exception {
+    void close() throws Exception {
         release(healthyDataSourceSelectorMap);
         release(illDataSourceSelectorMap);
     }
 
-    private void release(Map<String, AbstractLoadBalanceSelector<DataSourceWrapper>> illDataSourceSelectorMap) throws Exception {
-        for (String healthyDataSourceKey : illDataSourceSelectorMap.keySet()) {
-            AbstractLoadBalanceSelector<DataSourceWrapper> selector = healthyDataSourceSelectorMap.get
-                    (healthyDataSourceKey);
-            List<DataSourceWrapper> dataSourceWrappers = selector.listAll();
-            for (DataSourceWrapper dataSourceWrapper : dataSourceWrappers) {
+    private void release(Map<String, AbstractLoadBalanceSelector<DataSourceWrapper>> selectorMap) throws Exception {
+        for (Map.Entry<String, AbstractLoadBalanceSelector<DataSourceWrapper>> entry : selectorMap.entrySet()) {
+            for (DataSourceWrapper dataSourceWrapper : entry.getValue().listAll()) {
                 dataSourceWrapper.releaseRealDataSource();
             }
         }
@@ -113,7 +208,14 @@ public class MySplitterDataSourceManager {
                 DataSourceIllAlerterAdvise.class);
     }
 
-    private void createDataSources() throws Exception {
+    private void createIllDataSourceFailTimeoutExecutor() {
+        illDataSourceFailTimeoutExecutor =
+                new ScheduledThreadPoolExecutor(
+                        Runtime.getRuntime().availableProcessors(),
+                        new DaemonThreadFactory("mysplitter fail timeout"));
+    }
+
+    private void createDataSources() {
         LOGGER.debug("MySplitterDataSourceManager is getting data sources configuration.");
         // 获取所有的数据库配置，根据读写创建对应的数据源wrapper
         Map<String, MySplitterDataBaseConfig> dbs = this.router.getMySplitterConfig().getMysplitter().getDatabases();
@@ -132,10 +234,10 @@ public class MySplitterDataSourceManager {
                 Map<String, MySplitterDataSourceNodeConfig> writers = dataBaseConfig.getWriters();
                 // 如果整合数据源不存在，读取读和写数据源
                 if (readers != null && readers.size() > 0) {
-                    createReadersDataSource(dbKey, readers, loadBalanceConfig);
+                    createReadersDataSource(dbKey, readers, loadBalanceConfig.get("read"));
                 }
                 if (writers != null && writers.size() > 0) {
-                    createWritersDataSource(dbKey, writers, loadBalanceConfig);
+                    createWritersDataSource(dbKey, writers, loadBalanceConfig.get("write"));
                 }
             }
         }
@@ -144,8 +246,6 @@ public class MySplitterDataSourceManager {
                 healthyDataSourceSelectorMap.entrySet());
         LOGGER.debug("illDataSourceSelectorMap    :{}",
                 illDataSourceSelectorMap.entrySet());
-        LOGGER.debug("standbyDataSourceSelectorMap:{}",
-                standbyDataSourceSelectorMap.entrySet());
         // 初始化准备激活的数据源wrapper
         for (String healthyDataSourceKey : healthyDataSourceSelectorMap.keySet()) {
             AbstractLoadBalanceSelector<DataSourceWrapper> selector =
@@ -159,18 +259,17 @@ public class MySplitterDataSourceManager {
 
     private void createReadersDataSource(String dbKey,
                                          Map<String, MySplitterDataSourceNodeConfig> readers,
-                                         Map<String, MySplitterLoadBalanceConfig> loadBalanceConfig)
-            throws Exception {
+                                         MySplitterLoadBalanceConfig loadBalanceConfig) {
         // 创建选择器
         String selectorName = generateDataSourceSelectorName(dbKey, "readers");
         // 根据负载均衡设置进行设置
-        createLoadBalanceSelector(selectorName, loadBalanceConfig.get("read"), readers);
+        createLoadBalanceSelector(selectorName, loadBalanceConfig, readers);
         // 创建所有的数据源到healthyDataSourceSelector
         for (String readerKey : readers.keySet()) {
             // 获取节点配置
             MySplitterDataSourceNodeConfig nodeConfig = readers.get(readerKey);
             // 创建包装类对象
-            DataSourceWrapper wrapper = new DataSourceWrapper(readerKey, dbKey, nodeConfig);
+            DataSourceWrapper wrapper = new DataSourceWrapper(readerKey, dbKey, nodeConfig, loadBalanceConfig);
             // 放入选择器
             healthyDataSourceSelectorMap.get(selectorName).register(wrapper, nodeConfig.getWeight());
             LOGGER.debug("MySplitter has been registered {} data source node: Database:{}, Node:{}",
@@ -180,18 +279,17 @@ public class MySplitterDataSourceManager {
 
     private void createWritersDataSource(String dbKey,
                                          Map<String, MySplitterDataSourceNodeConfig> writers,
-                                         Map<String, MySplitterLoadBalanceConfig> loadBalanceConfig)
-            throws Exception {
+                                         MySplitterLoadBalanceConfig loadBalanceConfig) {
         // 创建选择器
         String selectorName = generateDataSourceSelectorName(dbKey, "writers");
         // 根据负载均衡设置进行设置
-        createLoadBalanceSelector(selectorName, loadBalanceConfig.get("write"), writers);
+        createLoadBalanceSelector(selectorName, loadBalanceConfig, writers);
         // 创建所有的数据源到healthyDataSourceSelector
         for (String writerKey : writers.keySet()) {
             // 获取节点配置
             MySplitterDataSourceNodeConfig nodeConfig = writers.get(writerKey);
             // 创建包装类对象
-            DataSourceWrapper wrapper = new DataSourceWrapper(writerKey, dbKey, nodeConfig);
+            DataSourceWrapper wrapper = new DataSourceWrapper(writerKey, dbKey, nodeConfig, loadBalanceConfig);
             // 放入选择器
             healthyDataSourceSelectorMap.get(selectorName).register(wrapper, nodeConfig.getWeight());
             LOGGER.debug("MySplitter has been registered {} data source node: Database:{}, Node:{}",
@@ -200,8 +298,7 @@ public class MySplitterDataSourceManager {
     }
 
     private void createIntegratesDataSource(String dbKey,
-                                            Map<String, MySplitterDataSourceNodeConfig> integrates)
-            throws Exception {
+                                            Map<String, MySplitterDataSourceNodeConfig> integrates) {
         // 如果整合数据源超过一个，抛出异常
         if (integrates.size() > 1) {
             throw new IllegalArgumentException("The database named " + dbKey + " contains " + integrates.size() + " " +
@@ -212,13 +309,12 @@ public class MySplitterDataSourceManager {
         // 整合数据源不进行负载均衡
         healthyDataSourceSelectorMap.put(selectorName, new NoLoadBalanceSelector<DataSourceWrapper>());
         illDataSourceSelectorMap.put(selectorName, new NoLoadBalanceSelector<DataSourceWrapper>());
-        standbyDataSourceSelectorMap.put(selectorName, new NoLoadBalanceSelector<DataSourceWrapper>());
         // 创建所有的数据源到healthyDataSourceSelector
         for (String integrateKey : integrates.keySet()) {
             // 获取节点配置
             MySplitterDataSourceNodeConfig nodeConfig = integrates.get(integrateKey);
             // 创建包装类对象
-            DataSourceWrapper wrapper = new DataSourceWrapper(integrateKey, dbKey, nodeConfig);
+            DataSourceWrapper wrapper = new DataSourceWrapper(integrateKey, dbKey, nodeConfig, null);
             // 放入选择器
             healthyDataSourceSelectorMap.get(selectorName).register(wrapper, nodeConfig.getWeight());
             LOGGER.debug("MySplitter has been registered {} data source node: Database:{}, Node:{}",
@@ -232,31 +328,13 @@ public class MySplitterDataSourceManager {
             if ("polling".equals(loadBalanceConfig.getStrategy())) {
                 healthyDataSourceSelectorMap.put(selectorName, new RoundRobinLoadBalanceSelector<DataSourceWrapper>());
                 illDataSourceSelectorMap.put(selectorName, new RoundRobinLoadBalanceSelector<DataSourceWrapper>());
-                standbyDataSourceSelectorMap.put(selectorName, new RoundRobinLoadBalanceSelector<DataSourceWrapper>());
             } else if ("random".equals(loadBalanceConfig.getStrategy())) {
                 healthyDataSourceSelectorMap.put(selectorName, new RandomLoadBalanceSelector<DataSourceWrapper>());
                 illDataSourceSelectorMap.put(selectorName, new RandomLoadBalanceSelector<DataSourceWrapper>());
-                standbyDataSourceSelectorMap.put(selectorName, new RandomLoadBalanceSelector<DataSourceWrapper>());
             }
         } else {
             healthyDataSourceSelectorMap.put(selectorName, new NoLoadBalanceSelector<DataSourceWrapper>());
             illDataSourceSelectorMap.put(selectorName, new NoLoadBalanceSelector<DataSourceWrapper>());
-            standbyDataSourceSelectorMap.put(selectorName, new NoLoadBalanceSelector<DataSourceWrapper>());
-        }
-    }
-
-    private Integer parseHeartbeatRatePeriod(String heartbeatRate) {
-        return Integer.parseInt(heartbeatRate.substring(0, heartbeatRate.length() - 1));
-    }
-
-    private TimeUnit parseHeartbeatRateTimeUnit(String heartbeatRate) {
-        String substring = heartbeatRate.substring(heartbeatRate.length() - 1);
-        if ("s".equals(substring)) {
-            return TimeUnit.SECONDS;
-        } else if ("m".equals(substring)) {
-            return TimeUnit.MINUTES;
-        } else {
-            return TimeUnit.HOURS;
         }
     }
 
@@ -264,70 +342,47 @@ public class MySplitterDataSourceManager {
         return databaseName + ":" + operation;
     }
 
-    public MySplitterConnectionProxy getConnectionProxy() {
-        return new MySplitterConnectionProxy(this);
-    }
-
-    public MySplitterConnectionProxy getConnectionProxy(String username, String password) {
-        return new MySplitterConnectionProxy(this, username, password);
-    }
-
-    public Connection getConnection(MySplitterSqlWrapper sql) throws SQLException {
-        return getConnection(sql, null, null);
-    }
-
-    public Connection getConnection(MySplitterSqlWrapper sql, String username, String password) throws SQLException {
-        String targetDatabase = this.databaseManager.routerHandler(sql.getSql());
-        String rewriteSql = this.databaseManager.rewriteSql(sql.getSql());
-        if (rewriteSql != null) {
-            sql.setSql(rewriteSql);
+    private void submitDataSourceFailTimeoutTask(final String targetDatabase,
+                                                 final String operation,
+                                                 final DataSourceWrapper dataSourceWrapper) {
+        String time;
+        if (dataSourceWrapper.getLoadBalanceConfig() == null) {
+            time = "20s";
+        } else {
+            time = dataSourceWrapper.getLoadBalanceConfig().getFailTimeout();
         }
-        String operation = this.readAndWriteParser.parseOperation(sql.getSql());
-        AbstractLoadBalanceSelector<DataSourceWrapper> healthySelector =
-                this.healthyDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase, operation));
-        if (healthySelector == null) {
-            healthySelector = this.healthyDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase,
-                    "integrates"));
-        }
-        if (healthySelector == null) {
-            throw new IllegalArgumentException("Can not find database:" + targetDatabase + ", operation:" + operation
-                    + ". May be databasesRoutingHandler or readAndWriteParser return wrong database or operation.");
-        }
-        Connection realConnection = null;
-        DataSourceWrapper dataSourceWrapper = null;
-        try {
-            dataSourceWrapper = healthySelector.acquire();
-            if (dataSourceWrapper == null) {
-                throw new NoHealthyDataSourceException();
-            }
-            if (username != null || password != null) {
-                realConnection = dataSourceWrapper.getRealDataSource().getConnection(username, password);
-            } else {
-                realConnection = dataSourceWrapper.getRealDataSource().getConnection();
-            }
-        } catch (SQLException | NoHealthyDataSourceException e) {
-            // 如果获取连接出现异常，将当前连接放入生病数据源
-            if (dataSourceWrapper != null) {
-                // 将当前生病的数据源移除
-                healthySelector.release(dataSourceWrapper);
-                // 将生病的数据源放入生病的map中
+        illDataSourceFailTimeoutExecutor.schedule(new Runnable() {
+            @Override
+            public void run() {
                 AbstractLoadBalanceSelector<DataSourceWrapper> illSelector =
-                        this.illDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase, operation));
-                illSelector.register(dataSourceWrapper,
-                        dataSourceWrapper.getMySplitterDataSourceNodeConfig().getWeight());
+                        illDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase, "operation"));
+                if (illSelector == null) {
+                    illSelector = illDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase,
+                            "integrates"));
+                }
+                illSelector.release(dataSourceWrapper);
+                healthyDataSourceSelectorMap
+                        .get(generateDataSourceSelectorName(targetDatabase, operation))
+                        .register(dataSourceWrapper, dataSourceWrapper.getNodeConfig().getWeight());
             }
-            // TODO 数据源的生成到底由谁来进行控制？是获取连接时控制，还是由定时任务控制？高可用切换时机是否需要考虑？
-            // TODO 判断是否还有数据源，如果数据源没有了，激活待命数据源
-            // TODO catch 到 NoHealthyDataSourceException 抛出异常等待恢复
-        }
-        return realConnection;
+        }, parseTimePeriod(time), parseTimeTimeUnit(time));
     }
 
-    public Connection getDefaultConnection() throws SQLException {
-        return this.healthyDataSourceSelectorMap
-                .get(new ArrayList<>(this.healthyDataSourceSelectorMap.keySet()).get(0))
-                .acquire()
-                .getRealDataSource()
-                .getConnection();
+    private Integer parseTimePeriod(String time) {
+        return Integer.parseInt(time.substring(0, time.length() - 1));
     }
+
+    private TimeUnit parseTimeTimeUnit(String time) {
+        String substring = time.substring(time.length() - 1);
+        if ("s".equals(substring.toLowerCase())) {
+            return TimeUnit.SECONDS;
+        } else if ("m".equals(substring.toLowerCase())) {
+            return TimeUnit.MINUTES;
+        } else if ("h".equals(substring.toLowerCase())) {
+            return TimeUnit.HOURS;
+        } else {
+            return TimeUnit.SECONDS;
+        }
+    }
+
 }
