@@ -27,6 +27,7 @@ import com.mysplitter.selector.NoLoadBalanceSelector;
 import com.mysplitter.selector.RandomLoadBalanceSelector;
 import com.mysplitter.selector.RoundRobinLoadBalanceSelector;
 import com.mysplitter.util.ClassLoaderUtil;
+import com.mysplitter.util.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -346,7 +347,8 @@ public class MySplitterDataSourceManager {
                                                  final String operation,
                                                  final DataSourceWrapper dataSourceWrapper) {
         String time;
-        if (dataSourceWrapper.getLoadBalanceConfig() == null) {
+        if (dataSourceWrapper.getLoadBalanceConfig() == null
+                || StringUtil.isBlank(dataSourceWrapper.getLoadBalanceConfig().getFailTimeout())) {
             time = "20s";
         } else {
             time = dataSourceWrapper.getLoadBalanceConfig().getFailTimeout();
