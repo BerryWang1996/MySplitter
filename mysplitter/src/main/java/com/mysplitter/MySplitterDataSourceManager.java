@@ -33,8 +33,7 @@ import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -87,7 +86,7 @@ public class MySplitterDataSourceManager {
         String targetDatabase = this.databaseManager.routerHandler(sql.getSql());
         String rewriteSql = this.databaseManager.rewriteSql(sql.getSql());
         if (rewriteSql != null) {
-            sql.setSql(rewriteSql);
+            sql.rewrite(rewriteSql);
         }
         String operation = this.readAndWriteParser.parseOperation(sql.getSql());
         AbstractLoadBalanceSelector<DataSourceWrapper> healthySelector =
@@ -117,10 +116,10 @@ public class MySplitterDataSourceManager {
             AbstractLoadBalanceSelector<DataSourceWrapper> illSelector =
                     illDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase, operation));
             if (illSelector == null) {
-                illSelector = this.healthyDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase,
+                illSelector = this.illDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase,
                         "integrates"));
             }
-            List<DataSourceWrapper> dataSourceWrappers = illSelector.listAll();
+            final List<DataSourceWrapper> dataSourceWrappers = illSelector.listAll();
             int totalIllCount = dataSourceWrappers.size();
             // 如果此时获取链接异常的数据源也没有数据，那么抛出异常
             if (totalIllCount == 0) {
@@ -137,28 +136,41 @@ public class MySplitterDataSourceManager {
                     }
                     // 如果没出现异常，放入健康数据源map
                     illSelector.release(dataSourceWrapper);
-                    this.healthyDataSourceSelectorMap
-                            .get(generateDataSourceSelectorName(targetDatabase, operation))
-                            .register(dataSourceWrapper, dataSourceWrapper.getNodeConfig().getWeight());
+                    AbstractLoadBalanceSelector<DataSourceWrapper> selector =
+                            this.healthyDataSourceSelectorMap
+                                    .get(generateDataSourceSelectorName(targetDatabase, operation));
+                    if (selector == null) {
+                        selector = this.healthyDataSourceSelectorMap
+                                .get(generateDataSourceSelectorName(targetDatabase, "integrates"));
+                    }
+                    selector.register(dataSourceWrapper, dataSourceWrapper.getNodeConfig().getWeight());
                     // 跳出循环
                     break;
                 } catch (Exception e1) {
                     // 如果遍历到最后一个数据源还是出现异常不再进行处理（抛出异常），其他的忽略
-                    if (totalIllCount == i - 1) {
+                    if (totalIllCount - 1 == i) {
                         throw e1;
                     }
                 }
             }
         } catch (Exception e1) {
-            // 如果获取连接出现异常，放入连接异常数据源map
-            healthySelector.release(dataSourceWrapper);
-            this.illDataSourceSelectorMap
-                    .get(generateDataSourceSelectorName(targetDatabase, operation))
-                    .register(dataSourceWrapper, dataSourceWrapper.getNodeConfig().getWeight());
-            // 异常提醒
-            dataSourceIllAlerter.alert(dataSourceWrapper.getDataBaseName(), dataSourceWrapper.getNodeName(), e1);
-            // 提交到期自动移入健康数据源的任务
-            submitDataSourceFailTimeoutTask(targetDatabase, operation, dataSourceWrapper);
+            if (dataSourceWrapper != null) {
+                // 如果获取连接出现异常，放入连接异常数据源map
+                healthySelector.release(dataSourceWrapper);
+                AbstractLoadBalanceSelector<DataSourceWrapper> selector =
+                        this.illDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase, operation));
+                if (selector == null) {
+                    selector = this.illDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase,
+                            "integrates"));
+                }
+                selector.register(dataSourceWrapper, dataSourceWrapper.getNodeConfig().getWeight());
+                // 异常提醒
+                dataSourceIllAlerter.alert(dataSourceWrapper.getDataBaseName(), dataSourceWrapper.getNodeName(), e1);
+                // 提交到期自动移入健康数据源的任务
+                submitDataSourceFailTimeoutTask(targetDatabase, operation, dataSourceWrapper);
+            }
+            // 递归再次获取数据源连接
+            return getConnection(sql, username, password);
         }
         LOGGER.debug("MySplitter is getting connection from datasource node named {} in database {}.",
                 dataSourceWrapper.getNodeName(),
@@ -176,9 +188,6 @@ public class MySplitterDataSourceManager {
         // 如果健康的数据源还有的话
         for (Map.Entry<String, AbstractLoadBalanceSelector<DataSourceWrapper>> entry :
                 healthyDataSourceSelectorMap.entrySet()) {
-            if (entry.getValue().listAll().size() == 0) {
-                throw new NoHealthyDataSourceException();
-            }
             for (DataSourceWrapper dataSourceWrapper : entry.getValue().listAll()) {
                 try {
                     return dataSourceWrapper.getRealDataSource().getConnection();
@@ -199,6 +208,10 @@ public class MySplitterDataSourceManager {
             }
         }
         // 如果获取所有的连接都失败了，那么就抛出异常
+        if (exceptionHolder == null) {
+            throw new NoHealthyDataSourceException("No healthy data source.");
+        }
+        // TODO 如果都获取失败，从异常数据源map再次获取一遍
         throw exceptionHolder;
     }
 
@@ -380,26 +393,36 @@ public class MySplitterDataSourceManager {
     private void submitDataSourceFailTimeoutTask(final String targetDatabase,
                                                  final String operation,
                                                  final DataSourceWrapper dataSourceWrapper) {
-        String time;
+        final String time;
         if (dataSourceWrapper.getLoadBalanceConfig() == null
                 || StringUtil.isBlank(dataSourceWrapper.getLoadBalanceConfig().getFailTimeout())) {
-            time = "20s";
+            time = "30s";
         } else {
             time = dataSourceWrapper.getLoadBalanceConfig().getFailTimeout();
         }
+        LOGGER.debug("Submit data source fail timeout task. Database: {}, operation:{}, DataSource:{}, Time:{}",
+                targetDatabase, operation, dataSourceWrapper, time);
         illDataSourceFailTimeoutExecutor.schedule(new Runnable() {
             @Override
             public void run() {
+                LOGGER.debug("Execute data source fail timeout task. Database: {}, operation:{}, DataSource:{}, " +
+                        "Time:{}", targetDatabase, operation, dataSourceWrapper, time);
+                // 从异常数据源中移除
                 AbstractLoadBalanceSelector<DataSourceWrapper> illSelector =
-                        illDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase, "operation"));
+                        illDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase, operation));
                 if (illSelector == null) {
                     illSelector = illDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase,
                             "integrates"));
                 }
                 illSelector.release(dataSourceWrapper);
-                healthyDataSourceSelectorMap
-                        .get(generateDataSourceSelectorName(targetDatabase, operation))
-                        .register(dataSourceWrapper, dataSourceWrapper.getNodeConfig().getWeight());
+                // 添加到健康数据源
+                AbstractLoadBalanceSelector<DataSourceWrapper> healthySelector =
+                        healthyDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase, operation));
+                if (healthySelector == null) {
+                    healthySelector = healthyDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase,
+                            "integrates"));
+                }
+                healthySelector.register(dataSourceWrapper, dataSourceWrapper.getNodeConfig().getWeight());
             }
         }, parseTimePeriod(time), parseTimeTimeUnit(time));
     }
@@ -419,6 +442,34 @@ public class MySplitterDataSourceManager {
         } else {
             return TimeUnit.SECONDS;
         }
+    }
+
+    Map<String, Object> getStatus() {
+        Map<String, Object> status = new HashMap<>();
+
+        Map<String, Object> healthy = new TreeMap<>();
+        for (Map.Entry<String, AbstractLoadBalanceSelector<DataSourceWrapper>> entry :
+                healthyDataSourceSelectorMap.entrySet()) {
+            List<String> data = new ArrayList<>();
+            for (DataSourceWrapper dataSourceWrapper : entry.getValue().listAll()) {
+                data.add(dataSourceWrapper.getNodeName());
+            }
+            healthy.put(entry.getKey(), data);
+        }
+        status.put("healthy", healthy);
+
+        Map<String, Object> ill = new TreeMap<>();
+        for (Map.Entry<String, AbstractLoadBalanceSelector<DataSourceWrapper>> entry :
+                illDataSourceSelectorMap.entrySet()) {
+            List<String> data = new ArrayList<>();
+            for (DataSourceWrapper dataSourceWrapper : entry.getValue().listAll()) {
+                data.add(dataSourceWrapper.getNodeName());
+            }
+            ill.put(entry.getKey(), data);
+        }
+        status.put("ill", ill);
+
+        return status;
     }
 
 }

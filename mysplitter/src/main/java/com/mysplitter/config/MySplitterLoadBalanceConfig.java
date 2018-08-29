@@ -27,7 +27,7 @@ public class MySplitterLoadBalanceConfig {
 
     private String databaseName;
 
-    private String failTimeout;
+    private String failTimeout = "30s";
 
     public boolean isEnabled() {
         return enabled;
