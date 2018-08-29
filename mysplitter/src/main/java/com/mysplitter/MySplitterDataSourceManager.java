@@ -157,6 +157,7 @@ public class MySplitterDataSourceManager {
                     .get(generateDataSourceSelectorName(targetDatabase, operation))
                     .register(dataSourceWrapper, dataSourceWrapper.getNodeConfig().getWeight());
             // 异常提醒
+            // TODO 异常但是没有走异常提醒
             dataSourceIllAlerter.alert(dataSourceWrapper.getDataBaseName(), dataSourceWrapper.getNodeName(), e1);
             // 提交到期自动移入健康数据源的任务
             submitDataSourceFailTimeoutTask(targetDatabase, operation, dataSourceWrapper);
@@ -169,11 +170,21 @@ public class MySplitterDataSourceManager {
 
     Connection getDefaultConnection() throws SQLException {
         LOGGER.debug("MySplitter is getting default connection.");
-        return this.healthyDataSourceSelectorMap
-                .get(new ArrayList<>(this.healthyDataSourceSelectorMap.keySet()).get(0))
-                .acquire()
-                .getRealDataSource()
-                .getConnection();
+        int size = this.healthyDataSourceSelectorMap.size();
+        for (int i = 0; i < size; i++) {
+            try {
+                return this.healthyDataSourceSelectorMap
+                        .get(new ArrayList<>(this.healthyDataSourceSelectorMap.keySet()).get(i))
+                        .acquire()
+                        .getRealDataSource()
+                        .getConnection();
+            } catch (Exception e) {
+                if (i == size - 1) {
+                    throw e;
+                }
+            }
+        }
+        return null;
     }
 
     void init() throws Exception {
