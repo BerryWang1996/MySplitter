@@ -25,6 +25,7 @@ import org.slf4j.LoggerFactory;
 import javax.sql.DataSource;
 import java.io.PrintWriter;
 import java.io.Serializable;
+import java.net.URL;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -70,7 +71,9 @@ public class MySplitterDataSource implements DataSource, Serializable {
                 LOGGER.info("MySplitter is initializing.");
                 if (mySplitterConfig == null) {
                     if (StringUtil.isBlank(configurationFileName)) {
-                        configurationFileName = DEFAULT_CONFIGURATION_FILE_NAME;
+                        URL resource =
+                                Thread.currentThread().getContextClassLoader().getResource(DEFAULT_CONFIGURATION_FILE_NAME);
+                        configurationFileName = resource.getPath();
                     }
                     LOGGER.info("MySplitter is reading configuration file named {}.", configurationFileName);
                     mySplitterConfig = ConfigurationUtil.getMySplitterConfig(configurationFileName);

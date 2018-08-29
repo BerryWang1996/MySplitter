@@ -1,32 +1,35 @@
 mysplitter:
-  enablePasswordEncryption: true
-  databasesRoutingHandler: com.mysplitter.MyDatabasesRouter # ignore when only one database. com.xxx.xxx # implements com.mysplitter.advise.MySplitterDatabasesRoutingHandlerAdvise
+  databasesRoutingHandler: com.mysplitter.MyDatabasesRouter # ignore when only one database. com.xxx.xxx # implements com.mysplitter.advise.DatabasesRoutingHandlerAdvise
   readAndWriteParser: com.mysplitter.DefaultReadAndWriteParser
-  illAlertHandler: com.mysplitter.MyDataSourceIllAlertHandler
+  enablePasswordEncryption: true
+  illAlertHandler: com.mysplitter.MyDataSourceIllAlertHandler # implements com.mysplitter.advise.MySplitterDataSourceIllAlertAdvise(optional)
+  filters: # implements com.mysplitter.advise.DataSourceFilterAdvise(optional)
+  - com.mysplitter.MyDataSourceFilters1
+  - com.mysplitter.MyDataSourceFilters2
   common:
     dataSourceClass: com.alibaba.druid.pool.DruidDataSource
     highAvailable:
       integrate:
-        enabled: true
+        enabled: false
         lazyLoad: false
         detectionSql: SELECT 1
         switchOpportunity: on-error # scheduled on-error-dissolve (support one)
         healthyHeartbeatRate: 1s # s=second, m=minute, h=hour
-        illHeartbeatRate: 5s # s=second, m=minute, h=hour
+        illHeartbeatRate: 20s # s=second, m=minute, h=hour
       read:
         enabled: true
         lazyLoad: true # if true, create dataSource when switch, heartbeat would't check uncreated dataSource.
         detectionSql: SELECT 1
         switchOpportunity: on-error # scheduled on-error-dissolve (support one)
         healthyHeartbeatRate: 1s # s=second, m=minute, h=hour
-        illHeartbeatRate: 5s # s=second, m=minute, h=hour
+        illHeartbeatRate: 20s # s=second, m=minute, h=hour
       write:
-        enabled: true
+        enabled: false
         lazyLoad: false
         detectionSql: SELECT 1
         switchOpportunity: on-error # scheduled on-error-dissolve (support one)
         healthyHeartbeatRate: 1s # s=second, m=minute, h=hour
-        illHeartbeatRate: 5s # s=second, m=minute, h=hour
+        illHeartbeatRate: 20s # s=second, m=minute, h=hour
     loadBalance:
       read:
         enabled: true
@@ -35,17 +38,20 @@ mysplitter:
         enabled: true
         strategy: polling # random
   databases:
-    database-a:
+    database-a: # database-DatabaseName e.g.database-master database-192.168.1.1:3306
+      #      dataSourceClass: com.alibaba.druid.pool.DruidDataSource
       readers:
         reader-read-slave-1:
-          configuration:
+          # dataSourceClass: (optional high priority)
+          configuration: # dataSource configuration
             url: jdbc:mysql://localhost:3306/user?useSSL=false
             username: root
             password: UtDAi2eqmspIDSHqpoGQU5JC9kpfFeZPBhUxkPnWtNwsTEYFkTh/QAa5wyU7LDufruSYN+0WCUTE6F5X++5tDA==
             publicKey: MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBAKVbfAja9r0HF29S/ph/T+f6UbeNxn4giAzgxweKABRsJ2sI/MNhV8x7jTsCM15xDHKM4G++QqC1Bx0tdgG/BI0CAwEAAQ==
             driverClassName: com.mysql.jdbc.Driver
         reader-read-slave-2:
-          configuration:
+          # dataSourceClass: (optional high priority)
+          configuration: # dataSource configuration
             url: jdbc:mysql://localhost:3306/user?useSSL=false
             username: root
             password: Oe7fcF2TLqytAlvy37C/IWfBhNhBFXmMGceE6GRxYyjJXh3TUdmq8EvebiFb0pB1hF9aH7thnnkthFiy5n3M8Q==
@@ -53,17 +59,18 @@ mysplitter:
             driverClassName: com.mysql.jdbc.Driver
       writers:
         writer-write-master-1:
-          configuration:
+          configuration: # dataSource configuration
             url: jdbc:mysql://localhost:3306/user?useSSL=false
             username: root
             password: MAtsEynrB5qJp6oDfmae2Z2Hx1lqPwFDNMKnwUr/P7+HvYy8ZXIm6DKI5VWfLO34Bjcdy+Jsr4+/N++Bxx0Y5w==
             publicKey: MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBAIvm9Ez/X3VOLUGNfATqtyQsK5+TOR66uK6MvHdX89N1K8S3l3bNVB2BKiPZ1hDxZNZfYtbQNUUHKjDyV+eUtq8CAwEAAQ==
             driverClassName: com.mysql.jdbc.Driver
-    database-b:
+    database-b: # database-DatabaseName e.g.database-master database-192.168.1.1:3306
+      # dataSourceClass: (optional)
       integrates:
         integrate-slave-1:
           dataSourceClass: com.zaxxer.hikari.HikariDataSource
-          configuration:
+          configuration: # dataSource configuration
             jdbcUrl: jdbc:mysql://localhost:3306/dept?useSSL=false
             username: root
             password: iFIge745Qd4z76TgAWMZgIL+Nw0IRBRWbUi+xaGdiPGrHzhT+rfeJojPnnAjJWKazjQ1wMea2fRA/dod6VlRhQ==
