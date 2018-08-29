@@ -5,28 +5,6 @@ mysplitter:
   illAlertHandler: com.mysplitter.MyDataSourceIllAlertHandler
   common:
     dataSourceClass: com.alibaba.druid.pool.DruidDataSource
-    highAvailable:
-      integrate:
-        enabled: true
-        lazyLoad: false
-        detectionSql: SELECT 1
-        switchOpportunity: on-error # scheduled on-error-dissolve (support one)
-        healthyHeartbeatRate: 1s # s=second, m=minute, h=hour
-        illHeartbeatRate: 5s # s=second, m=minute, h=hour
-      read:
-        enabled: true
-        lazyLoad: true # if true, create dataSource when switch, heartbeat would't check uncreated dataSource.
-        detectionSql: SELECT 1
-        switchOpportunity: on-error # scheduled on-error-dissolve (support one)
-        healthyHeartbeatRate: 1s # s=second, m=minute, h=hour
-        illHeartbeatRate: 5s # s=second, m=minute, h=hour
-      write:
-        enabled: true
-        lazyLoad: false
-        detectionSql: SELECT 1
-        switchOpportunity: on-error # scheduled on-error-dissolve (support one)
-        healthyHeartbeatRate: 1s # s=second, m=minute, h=hour
-        illHeartbeatRate: 5s # s=second, m=minute, h=hour
     loadBalance:
       read:
         enabled: true
