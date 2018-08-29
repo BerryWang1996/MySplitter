@@ -9,6 +9,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 /**
  * @author berrywang1996
  * @version V1.0.0
@@ -57,6 +59,11 @@ public class DemoServiceImpl implements DemoService {
             throw new IllegalArgumentException("test exception");
         }
 
+    }
+
+    @Override
+    public List<User> userList() {
+        return userMapper.list();
     }
 
 }

@@ -4,4 +4,5 @@ spring:
       configuration-file: classpath:mysplitter.yml
 logging:
   level:
+    com.mysplitter: debug
     root: info
