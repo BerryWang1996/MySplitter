@@ -94,39 +94,6 @@ public class ConfigurationUtil {
             mySplitterConfig.setIllAlertHandler("com.mysplitter.DefaultDataSourceIllAlertHandler");
         }
         isHighAvailableIllAlertHandlerLegal(mySplitterConfig.getIllAlertHandler());
-        // 检查highAvailable
-        Map<String, MySplitterHighAvailableConfig> commonHaConfigMap = mySplitterConfig.getCommon().getHighAvailable();
-        if (commonHaConfigMap == null || commonHaConfigMap.size() == 0) {
-            // 如果common的highAvailable是空，就设置关闭，以便于子节点获取
-            commonHaConfigMap = new ConcurrentHashMap<String, MySplitterHighAvailableConfig>(1);
-            for (String supportHaKey : SUPPORT_HA_NODE_MODE_LIST) {
-                MySplitterHighAvailableConfig mySplitterHighAvailableConfig = new MySplitterHighAvailableConfig();
-                mySplitterHighAvailableConfig.setEnabled(false);
-                commonHaConfigMap.put(supportHaKey, mySplitterHighAvailableConfig);
-            }
-        } else {
-            // 如果common的highAvailable有填写一项或多项，补充空项，然后检查highAvailable key是否在允许的范围内
-            for (String supportHaKey : SUPPORT_HA_NODE_MODE_LIST) {
-                if (commonHaConfigMap.get(supportHaKey) == null) {
-                    MySplitterHighAvailableConfig mySplitterHighAvailableConfig = new MySplitterHighAvailableConfig();
-                    mySplitterHighAvailableConfig.setEnabled(false);
-                    commonHaConfigMap.put(supportHaKey, mySplitterHighAvailableConfig);
-                }
-            }
-            isHighAvailableMapLegal(commonHaConfigMap);
-        }
-        // 查看每个dataSource是否配置highAvailable
-        for (String databaseKey : databases.keySet()) {
-            MySplitterDataBaseConfig mySplitterDataBaseConfig = databases.get(databaseKey);
-            if (mySplitterDataBaseConfig.getHighAvailable() != null &&
-                    mySplitterDataBaseConfig.getHighAvailable().size() > 0) {
-                // 如果配置，检查highAvailable key是否在允许的范围内
-                isHighAvailableMapLegal(mySplitterDataBaseConfig.getHighAvailable());
-            } else {
-                // 如果没有配置，使用common的配置
-                mySplitterDataBaseConfig.setHighAvailable(commonHaConfigMap);
-            }
-        }
         // 检查loadBalance
         Map<String, MySplitterLoadBalanceConfig> commonLoadBalance = mySplitterConfig.getCommon().getLoadBalance();
         if (commonLoadBalance == null || commonLoadBalance.size() == 0) {
@@ -308,18 +275,18 @@ public class ConfigurationUtil {
     /**
      * 检查过滤器是否正确
      */
-    private static void isFilterLegal(String MySplitterFilter) throws ClassNotFoundException {
-        if (StringUtil.isBlank(MySplitterFilter)) {
+    private static void isFilterLegal(String filterClzName) throws ClassNotFoundException {
+        if (StringUtil.isBlank(filterClzName)) {
             throw new IllegalArgumentException("MySplitter filter list contains empty class name.");
         } else {
-            Class<?> aClass = Class.forName(MySplitterFilter);
+            Class<?> aClass = Class.forName(filterClzName);
             Class<?>[] interfaces = aClass.getInterfaces();
             for (Class<?> anInterface : interfaces) {
                 if (anInterface.getName().equals(DataSourceFilterAdvise.class.getName())) {
                     return;
                 }
             }
-            throw new IllegalArgumentException("MySplitter filter not support " + MySplitterFilter + ", may not " +
+            throw new IllegalArgumentException("MySplitter filter not support " + filterClzName + ", may not " +
                     "implements com.mysplitter.advise.DataSourceFilterAdvise!");
         }
     }
@@ -429,75 +396,18 @@ public class ConfigurationUtil {
         }
     }
 
-    /**
-     * 检查HighAvailable是否合法
-     */
-    private static void isHighAvailableMapLegal(Map<String, MySplitterHighAvailableConfig> haConfigMap) {
-        for (String haKey : haConfigMap.keySet()) {
-            // 检查key是否存在
-            if (!SUPPORT_HA_NODE_MODE_LIST.contains(haKey)) {
-                throw new IllegalArgumentException("MySplitter highAvailable not support key " + haKey + "! Only " +
-                        "supported one of " + SUPPORT_HA_NODE_MODE_LIST + ".");
-            }
-            // 检查配置是否正确
-            MySplitterHighAvailableConfig mySplitterHighAvailableConfig = haConfigMap.get(haKey);
-            if (mySplitterHighAvailableConfig.isEnabled()) {
-                // 检查心跳sql语句
-                if (StringUtil.isBlank(mySplitterHighAvailableConfig.getDetectionSql())) {
-                    throw new IllegalArgumentException("MySplitter highAvailable detection sql is empty!");
-                }
-                // 检查切换时机
-                if (StringUtil.isBlank(mySplitterHighAvailableConfig.getSwitchOpportunity())) {
-                    throw new IllegalArgumentException("MySplitter highAvailable switch opportunity is empty!");
-                }
-                String switchOpportunity = mySplitterHighAvailableConfig.getSwitchOpportunity();
-                if (!SUPPORT_SWITCH_OPPORTUNITIES_LIST.contains(switchOpportunity)) {
-                    throw new IllegalArgumentException("MySplitter highAvailable switch opportunity not support key "
-                            + switchOpportunity + "! Only supported one of " + SUPPORT_SWITCH_OPPORTUNITIES_LIST + ".");
-                }
-                // 检查健康的数据源检查速率和不健康的数据源检查速率
-                String healthyHeartbeatRate = mySplitterHighAvailableConfig.getHealthyHeartbeatRate();
-                if (!isHighAvailableHeartbeatRateLegal(healthyHeartbeatRate)) {
-                    throw new IllegalArgumentException("MySplitter highAvailable healthy heartbeat rate is not support "
-                            + healthyHeartbeatRate + "!");
-                }
-                String illHeartbeatRate = mySplitterHighAvailableConfig.getIllHeartbeatRate();
-                if (!isHighAvailableHeartbeatRateLegal(illHeartbeatRate)) {
-                    throw new IllegalArgumentException("MySplitter highAvailable ill heartbeat rate is not support "
-                            + illHeartbeatRate + "!");
-                }
-            }
-        }
-    }
-
-    private static boolean isHighAvailableHeartbeatRateLegal(String heartbeatRate) {
-        if (heartbeatRate.endsWith("s") || heartbeatRate.endsWith("m") || heartbeatRate.endsWith("h")) {
-            if ((heartbeatRate.length() - 1) > 0) {
-                String substring = heartbeatRate.substring(0, heartbeatRate.length() - 1);
-                try {
-                    return Integer.parseInt(substring) >= 0;
-                } catch (NumberFormatException ignored) {
-                }
-            }
-        } else if (heartbeatRate.equals("0")) {
-            return true;
-        }
-        return false;
-    }
-
-    private static boolean isHighAvailableIllAlertHandlerLegal(String illAlertHandler) {
+    private static void isHighAvailableIllAlertHandlerLegal(String illAlertHandler) {
         Class<?> aClass = null;
         try {
             aClass = Class.forName(illAlertHandler);
         } catch (ClassNotFoundException e) {
             throw new IllegalArgumentException("HighAvailable ill alert handler " + illAlertHandler + " in " +
-                    "mysplitter" +
-                    ".yml is not legal!");
+                    "mysplitter.yml is not legal!");
         }
         Class<?>[] interfaces = aClass.getInterfaces();
         for (Class<?> anInterface : interfaces) {
             if (anInterface.getName().equals(DataSourceIllAlerterAdvise.class.getName())) {
-                return true;
+                return;
             }
         }
         throw new IllegalArgumentException("HighAvailable ill alert handler not support " +

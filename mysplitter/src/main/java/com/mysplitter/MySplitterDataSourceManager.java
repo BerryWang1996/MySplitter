@@ -20,7 +20,6 @@ import com.mysplitter.advise.DataSourceIllAlerterAdvise;
 import com.mysplitter.advise.ReadAndWriteParserAdvise;
 import com.mysplitter.config.MySplitterDataBaseConfig;
 import com.mysplitter.config.MySplitterDataSourceNodeConfig;
-import com.mysplitter.config.MySplitterHighAvailableConfig;
 import com.mysplitter.config.MySplitterLoadBalanceConfig;
 import com.mysplitter.exceptions.NoHealthyDataSourceException;
 import com.mysplitter.selector.AbstractLoadBalanceSelector;
@@ -33,7 +32,6 @@ import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -49,8 +47,6 @@ public class MySplitterDataSourceManager {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MySplitterDataSourceManager.class);
 
-    private static final Integer DEFAULT_INITIAL_DELAY = 5;
-
     private MySplitterDataSource router;
 
     private AtomicBoolean isInitialized = new AtomicBoolean(false);
@@ -60,8 +56,6 @@ public class MySplitterDataSourceManager {
     private ReadAndWriteParserAdvise readAndWriteParser;
 
     private DataSourceIllAlerterAdvise dataSourceIllAlerter;
-
-    private ScheduledThreadPoolExecutor scheduledHighAvailableChecker;
 
     private Map<String, AbstractLoadBalanceSelector<DataSourceWrapper>> healthyDataSourceSelectorMap =
             new ConcurrentHashMap<String, AbstractLoadBalanceSelector<DataSourceWrapper>>();
@@ -86,8 +80,6 @@ public class MySplitterDataSourceManager {
             createReadAndWriteParser();
             // 创建数据源异常提醒
             createDataSourceIllAlerter();
-            // 创建高可用检查线程池
-            createHighAvailableChecker();
             // 创建数据源节点
             createDataSources();
         }
@@ -121,13 +113,6 @@ public class MySplitterDataSourceManager {
                 DataSourceIllAlerterAdvise.class);
     }
 
-    private void createHighAvailableChecker() {
-        LOGGER.debug("MySplitterDataSourceManager is creating HighAvailableChecker.");
-        int availableProcessors = Runtime.getRuntime().availableProcessors();
-        scheduledHighAvailableChecker = new ScheduledThreadPoolExecutor(availableProcessors, new DaemonThreadFactory
-                ("mysplitter-ha"));
-    }
-
     private void createDataSources() throws Exception {
         LOGGER.debug("MySplitterDataSourceManager is getting data sources configuration.");
         // 获取所有的数据库配置，根据读写创建对应的数据源wrapper
@@ -137,22 +122,20 @@ public class MySplitterDataSourceManager {
             MySplitterDataBaseConfig dataBaseConfig = dbs.get(dbKey);
             // 获取数据库负载均衡配置
             Map<String, MySplitterLoadBalanceConfig> loadBalanceConfig = dataBaseConfig.getLoadBalance();
-            // 获取数据库高可用配置
-            Map<String, MySplitterHighAvailableConfig> highAvailableConfig = dataBaseConfig.getHighAvailable();
             // 获取数据源并进行初始化
             Map<String, MySplitterDataSourceNodeConfig> integrates = dataBaseConfig.getIntegrates();
             if (integrates != null && integrates.size() > 0) {
                 // 如果整合数据源存在
-                createIntegratesDataSource(dbKey, integrates, highAvailableConfig);
+                createIntegratesDataSource(dbKey, integrates);
             } else {
                 Map<String, MySplitterDataSourceNodeConfig> readers = dataBaseConfig.getReaders();
                 Map<String, MySplitterDataSourceNodeConfig> writers = dataBaseConfig.getWriters();
                 // 如果整合数据源不存在，读取读和写数据源
                 if (readers != null && readers.size() > 0) {
-                    createReadersDataSource(dbKey, readers, loadBalanceConfig, highAvailableConfig);
+                    createReadersDataSource(dbKey, readers, loadBalanceConfig);
                 }
                 if (writers != null && writers.size() > 0) {
-                    createWritersDataSource(dbKey, writers, loadBalanceConfig, highAvailableConfig);
+                    createWritersDataSource(dbKey, writers, loadBalanceConfig);
                 }
             }
         }
@@ -176,275 +159,70 @@ public class MySplitterDataSourceManager {
 
     private void createReadersDataSource(String dbKey,
                                          Map<String, MySplitterDataSourceNodeConfig> readers,
-                                         Map<String, MySplitterLoadBalanceConfig> loadBalanceConfig,
-                                         Map<String, MySplitterHighAvailableConfig> highAvailableConfig)
+                                         Map<String, MySplitterLoadBalanceConfig> loadBalanceConfig)
             throws Exception {
         // 创建选择器
         String selectorName = generateDataSourceSelectorName(dbKey, "readers");
         // 根据负载均衡设置进行设置
         createLoadBalanceSelector(selectorName, loadBalanceConfig.get("read"), readers);
-        // 获取整合数据源的配置
-        MySplitterHighAvailableConfig readHaConfig = highAvailableConfig.get("read");
-        // 如果高可用启动，懒加载不启动，创建所有的数据源到healthyDataSourceSelector
-        if (readHaConfig.isEnabled() && !readHaConfig.isLazyLoad()) {
-            for (String readrKey : readers.keySet()) {
-                // 获取节点配置
-                MySplitterDataSourceNodeConfig nodeConfig = readers.get(readrKey);
-                // 创建包装类对象
-                DataSourceWrapper wrapper = new DataSourceWrapper(readrKey, dbKey, nodeConfig);
-                // 放入选择器
-                healthyDataSourceSelectorMap.get(selectorName).register(wrapper, nodeConfig.getWeight());
-            }
-            // 提交健康数据源检查任务
-            LOGGER.debug("MySplitterHighAvailableChecker is submit a [healthy] data source schedule at " +
-                    "fixed rate task. Database:{}, HighAvailableNodeMode:{}, detectionSql:{}, " +
-                    "HeartbeatRate:{}", dbKey, "read", readHaConfig.getDetectionSql(), readHaConfig
-                    .getHealthyHeartbeatRate());
-            submitHealthyDataSourceChecker(selectorName,
-                    readHaConfig.getDetectionSql(),
-                    readHaConfig.getHealthyHeartbeatRate());
-            // 提交异常数据源检查任务
-            LOGGER.debug("MySplitterHighAvailableChecker is submit a [  ill  ] data source schedule at " +
-                    "fixed rate task. Database:{}, HighAvailableNodeMode:{}, detectionSql:{}, " +
-                    "HeartbeatRate:{}", dbKey, "read", readHaConfig.getDetectionSql(), readHaConfig
-                    .getIllHeartbeatRate());
-            submitIllDataSourceChecker(selectorName,
-                    readHaConfig.getDetectionSql(),
-                    readHaConfig.getIllHeartbeatRate());
-        }
-        // 如果高可用启动，懒加载启动，将第一个数据源放入healthyDataSourceSelector，其他放入standbyDataSourceSelectorMap，然后创建检查线程
-        else if (readHaConfig.isEnabled() && readHaConfig.isLazyLoad()) {
-            boolean isFirst = true;
-            for (String readrKey : readers.keySet()) {
-                if (isFirst) {
-                    // 将第一个数据源放入健康数据源列表
-                    isFirst = false;
-                    // 获取节点配置
-                    MySplitterDataSourceNodeConfig nodeConfig = readers.get(readrKey);
-                    // 创建包装类对象
-                    DataSourceWrapper wrapper = new DataSourceWrapper(readrKey, dbKey, nodeConfig);
-                    // 放入选择器
-                    healthyDataSourceSelectorMap.get(selectorName).register(wrapper, nodeConfig.getWeight());
-                } else {
-                    // 其他放入standby
-                    // 获取节点配置
-                    MySplitterDataSourceNodeConfig nodeConfig = readers.get(readrKey);
-                    // 创建包装类对象
-                    DataSourceWrapper wrapper = new DataSourceWrapper(readrKey, dbKey, nodeConfig);
-                    // 放入选择器
-                    standbyDataSourceSelectorMap.get(selectorName).register(wrapper, nodeConfig.getWeight());
-                }
-            }
-            // 提交健康数据源检查任务
-            LOGGER.debug("MySplitterHighAvailableChecker is submit a [healthy] data source schedule at " +
-                    "fixed rate task. Database:{}, HighAvailableNodeMode:{}, detectionSql:{}, " +
-                    "HeartbeatRate:{}", dbKey, "read", readHaConfig.getDetectionSql(), readHaConfig
-                    .getHealthyHeartbeatRate());
-            submitHealthyDataSourceChecker(selectorName,
-                    readHaConfig.getDetectionSql(),
-                    readHaConfig.getHealthyHeartbeatRate());
-            // 提交异常数据源检查任务
-            LOGGER.debug("MySplitterHighAvailableChecker is submit a [  ill  ] data source schedule at " +
-                    "fixed rate task. Database:{}, HighAvailableNodeMode:{}, detectionSql:{}, " +
-                    "HeartbeatRate:{}", dbKey, "read", readHaConfig.getDetectionSql(), readHaConfig
-                    .getIllHeartbeatRate());
-            submitIllDataSourceChecker(selectorName,
-                    readHaConfig.getDetectionSql(),
-                    readHaConfig.getIllHeartbeatRate());
-        }
-        // 如果高可用不启动，懒加载无论是否启动，也加载所有的数据源，但是不创建检查线程
-        else if (!readHaConfig.isEnabled()) {
-            for (String readrKey : readers.keySet()) {
-                // 获取节点配置
-                MySplitterDataSourceNodeConfig nodeConfig = readers.get(readrKey);
-                // 创建包装类对象
-                DataSourceWrapper wrapper = new DataSourceWrapper(readrKey, dbKey, nodeConfig);
-                // 放入选择器
-                healthyDataSourceSelectorMap.get(selectorName).register(wrapper, nodeConfig.getWeight());
-            }
+        // 创建所有的数据源到healthyDataSourceSelector
+        for (String readerKey : readers.keySet()) {
+            // 获取节点配置
+            MySplitterDataSourceNodeConfig nodeConfig = readers.get(readerKey);
+            // 创建包装类对象
+            DataSourceWrapper wrapper = new DataSourceWrapper(readerKey, dbKey, nodeConfig);
+            // 放入选择器
+            healthyDataSourceSelectorMap.get(selectorName).register(wrapper, nodeConfig.getWeight());
+            LOGGER.debug("MySplitter has been registered {} data source node: Database:{}, Node:{}",
+                    "read", dbKey, readerKey);
         }
     }
 
     private void createWritersDataSource(String dbKey,
                                          Map<String, MySplitterDataSourceNodeConfig> writers,
-                                         Map<String, MySplitterLoadBalanceConfig> loadBalanceConfig,
-                                         Map<String, MySplitterHighAvailableConfig> highAvailableConfig)
+                                         Map<String, MySplitterLoadBalanceConfig> loadBalanceConfig)
             throws Exception {
         // 创建选择器
         String selectorName = generateDataSourceSelectorName(dbKey, "writers");
         // 根据负载均衡设置进行设置
         createLoadBalanceSelector(selectorName, loadBalanceConfig.get("write"), writers);
-        // 获取整合数据源的配置
-        MySplitterHighAvailableConfig writeHaConfig = highAvailableConfig.get("write");
-        // 如果高可用启动，懒加载不启动，创建所有的数据源到healthyDataSourceSelector
-        if (writeHaConfig.isEnabled() && !writeHaConfig.isLazyLoad()) {
-            for (String writerKey : writers.keySet()) {
-                // 获取节点配置
-                MySplitterDataSourceNodeConfig nodeConfig = writers.get(writerKey);
-                // 创建包装类对象
-                DataSourceWrapper wrapper = new DataSourceWrapper(writerKey, dbKey, nodeConfig);
-                // 放入选择器
-                healthyDataSourceSelectorMap.get(selectorName).register(wrapper, nodeConfig.getWeight());
-            }
-            // 提交健康数据源检查任务
-            LOGGER.debug("MySplitterHighAvailableChecker is submit a [healthy] data source schedule at " +
-                    "fixed rate task. Database:{}, HighAvailableNodeMode:{}, detectionSql:{}, " +
-                    "HeartbeatRate:{}", dbKey, "write", writeHaConfig.getDetectionSql(), writeHaConfig
-                    .getHealthyHeartbeatRate());
-            submitHealthyDataSourceChecker(selectorName,
-                    writeHaConfig.getDetectionSql(),
-                    writeHaConfig.getHealthyHeartbeatRate());
-            // 提交异常数据源检查任务
-            LOGGER.debug("MySplitterHighAvailableChecker is submit a [  ill  ] data source schedule at " +
-                    "fixed rate task. Database:{}, HighAvailableNodeMode:{}, detectionSql:{}, " +
-                    "HeartbeatRate:{}", dbKey, "write", writeHaConfig.getDetectionSql(), writeHaConfig
-                    .getIllHeartbeatRate());
-            submitIllDataSourceChecker(selectorName,
-                    writeHaConfig.getDetectionSql(),
-                    writeHaConfig.getIllHeartbeatRate());
-        }
-        // 如果高可用启动，懒加载启动，将第一个数据源放入healthyDataSourceSelector，其他放入standbyDataSourceSelectorMap，然后创建检查线程
-        else if (writeHaConfig.isEnabled() && writeHaConfig.isLazyLoad()) {
-            boolean isFirst = true;
-            for (String writerKey : writers.keySet()) {
-                if (isFirst) {
-                    // 将第一个数据源放入健康数据源列表
-                    isFirst = false;
-                    // 获取节点配置
-                    MySplitterDataSourceNodeConfig nodeConfig = writers.get(writerKey);
-                    // 创建包装类对象
-                    DataSourceWrapper wrapper = new DataSourceWrapper(writerKey, dbKey, nodeConfig);
-                    // 放入选择器
-                    healthyDataSourceSelectorMap.get(selectorName).register(wrapper, nodeConfig.getWeight());
-                } else {
-                    // 其他放入standby
-                    // 获取节点配置
-                    MySplitterDataSourceNodeConfig nodeConfig = writers.get(writerKey);
-                    // 创建包装类对象
-                    DataSourceWrapper wrapper = new DataSourceWrapper(writerKey, dbKey, nodeConfig);
-                    // 放入选择器
-                    standbyDataSourceSelectorMap.get(selectorName).register(wrapper, nodeConfig.getWeight());
-                }
-            }
-            // 提交健康数据源检查任务
-            LOGGER.debug("MySplitterHighAvailableChecker is submit a [healthy] data source schedule at " +
-                    "fixed rate task. Database:{}, HighAvailableNodeMode:{}, detectionSql:{}, " +
-                    "HeartbeatRate:{}", dbKey, "write", writeHaConfig.getDetectionSql(), writeHaConfig
-                    .getHealthyHeartbeatRate());
-            submitHealthyDataSourceChecker(selectorName,
-                    writeHaConfig.getDetectionSql(),
-                    writeHaConfig.getHealthyHeartbeatRate());
-            // 提交异常数据源检查任务
-            LOGGER.debug("MySplitterHighAvailableChecker is submit a [  ill  ] data source schedule at " +
-                    "fixed rate task. Database:{}, HighAvailableNodeMode:{}, detectionSql:{}, " +
-                    "HeartbeatRate:{}", dbKey, "write", writeHaConfig.getDetectionSql(), writeHaConfig
-                    .getIllHeartbeatRate());
-            submitIllDataSourceChecker(selectorName,
-                    writeHaConfig.getDetectionSql(),
-                    writeHaConfig.getIllHeartbeatRate());
-        }
-        // 如果高可用不启动，懒加载无论是否启动，也加载所有的数据源，但是不创建检查线程
-        else if (!writeHaConfig.isEnabled()) {
-            for (String writerKey : writers.keySet()) {
-                // 获取节点配置
-                MySplitterDataSourceNodeConfig nodeConfig = writers.get(writerKey);
-                // 创建包装类对象
-                DataSourceWrapper wrapper = new DataSourceWrapper(writerKey, dbKey, nodeConfig);
-                // 放入选择器
-                healthyDataSourceSelectorMap.get(selectorName).register(wrapper, nodeConfig.getWeight());
-            }
+        // 创建所有的数据源到healthyDataSourceSelector
+        for (String writerKey : writers.keySet()) {
+            // 获取节点配置
+            MySplitterDataSourceNodeConfig nodeConfig = writers.get(writerKey);
+            // 创建包装类对象
+            DataSourceWrapper wrapper = new DataSourceWrapper(writerKey, dbKey, nodeConfig);
+            // 放入选择器
+            healthyDataSourceSelectorMap.get(selectorName).register(wrapper, nodeConfig.getWeight());
+            LOGGER.debug("MySplitter has been registered {} data source node: Database:{}, Node:{}",
+                    "write", dbKey, writerKey);
         }
     }
 
     private void createIntegratesDataSource(String dbKey,
-                                            Map<String, MySplitterDataSourceNodeConfig> integrates,
-                                            Map<String, MySplitterHighAvailableConfig> highAvailableConfig)
+                                            Map<String, MySplitterDataSourceNodeConfig> integrates)
             throws Exception {
+        // 如果整合数据源超过一个，抛出异常
+        if (integrates.size() > 1) {
+            throw new IllegalArgumentException("The database named " + dbKey + " contains " + integrates.size() + " " +
+                    "datasource nodes.");
+        }
         // 创建选择器
         String selectorName = generateDataSourceSelectorName(dbKey, "integrates");
         // 整合数据源不进行负载均衡
         healthyDataSourceSelectorMap.put(selectorName, new NoLoadBalanceSelector<DataSourceWrapper>());
         illDataSourceSelectorMap.put(selectorName, new NoLoadBalanceSelector<DataSourceWrapper>());
         standbyDataSourceSelectorMap.put(selectorName, new NoLoadBalanceSelector<DataSourceWrapper>());
-        // 获取整合数据源的配置
-        MySplitterHighAvailableConfig integrateHaConfig = highAvailableConfig.get("integrate");
-        // 如果高可用启动，懒加载不启动，创建所有的数据源到healthyDataSourceSelector
-        if (integrateHaConfig.isEnabled() && !integrateHaConfig.isLazyLoad()) {
-            for (String integrateKey : integrates.keySet()) {
-                // 获取节点配置
-                MySplitterDataSourceNodeConfig nodeConfig = integrates.get(integrateKey);
-                // 创建包装类对象
-                DataSourceWrapper wrapper = new DataSourceWrapper(integrateKey, dbKey, nodeConfig);
-                // 放入选择器
-                healthyDataSourceSelectorMap.get(selectorName).register(wrapper, nodeConfig.getWeight());
-            }
-            // 提交健康数据源检查任务
-            LOGGER.debug("MySplitterHighAvailableChecker is submit a [healthy] data source schedule at " +
-                    "fixed rate task. Database:{}, HighAvailableNodeMode:{}, detectionSql:{}, " +
-                    "HeartbeatRate:{}", dbKey, "integrate", integrateHaConfig.getDetectionSql(), integrateHaConfig
-                    .getHealthyHeartbeatRate());
-            submitHealthyDataSourceChecker(selectorName,
-                    integrateHaConfig.getDetectionSql(),
-                    integrateHaConfig.getHealthyHeartbeatRate());
-            // 提交异常数据源检查任务
-            LOGGER.debug("MySplitterHighAvailableChecker is submit a [  ill  ] data source schedule at " +
-                    "fixed rate task. Database:{}, HighAvailableNodeMode:{}, detectionSql:{}, " +
-                    "HeartbeatRate:{}", dbKey, "integrate", integrateHaConfig.getDetectionSql(), integrateHaConfig
-                    .getIllHeartbeatRate());
-            submitIllDataSourceChecker(selectorName,
-                    integrateHaConfig.getDetectionSql(),
-                    integrateHaConfig.getIllHeartbeatRate());
-        }
-        // 如果高可用启动，懒加载启动，将第一个数据源放入healthyDataSourceSelector，其他放入standbyDataSourceSelectorMap，然后创建检查线程
-        else if (integrateHaConfig.isEnabled() && integrateHaConfig.isLazyLoad()) {
-            boolean isFirst = true;
-            for (String integrateKey : integrates.keySet()) {
-                if (isFirst) {
-                    // 将第一个数据源放入健康数据源列表
-                    isFirst = false;
-                    // 获取节点配置
-                    MySplitterDataSourceNodeConfig nodeConfig = integrates.get(integrateKey);
-                    // 创建包装类对象
-                    DataSourceWrapper wrapper = new DataSourceWrapper(integrateKey, dbKey, nodeConfig);
-                    // 放入选择器
-                    healthyDataSourceSelectorMap.get(selectorName).register(wrapper, nodeConfig.getWeight());
-                } else {
-                    // 其他放入standby
-                    // 获取节点配置
-                    MySplitterDataSourceNodeConfig nodeConfig = integrates.get(integrateKey);
-                    // 创建包装类对象
-                    DataSourceWrapper wrapper = new DataSourceWrapper(integrateKey, dbKey, nodeConfig);
-                    // 放入选择器
-                    standbyDataSourceSelectorMap.get(selectorName).register(wrapper, nodeConfig.getWeight());
-                }
-            }
-            // 提交健康数据源检查任务
-            LOGGER.debug("MySplitterHighAvailableChecker is submit a [healthy] data source schedule at " +
-                    "fixed rate task. Database:{}, HighAvailableNodeMode:{}, detectionSql:{}, " +
-                    "HeartbeatRate:{}", dbKey, "integrate", integrateHaConfig.getDetectionSql(), integrateHaConfig
-                    .getHealthyHeartbeatRate());
-            submitHealthyDataSourceChecker(selectorName,
-                    integrateHaConfig.getDetectionSql(),
-                    integrateHaConfig.getHealthyHeartbeatRate());
-            // 提交异常数据源检查任务
-            LOGGER.debug("MySplitterHighAvailableChecker is submit a [  ill  ] data source schedule at " +
-                    "fixed rate task. Database:{}, HighAvailableNodeMode:{}, detectionSql:{}, " +
-                    "HeartbeatRate:{}", dbKey, "integrate", integrateHaConfig.getDetectionSql(), integrateHaConfig
-                    .getIllHeartbeatRate());
-            submitIllDataSourceChecker(selectorName,
-                    integrateHaConfig.getDetectionSql(),
-                    integrateHaConfig.getIllHeartbeatRate());
-        }
-        // 如果高可用不启动，懒加载无论是否启动，也加载所有的数据源，但是不创建检查线程
-        else if (!integrateHaConfig.isEnabled()) {
-            for (String integrateKey : integrates.keySet()) {
-                // 获取节点配置
-                MySplitterDataSourceNodeConfig nodeConfig = integrates.get(integrateKey);
-                // 创建包装类对象
-                DataSourceWrapper wrapper = new DataSourceWrapper(integrateKey, dbKey, nodeConfig);
-                // 放入选择器
-                healthyDataSourceSelectorMap.get(selectorName).register(wrapper, nodeConfig.getWeight());
-            }
+        // 创建所有的数据源到healthyDataSourceSelector
+        for (String integrateKey : integrates.keySet()) {
+            // 获取节点配置
+            MySplitterDataSourceNodeConfig nodeConfig = integrates.get(integrateKey);
+            // 创建包装类对象
+            DataSourceWrapper wrapper = new DataSourceWrapper(integrateKey, dbKey, nodeConfig);
+            // 放入选择器
+            healthyDataSourceSelectorMap.get(selectorName).register(wrapper, nodeConfig.getWeight());
+            LOGGER.debug("MySplitter has been registered {} data source node: Database:{}, Node:{}",
+                    "integrate", dbKey, integrateKey);
         }
     }
 
@@ -465,70 +243,6 @@ public class MySplitterDataSourceManager {
             illDataSourceSelectorMap.put(selectorName, new NoLoadBalanceSelector<DataSourceWrapper>());
             standbyDataSourceSelectorMap.put(selectorName, new NoLoadBalanceSelector<DataSourceWrapper>());
         }
-    }
-
-    private void submitHealthyDataSourceChecker(final String selectorName,
-                                                final String detectionSql,
-                                                final String heartbeatRate) {
-        // 创建检查线程
-        scheduledHighAvailableChecker.scheduleAtFixedRate(new Runnable() {
-            @Override
-            public void run() {
-                LOGGER.debug("Checking healthy datasource...");
-                // 获取数据源，进行检查
-                AbstractLoadBalanceSelector<DataSourceWrapper> selector =
-                        healthyDataSourceSelectorMap.get(selectorName);
-                List<DataSourceWrapper> dataSourceWrappers = selector.listAll();
-                for (DataSourceWrapper dataSourceWrapper : dataSourceWrappers) {
-                    try {
-                        dataSourceWrapper.healthyCheck(detectionSql);
-                    } catch (Exception e) {
-                        // 如果出现异常提交到异常提醒处理器
-                        dataSourceIllAlerter.alert(dataSourceWrapper.getDataBaseName(),
-                                dataSourceWrapper.getNodeName(), e);
-                        // 将当前数据源节点迁移到异常数据源节点
-                        selector.release(dataSourceWrapper);
-                        illDataSourceSelectorMap.get(selectorName).register(dataSourceWrapper,
-                                dataSourceWrapper.getMySplitterDataSourceNodeConfig().getWeight());
-                    }
-                }
-            }
-        }, DEFAULT_INITIAL_DELAY, parseHeartbeatRatePeriod(heartbeatRate), parseHeartbeatRateTimeUnit(heartbeatRate));
-    }
-
-    private void submitIllDataSourceChecker(final String selectorName,
-                                            final String detectionSql,
-                                            final String heartbeatRate) {
-        // 创建检查线程
-        scheduledHighAvailableChecker.scheduleAtFixedRate(new Runnable() {
-            @Override
-            public void run() {
-                LOGGER.debug("Checking ill datasource...");
-                // 获取数据源，进行检查
-                AbstractLoadBalanceSelector<DataSourceWrapper> selector =
-                        illDataSourceSelectorMap.get(selectorName);
-                List<DataSourceWrapper> dataSourceWrappers = selector.listAll();
-                for (DataSourceWrapper dataSourceWrapper : dataSourceWrappers) {
-                    boolean isOk = true;
-                    try {
-                        try (
-                                Connection connection = dataSourceWrapper.getRealDataSource().getConnection();
-                                Statement statement = connection.createStatement()
-                        ) {
-                            statement.execute(detectionSql);
-                        }
-                    } catch (Exception e) {
-                        isOk = false;
-                    }
-                    // 如果没出现异常，将当前节点恢复至正常节点
-                    if (isOk) {
-                        selector.release(dataSourceWrapper);
-                        healthyDataSourceSelectorMap.get(selectorName).register(dataSourceWrapper,
-                                dataSourceWrapper.getMySplitterDataSourceNodeConfig().getWeight());
-                    }
-                }
-            }
-        }, DEFAULT_INITIAL_DELAY, parseHeartbeatRatePeriod(heartbeatRate), parseHeartbeatRateTimeUnit(heartbeatRate));
     }
 
     private Integer parseHeartbeatRatePeriod(String heartbeatRate) {
