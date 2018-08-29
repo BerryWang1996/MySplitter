@@ -106,15 +106,6 @@ public class DataSourceWrapper {
                 }
                 // 创建引用
                 this.realDataSource = dataSource;
-                // 试图调用init方法初始化数据源
-                for (Method method : dataSource.getClass().getMethods()) {
-                    if ("init".equals(method.getName())) {
-                        try {
-                            method.invoke(dataSource);
-                        } catch (Exception ignored) {
-                        }
-                    }
-                }
             } catch (Exception e) {
                 e.printStackTrace();
             }
