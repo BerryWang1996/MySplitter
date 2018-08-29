@@ -24,6 +24,7 @@ mysplitter:
             password: UtDAi2eqmspIDSHqpoGQU5JC9kpfFeZPBhUxkPnWtNwsTEYFkTh/QAa5wyU7LDufruSYN+0WCUTE6F5X++5tDA==
             publicKey: MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBAKVbfAja9r0HF29S/ph/T+f6UbeNxn4giAzgxweKABRsJ2sI/MNhV8x7jTsCM15xDHKM4G++QqC1Bx0tdgG/BI0CAwEAAQ==
             driverClassName: com.mysql.jdbc.Driver
+            maxWait: 1000
         reader-read-slave-2:
           configuration:
             url: jdbc:mysql://localhost:3306/user?useSSL=false
@@ -31,6 +32,7 @@ mysplitter:
             password: Oe7fcF2TLqytAlvy37C/IWfBhNhBFXmMGceE6GRxYyjJXh3TUdmq8EvebiFb0pB1hF9aH7thnnkthFiy5n3M8Q==
             publicKey: MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBAMWmL+AzrbsKwfrtP/a/aQpQplNsoySxCHUQb0aJw2t8iemRtbxtxJhXmQqPMlAZdYppyK0wB48HTArD2am3/NMCAwEAAQ==
             driverClassName: com.mysql.jdbc.Driver
+            maxWait: 1000
       writers:
         writer-write-master-1:
           configuration:
@@ -39,6 +41,7 @@ mysplitter:
             password: MAtsEynrB5qJp6oDfmae2Z2Hx1lqPwFDNMKnwUr/P7+HvYy8ZXIm6DKI5VWfLO34Bjcdy+Jsr4+/N++Bxx0Y5w==
             publicKey: MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBAIvm9Ez/X3VOLUGNfATqtyQsK5+TOR66uK6MvHdX89N1K8S3l3bNVB2BKiPZ1hDxZNZfYtbQNUUHKjDyV+eUtq8CAwEAAQ==
             driverClassName: com.mysql.jdbc.Driver
+            maxWait: 1000
     database-b:
       integrates:
         integrate-slave-1:
@@ -49,3 +52,4 @@ mysplitter:
             password: iFIge745Qd4z76TgAWMZgIL+Nw0IRBRWbUi+xaGdiPGrHzhT+rfeJojPnnAjJWKazjQ1wMea2fRA/dod6VlRhQ==
             publicKey: MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBAIw2Bfyh3s93qkta5wjW/HgXKe6/1gJvq6P/WAFD1ZIYSIofPK1sdT2A77KIJVfZu2astfoXcKqVkUT1KqOWPYkCAwEAAQ==
             driverClassName: com.mysql.jdbc.Driver
+            connectionTimeout: 1000

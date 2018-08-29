@@ -33,7 +33,6 @@ import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -150,14 +149,13 @@ public class MySplitterDataSourceManager {
                     }
                 }
             }
-        } catch (SQLException e1) {
+        } catch (Exception e1) {
             // 如果获取连接出现异常，放入连接异常数据源map
             healthySelector.release(dataSourceWrapper);
             this.illDataSourceSelectorMap
                     .get(generateDataSourceSelectorName(targetDatabase, operation))
                     .register(dataSourceWrapper, dataSourceWrapper.getNodeConfig().getWeight());
             // 异常提醒
-            // TODO 异常但是没有走异常提醒
             dataSourceIllAlerter.alert(dataSourceWrapper.getDataBaseName(), dataSourceWrapper.getNodeName(), e1);
             // 提交到期自动移入健康数据源的任务
             submitDataSourceFailTimeoutTask(targetDatabase, operation, dataSourceWrapper);
@@ -170,21 +168,38 @@ public class MySplitterDataSourceManager {
 
     Connection getDefaultConnection() throws SQLException {
         LOGGER.debug("MySplitter is getting default connection.");
-        int size = this.healthyDataSourceSelectorMap.size();
-        for (int i = 0; i < size; i++) {
-            try {
-                return this.healthyDataSourceSelectorMap
-                        .get(new ArrayList<>(this.healthyDataSourceSelectorMap.keySet()).get(i))
-                        .acquire()
-                        .getRealDataSource()
-                        .getConnection();
-            } catch (Exception e) {
-                if (i == size - 1) {
-                    throw e;
+        // 如果没有健康的数据源了，抛出异常
+        if (healthyDataSourceSelectorMap.size() == 0) {
+            throw new NoHealthyDataSourceException();
+        }
+        SQLException exceptionHolder = null;
+        // 如果健康的数据源还有的话
+        for (Map.Entry<String, AbstractLoadBalanceSelector<DataSourceWrapper>> entry :
+                healthyDataSourceSelectorMap.entrySet()) {
+            if (entry.getValue().listAll().size() == 0) {
+                throw new NoHealthyDataSourceException();
+            }
+            for (DataSourceWrapper dataSourceWrapper : entry.getValue().listAll()) {
+                try {
+                    return dataSourceWrapper.getRealDataSource().getConnection();
+                } catch (SQLException e) {
+                    exceptionHolder = e;
+                    // 从健康数据源中移除
+                    entry.getValue().release(dataSourceWrapper);
+                    // 放入异常数据源
+                    illDataSourceSelectorMap.get(entry.getKey())
+                            .register(dataSourceWrapper, dataSourceWrapper.getNodeConfig().getWeight());
+                    // 异常提醒
+                    dataSourceIllAlerter.alert(dataSourceWrapper.getDataBaseName(),
+                            dataSourceWrapper.getNodeName(), e);
+                    // 提交到期自动移入健康数据源的任务
+                    submitDataSourceFailTimeoutTask(dataSourceWrapper.getDataBaseName(),
+                            entry.getKey().split(":")[1], dataSourceWrapper);
                 }
             }
         }
-        return null;
+        // 如果获取所有的连接都失败了，那么就抛出异常
+        throw exceptionHolder;
     }
 
     void init() throws Exception {

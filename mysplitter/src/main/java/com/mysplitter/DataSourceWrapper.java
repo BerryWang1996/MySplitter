@@ -96,11 +96,26 @@ public class DataSourceWrapper {
                     if (writeMethod != null) {
                         // 获取内省机制中的字段名（首字母小写）
                         String name = writeMethod.getName();
-                        name = name.substring(3, 4).toLowerCase() + name.substring(4, name.length());
+                        name = name.substring(3, 4).toLowerCase() + name.substring(4);
                         // 获取用户输入的map中的数据并设置
                         Object value = this.nodeConfig.getConfiguration().get(name);
+                        Class<?>[] parameterTypes = writeMethod.getParameterTypes();
+                        if (parameterTypes.length > 1) {
+                            throw new IllegalArgumentException("Not support properties " + name);
+                        }
                         if (value != null) {
-                            writeMethod.invoke(dataSource, value.toString());
+                            Class<?> parameterType = parameterTypes[0];
+                            Object paramVal;
+                            if (parameterType == Integer.class) {
+                                paramVal = Integer.parseInt((String) value);
+                            } else if (parameterType == Long.class) {
+                                paramVal = Long.parseLong((String) value);
+                            } else if (parameterType == String.class) {
+                                paramVal = value;
+                            } else {
+                                paramVal = value;
+                            }
+                            writeMethod.invoke(dataSource, paramVal);
                         }
                     }
                 }
@@ -110,6 +125,7 @@ public class DataSourceWrapper {
                 e.printStackTrace();
             }
         }
+
     }
 
     /**
