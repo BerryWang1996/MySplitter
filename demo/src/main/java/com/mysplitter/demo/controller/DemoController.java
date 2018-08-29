@@ -8,6 +8,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 /**
  * @author berrywang1996
  * @version V1.0.0
@@ -22,6 +24,11 @@ public class DemoController {
     public Object saveUser(User user) {
         demoService.saveUser(user);
         return "success";
+    }
+
+    @GetMapping("/user/list")
+    public List<User> userList() {
+        return demoService.userList();
     }
 
     @GetMapping("/dept/save")

@@ -11,7 +11,7 @@ public class ReadAndWriteParser implements ReadAndWriteParserAdvise {
 
     @Override
     public String parseOperation(String sql) {
-        return sql.toLowerCase().startsWith("select") ? "readers" : "writers";
+        return sql.toLowerCase().contains("select") ? "readers" : "writers";
     }
 
 }

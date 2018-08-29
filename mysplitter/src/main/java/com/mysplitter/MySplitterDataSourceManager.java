@@ -114,7 +114,7 @@ public class MySplitterDataSourceManager {
                 realConnection = dataSourceWrapper.getRealDataSource().getConnection();
             }
         } catch (NoHealthyDataSourceException e) {
-            // 如果一个健康的数据源都没有了，尝试从不健康的数据源获取
+            // 如果一个健康的数据源都没有了，尝试从获取链接异常的数据源获取
             AbstractLoadBalanceSelector<DataSourceWrapper> illSelector =
                     illDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase, operation));
             if (illSelector == null) {
@@ -123,6 +123,10 @@ public class MySplitterDataSourceManager {
             }
             List<DataSourceWrapper> dataSourceWrappers = illSelector.listAll();
             int totalIllCount = dataSourceWrappers.size();
+            // 如果此时获取链接异常的数据源也没有数据，那么抛出异常
+            if (totalIllCount == 0) {
+                throw new NoHealthyDataSourceException("No data source node was found.");
+            }
             // 此时可能会出现异常
             for (int i = 0; i < totalIllCount; i++) {
                 dataSourceWrapper = dataSourceWrappers.get(i);
@@ -157,10 +161,14 @@ public class MySplitterDataSourceManager {
             // 提交到期自动移入健康数据源的任务
             submitDataSourceFailTimeoutTask(targetDatabase, operation, dataSourceWrapper);
         }
+        LOGGER.debug("MySplitter is getting connection from datasource node named {} in database {}.",
+                dataSourceWrapper.getNodeName(),
+                dataSourceWrapper.getDataBaseName());
         return realConnection;
     }
 
     Connection getDefaultConnection() throws SQLException {
+        LOGGER.debug("MySplitter is getting default connection.");
         return this.healthyDataSourceSelectorMap
                 .get(new ArrayList<>(this.healthyDataSourceSelectorMap.keySet()).get(0))
                 .acquire()
