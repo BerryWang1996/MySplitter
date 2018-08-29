@@ -4,5 +4,7 @@ spring:
       configuration-file: classpath:mysplitter.yml
 logging:
   level:
+    com.zaxxer.hikari: off
+    com.alibaba.druid: off
     com.mysplitter: debug
     root: info
