@@ -27,6 +27,8 @@ public class MySplitterLoadBalanceConfig {
 
     private String databaseName;
 
+    private String failTimeout;
+
     public boolean isEnabled() {
         return enabled;
     }
@@ -51,12 +53,21 @@ public class MySplitterLoadBalanceConfig {
         this.databaseName = databaseName;
     }
 
+    public String getFailTimeout() {
+        return failTimeout;
+    }
+
+    public void setFailTimeout(String failTimeout) {
+        this.failTimeout = failTimeout;
+    }
+
     @Override
     public String toString() {
         return "MySplitterLoadBalanceConfig{" +
                 "enabled=" + enabled +
                 ", strategy='" + strategy + '\'' +
                 ", databaseName='" + databaseName + '\'' +
+                ", failTimeout='" + failTimeout + '\'' +
                 '}';
     }
 }

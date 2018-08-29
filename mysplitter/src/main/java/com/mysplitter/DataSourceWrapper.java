@@ -17,7 +17,9 @@
 package com.mysplitter;
 
 import com.mysplitter.config.MySplitterDataSourceNodeConfig;
+import com.mysplitter.config.MySplitterLoadBalanceConfig;
 import com.mysplitter.util.ClassLoaderUtil;
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.sql.DataSource;
@@ -26,8 +28,6 @@ import java.beans.Introspector;
 import java.beans.MethodDescriptor;
 import java.beans.PropertyDescriptor;
 import java.lang.reflect.Method;
-import java.sql.Connection;
-import java.sql.Statement;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -35,7 +35,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class DataSourceWrapper {
 
-    private static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(DataSourceWrapper.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(DataSourceWrapper.class);
 
     /**
      * 标志是否已经初始化
@@ -45,15 +45,18 @@ public class DataSourceWrapper {
     /**
      * 包装类构造方法
      *
-     * @param nodeName                       节点名称
-     * @param dataBaseName                   数据库名称
-     * @param mySplitterDataSourceNodeConfig 节点配置
+     * @param nodeName     节点名称
+     * @param dataBaseName 数据库名称
+     * @param nodeConfig   节点配置
      */
-    public DataSourceWrapper(String nodeName, String dataBaseName, MySplitterDataSourceNodeConfig
-            mySplitterDataSourceNodeConfig) {
+    public DataSourceWrapper(String nodeName,
+                             String dataBaseName,
+                             MySplitterDataSourceNodeConfig nodeConfig,
+                             MySplitterLoadBalanceConfig loadBalanceConfig) {
         this.nodeName = nodeName;
         this.dataBaseName = dataBaseName;
-        this.mySplitterDataSourceNodeConfig = mySplitterDataSourceNodeConfig;
+        this.nodeConfig = nodeConfig;
+        this.loadBalanceConfig = loadBalanceConfig;
     }
 
     private DataSource realDataSource;
@@ -62,7 +65,9 @@ public class DataSourceWrapper {
 
     private String dataBaseName;
 
-    private MySplitterDataSourceNodeConfig mySplitterDataSourceNodeConfig;
+    private MySplitterDataSourceNodeConfig nodeConfig;
+
+    private MySplitterLoadBalanceConfig loadBalanceConfig;
 
     /**
      * 获取真正数据源
@@ -78,7 +83,7 @@ public class DataSourceWrapper {
         if (isInitialized.compareAndSet(false, true)) {
             try {
                 // 获取真实数据源的全限定名
-                String dataSourceClass = mySplitterDataSourceNodeConfig.getDataSourceClass();
+                String dataSourceClass = nodeConfig.getDataSourceClass();
                 LOGGER.info("MySplitter is initializing data source {}, database named {}, node named {}",
                         dataSourceClass, dataBaseName, nodeName);
                 // 创建真实数据源
@@ -93,7 +98,7 @@ public class DataSourceWrapper {
                         String name = writeMethod.getName();
                         name = name.substring(3, 4).toLowerCase() + name.substring(4, name.length());
                         // 获取用户输入的map中的数据并设置
-                        Object value = this.mySplitterDataSourceNodeConfig.getConfiguration().get(name);
+                        Object value = this.nodeConfig.getConfiguration().get(name);
                         if (value != null) {
                             writeMethod.invoke(dataSource, value.toString());
                         }
@@ -117,7 +122,7 @@ public class DataSourceWrapper {
     }
 
     /**
-     * 关闭真正的数据源（一般是当高可用lazyload设置为true时会使用）
+     * 关闭真正的数据源
      */
     public synchronized void releaseRealDataSource() throws Exception {
         if (isInitialized.get()) {
@@ -155,23 +160,12 @@ public class DataSourceWrapper {
     /**
      * 获取数据源的配置（监控用）
      */
-    public MySplitterDataSourceNodeConfig getMySplitterDataSourceNodeConfig() {
-        return mySplitterDataSourceNodeConfig;
+    public MySplitterDataSourceNodeConfig getNodeConfig() {
+        return nodeConfig;
     }
 
-    /**
-     * 数据源健康检查（如果数据源不健康，抛出异常）
-     *
-     * @param sql 通过sql检查数据源是否健康
-     * @throws Exception 操作数据源时发生的任何异常
-     */
-    public void healthyCheck(String sql) throws Exception {
-        try (
-                Connection connection = this.getRealDataSource().getConnection();
-                Statement statement = connection.createStatement()
-        ) {
-            statement.execute(sql);
-        }
+    public MySplitterLoadBalanceConfig getLoadBalanceConfig() {
+        return loadBalanceConfig;
     }
 
     @Override

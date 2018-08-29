@@ -9,9 +9,11 @@ mysplitter:
       read:
         enabled: true
         strategy: polling # random weight (default 1, change weight in reader or writer.)
+        failTimeout: 20s
       write:
         enabled: true
         strategy: polling # random
+        failTimeout: 20s
   databases:
     database-a:
       readers:
