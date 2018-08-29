@@ -16,6 +16,10 @@
 
 package com.mysplitter.selector;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -25,12 +29,15 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class RoundRobinLoadBalanceSelector<T> extends AbstractLoadBalanceSelector<T> {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(RoundRobinLoadBalanceSelector.class);
+
     private List<T> list = new CopyOnWriteArrayList<T>();
 
     private AtomicInteger atomicFetch = new AtomicInteger(0);
 
     @Override
     public synchronized void register(T object, int weight) {
+        LOGGER.debug("Registers {} weight {}.", object, weight);
         if (!list.contains(object)) {
             list.add(object);
         }
@@ -38,6 +45,7 @@ public class RoundRobinLoadBalanceSelector<T> extends AbstractLoadBalanceSelecto
 
     @Override
     public synchronized T acquire() {
+        LOGGER.debug("Acquire somethings.");
         if (list.size() == 0) {
             return null;
         }
@@ -51,6 +59,7 @@ public class RoundRobinLoadBalanceSelector<T> extends AbstractLoadBalanceSelecto
 
     @Override
     public synchronized void release(T object) {
+        LOGGER.debug("Release {}.", object);
         if (object == null) {
             return;
         }
@@ -59,7 +68,7 @@ public class RoundRobinLoadBalanceSelector<T> extends AbstractLoadBalanceSelecto
 
     @Override
     public List<T> listAll() {
-        return list;
+        return new ArrayList<>(list);
     }
 
 }

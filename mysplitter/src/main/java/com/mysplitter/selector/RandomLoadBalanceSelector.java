@@ -16,6 +16,10 @@
 
 package com.mysplitter.selector;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -25,10 +29,13 @@ import java.util.concurrent.CopyOnWriteArrayList;
  */
 public class RandomLoadBalanceSelector<T> extends AbstractLoadBalanceSelector<T> {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(RandomLoadBalanceSelector.class);
+
     private List<T> list = new CopyOnWriteArrayList<T>();
 
     @Override
     public synchronized void register(T object, int weight) {
+        LOGGER.debug("Registers {} weight {}.", object, weight);
         for (T key : list) {
             if (key == object) {
                 release(object);
@@ -41,11 +48,13 @@ public class RandomLoadBalanceSelector<T> extends AbstractLoadBalanceSelector<T>
 
     @Override
     public synchronized T acquire() {
+        LOGGER.debug("Acquire somethings.");
         return list.size() == 0 ? null : list.get(new Random().nextInt(list.size()));
     }
 
     @Override
     public synchronized void release(T object) {
+        LOGGER.debug("Release {}.", object);
         if (object == null) {
             return;
         }
@@ -58,7 +67,7 @@ public class RandomLoadBalanceSelector<T> extends AbstractLoadBalanceSelector<T>
 
     @Override
     public List<T> listAll() {
-        return list;
+        return new ArrayList<>(list);
     }
 
 }

@@ -30,6 +30,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
 
@@ -144,6 +145,10 @@ public class MySplitterDataSource implements DataSource, Serializable {
 
     public MySplitterRootConfig getMySplitterConfig() {
         return mySplitterConfig;
+    }
+
+    public Map<String, Object> getStatus() {
+        return dataSourceManager.getStatus();
     }
 
 }

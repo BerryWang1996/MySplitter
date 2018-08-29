@@ -12,7 +12,7 @@ public class DataSourceIllAlertHandler implements DataSourceIllAlerterAdvise {
 
     @Override
     public void alert(String s, String s1, Exception e) {
-        log.warn("Datasource got error.", e);
+//        log.warn("Datasource got error.", e);
     }
 
 }

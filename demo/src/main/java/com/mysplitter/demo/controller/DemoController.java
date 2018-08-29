@@ -1,5 +1,6 @@
 package com.mysplitter.demo.controller;
 
+import com.mysplitter.MySplitterDataSource;
 import com.mysplitter.demo.domain.Department;
 import com.mysplitter.demo.domain.User;
 import com.mysplitter.demo.service.DemoService;
@@ -19,6 +20,14 @@ public class DemoController {
 
     @Autowired
     private DemoService demoService;
+
+    @Autowired
+    private MySplitterDataSource dataSource;
+
+    @GetMapping("/status")
+    public Object status() {
+        return dataSource.getStatus();
+    }
 
     @GetMapping("/user/save")
     public Object saveUser(User user) {
