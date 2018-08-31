@@ -83,11 +83,14 @@ public class MySplitterDataSourceManager {
     }
 
     Connection getConnection(MySplitterSqlWrapper sql, String username, String password) throws SQLException {
-        String targetDatabase = this.databaseManager.routerHandler(sql.getSql());
+        // 获取原始sql
+        String targetDatabase = this.databaseManager.routerHandler(sql.getOriginalSql());
+        // 重写sql
         String rewriteSql = this.databaseManager.rewriteSql(sql.getSql());
         if (rewriteSql != null) {
             sql.rewrite(rewriteSql);
         }
+        // 解析sql类型
         String operation = this.readAndWriteParser.parseOperation(sql.getSql());
         AbstractLoadBalanceSelector<DataSourceWrapper> healthySelector =
                 this.healthyDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase, operation));
@@ -104,6 +107,7 @@ public class MySplitterDataSourceManager {
         try {
             dataSourceWrapper = healthySelector.acquire();
             if (dataSourceWrapper == null) {
+                // 一个健康的数据源都没有了
                 throw new NoHealthyDataSourceException();
             }
             if (username != null || password != null) {
@@ -155,6 +159,7 @@ public class MySplitterDataSourceManager {
             }
         } catch (Exception e1) {
             if (dataSourceWrapper != null) {
+                LOGGER.debug("MySplitter caught an exception when get connection, try again.");
                 // 如果获取连接出现异常，放入连接异常数据源map
                 healthySelector.release(dataSourceWrapper);
                 AbstractLoadBalanceSelector<DataSourceWrapper> selector =
@@ -180,10 +185,6 @@ public class MySplitterDataSourceManager {
 
     Connection getDefaultConnection() throws SQLException {
         LOGGER.debug("MySplitter is getting default connection.");
-        // 如果没有健康的数据源了，抛出异常
-        if (healthyDataSourceSelectorMap.size() == 0) {
-            throw new NoHealthyDataSourceException();
-        }
         SQLException exceptionHolder = null;
         // 如果健康的数据源还有的话
         for (Map.Entry<String, AbstractLoadBalanceSelector<DataSourceWrapper>> entry :
@@ -207,12 +208,26 @@ public class MySplitterDataSourceManager {
                 }
             }
         }
-        // 如果获取所有的连接都失败了，那么就抛出异常
-        if (exceptionHolder == null) {
-            throw new NoHealthyDataSourceException("No healthy data source.");
+        // 如果获取所有的连接都失败了，尝试从异常数据源再次获取一遍
+        for (Map.Entry<String, AbstractLoadBalanceSelector<DataSourceWrapper>> entry :
+                illDataSourceSelectorMap.entrySet()) {
+            for (DataSourceWrapper dataSourceWrapper : entry.getValue().listAll()) {
+                try {
+                    Connection connection = dataSourceWrapper.getRealDataSource().getConnection();
+                    // 如果没有出现异常，放入健康数据源
+                    entry.getValue().release(dataSourceWrapper);
+                    healthyDataSourceSelectorMap
+                            .get(entry.getKey())
+                            .register(dataSourceWrapper, dataSourceWrapper.getNodeConfig().getWeight());
+                    return connection;
+                } catch (SQLException ignored) {
+                }
+            }
         }
-        // TODO 如果都获取失败，从异常数据源map再次获取一遍
-        throw exceptionHolder;
+        if (exceptionHolder != null) {
+            throw exceptionHolder;
+        }
+        throw new NoHealthyDataSourceException("No healthy data source.");
     }
 
     void init() throws Exception {
@@ -413,6 +428,10 @@ public class MySplitterDataSourceManager {
                 if (illSelector == null) {
                     illSelector = illDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase,
                             "integrates"));
+                }
+                // 如果异常数据源中已经没有了，不再执行操作
+                if (illSelector.listAll().size() == 0) {
+                    return;
                 }
                 illSelector.release(dataSourceWrapper);
                 // 添加到健康数据源
