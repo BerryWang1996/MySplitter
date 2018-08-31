@@ -10,9 +10,12 @@ public class MySplitterSqlWrapper {
 
     private AtomicBoolean isRewrite = new AtomicBoolean(false);
 
-    public MySplitterSqlWrapper(String sql) {
+    MySplitterSqlWrapper(String sql) {
         this.sql = sql;
+        this.originalSql = sql;
     }
+
+    private String originalSql;
 
     private String sql;
 
@@ -20,9 +23,14 @@ public class MySplitterSqlWrapper {
         return sql;
     }
 
-    public void rewrite(String sql) {
+    String getOriginalSql() {
+        return originalSql;
+    }
+
+    void rewrite(String sql) {
         if (isRewrite.compareAndSet(false, true)) {
             this.sql = sql;
         }
     }
+
 }
