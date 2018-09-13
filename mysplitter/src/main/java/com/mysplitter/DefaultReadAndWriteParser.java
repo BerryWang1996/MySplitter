@@ -17,6 +17,10 @@
 package com.mysplitter;
 
 import com.mysplitter.advise.ReadAndWriteParserAdvise;
+import net.sf.jsqlparser.JSQLParserException;
+import net.sf.jsqlparser.parser.CCJSqlParserUtil;
+import net.sf.jsqlparser.statement.Statement;
+import net.sf.jsqlparser.statement.select.Select;
 
 /**
  * 默认的读写解析器
@@ -31,8 +35,14 @@ public class DefaultReadAndWriteParser implements ReadAndWriteParserAdvise {
      */
     @Override
     public String parseOperation(String sql) {
-        if (sql.startsWith("SELECT") || sql.startsWith("select")) {
-            return "readers";
+        try {
+            Statement statement = CCJSqlParserUtil.parse(sql);
+            if (statement instanceof Select) {
+                return "readers";
+            } else {
+                return "writers";
+            }
+        } catch (JSQLParserException ignored) {
         }
         return "writers";
     }
