@@ -27,7 +27,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 /**
  * 随机权重算法负载均衡选择器
  */
-public class RandomLoadBalanceSelector<T> extends AbstractLoadBalanceSelector<T> {
+public class RandomLoadBalanceSelector<T> implements LoadBalanceSelector<T> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RandomLoadBalanceSelector.class);
 

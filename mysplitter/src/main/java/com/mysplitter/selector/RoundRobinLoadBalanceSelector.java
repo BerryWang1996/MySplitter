@@ -27,7 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * 轮询算法负载均衡选择器
  */
-public class RoundRobinLoadBalanceSelector<T> extends AbstractLoadBalanceSelector<T> {
+public class RoundRobinLoadBalanceSelector<T> implements LoadBalanceSelector<T> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RoundRobinLoadBalanceSelector.class);
 

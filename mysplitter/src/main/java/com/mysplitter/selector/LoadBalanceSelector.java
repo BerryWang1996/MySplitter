@@ -21,14 +21,14 @@ import java.util.List;
 /**
  * 负载均衡选择器
  */
-public abstract class AbstractLoadBalanceSelector<T> {
+public interface LoadBalanceSelector<T> {
 
-    public abstract void register(T object, int weight);
+    void register(T object, int weight);
 
-    public abstract T acquire();
+    T acquire();
 
-    public abstract void release(T object);
+    void release(T object);
 
-    public abstract List<T> listAll();
+    List<T> listAll();
 
 }
