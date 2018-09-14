@@ -22,7 +22,7 @@ import com.mysplitter.config.MySplitterDataBaseConfig;
 import com.mysplitter.config.MySplitterDataSourceNodeConfig;
 import com.mysplitter.config.MySplitterLoadBalanceConfig;
 import com.mysplitter.exceptions.NoHealthyDataSourceException;
-import com.mysplitter.selector.AbstractLoadBalanceSelector;
+import com.mysplitter.selector.LoadBalanceSelector;
 import com.mysplitter.selector.NoLoadBalanceSelector;
 import com.mysplitter.selector.RandomLoadBalanceSelector;
 import com.mysplitter.selector.RoundRobinLoadBalanceSelector;
@@ -56,11 +56,11 @@ public class MySplitterDataSourceManager {
 
     private DataSourceIllAlerterAdvise dataSourceIllAlerter;
 
-    private Map<String, AbstractLoadBalanceSelector<DataSourceWrapper>> healthyDataSourceSelectorMap =
-            new ConcurrentHashMap<String, AbstractLoadBalanceSelector<DataSourceWrapper>>();
+    private Map<String, LoadBalanceSelector<DataSourceWrapper>> healthyDataSourceSelectorMap =
+            new ConcurrentHashMap<String, LoadBalanceSelector<DataSourceWrapper>>();
 
-    private Map<String, AbstractLoadBalanceSelector<DataSourceWrapper>> illDataSourceSelectorMap =
-            new ConcurrentHashMap<String, AbstractLoadBalanceSelector<DataSourceWrapper>>();
+    private Map<String, LoadBalanceSelector<DataSourceWrapper>> illDataSourceSelectorMap =
+            new ConcurrentHashMap<String, LoadBalanceSelector<DataSourceWrapper>>();
 
     private ScheduledThreadPoolExecutor illDataSourceFailTimeoutExecutor;
 
@@ -92,7 +92,7 @@ public class MySplitterDataSourceManager {
         }
         // 解析sql类型
         String operation = this.readAndWriteParser.parseOperation(sql.getSql());
-        AbstractLoadBalanceSelector<DataSourceWrapper> healthySelector =
+        LoadBalanceSelector<DataSourceWrapper> healthySelector =
                 this.healthyDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase, operation));
         if (healthySelector == null) {
             healthySelector =
@@ -117,7 +117,7 @@ public class MySplitterDataSourceManager {
             }
         } catch (NoHealthyDataSourceException e) {
             // 如果一个健康的数据源都没有了，尝试从获取链接异常的数据源获取
-            AbstractLoadBalanceSelector<DataSourceWrapper> illSelector =
+            LoadBalanceSelector<DataSourceWrapper> illSelector =
                     illDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase, operation));
             if (illSelector == null) {
                 illSelector = this.illDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase,
@@ -140,7 +140,7 @@ public class MySplitterDataSourceManager {
                     }
                     // 如果没出现异常，放入健康数据源map
                     illSelector.release(dataSourceWrapper);
-                    AbstractLoadBalanceSelector<DataSourceWrapper> selector =
+                    LoadBalanceSelector<DataSourceWrapper> selector =
                             this.healthyDataSourceSelectorMap
                                     .get(generateDataSourceSelectorName(targetDatabase, operation));
                     if (selector == null) {
@@ -162,7 +162,7 @@ public class MySplitterDataSourceManager {
                 LOGGER.debug("MySplitter caught an exception when get connection, try again.");
                 // 如果获取连接出现异常，放入连接异常数据源map
                 healthySelector.release(dataSourceWrapper);
-                AbstractLoadBalanceSelector<DataSourceWrapper> selector =
+                LoadBalanceSelector<DataSourceWrapper> selector =
                         this.illDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase, operation));
                 if (selector == null) {
                     selector = this.illDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase,
@@ -187,7 +187,7 @@ public class MySplitterDataSourceManager {
         LOGGER.debug("MySplitter is getting default connection.");
         SQLException exceptionHolder = null;
         // 如果健康的数据源还有的话
-        for (Map.Entry<String, AbstractLoadBalanceSelector<DataSourceWrapper>> entry :
+        for (Map.Entry<String, LoadBalanceSelector<DataSourceWrapper>> entry :
                 healthyDataSourceSelectorMap.entrySet()) {
             for (DataSourceWrapper dataSourceWrapper : entry.getValue().listAll()) {
                 try {
@@ -209,7 +209,7 @@ public class MySplitterDataSourceManager {
             }
         }
         // 如果获取所有的连接都失败了，尝试从异常数据源再次获取一遍
-        for (Map.Entry<String, AbstractLoadBalanceSelector<DataSourceWrapper>> entry :
+        for (Map.Entry<String, LoadBalanceSelector<DataSourceWrapper>> entry :
                 illDataSourceSelectorMap.entrySet()) {
             for (DataSourceWrapper dataSourceWrapper : entry.getValue().listAll()) {
                 try {
@@ -251,8 +251,8 @@ public class MySplitterDataSourceManager {
         release(illDataSourceSelectorMap);
     }
 
-    private void release(Map<String, AbstractLoadBalanceSelector<DataSourceWrapper>> selectorMap) throws Exception {
-        for (Map.Entry<String, AbstractLoadBalanceSelector<DataSourceWrapper>> entry : selectorMap.entrySet()) {
+    private void release(Map<String, LoadBalanceSelector<DataSourceWrapper>> selectorMap) throws Exception {
+        for (Map.Entry<String, LoadBalanceSelector<DataSourceWrapper>> entry : selectorMap.entrySet()) {
             for (DataSourceWrapper dataSourceWrapper : entry.getValue().listAll()) {
                 dataSourceWrapper.releaseRealDataSource();
             }
@@ -311,7 +311,7 @@ public class MySplitterDataSourceManager {
                 illDataSourceSelectorMap.entrySet());
         // 初始化准备激活的数据源wrapper
         for (String healthyDataSourceKey : healthyDataSourceSelectorMap.keySet()) {
-            AbstractLoadBalanceSelector<DataSourceWrapper> selector =
+            LoadBalanceSelector<DataSourceWrapper> selector =
                     healthyDataSourceSelectorMap.get(healthyDataSourceKey);
             List<DataSourceWrapper> dataSourceWrappers = selector.listAll();
             for (DataSourceWrapper dataSourceWrapper : dataSourceWrappers) {
@@ -423,7 +423,7 @@ public class MySplitterDataSourceManager {
                 LOGGER.debug("Execute data source fail timeout task. Database: {}, operation:{}, DataSource:{}, " +
                         "Time:{}", targetDatabase, operation, dataSourceWrapper, time);
                 // 从异常数据源中移除
-                AbstractLoadBalanceSelector<DataSourceWrapper> illSelector =
+                LoadBalanceSelector<DataSourceWrapper> illSelector =
                         illDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase, operation));
                 if (illSelector == null) {
                     illSelector = illDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase,
@@ -435,7 +435,7 @@ public class MySplitterDataSourceManager {
                 }
                 illSelector.release(dataSourceWrapper);
                 // 添加到健康数据源
-                AbstractLoadBalanceSelector<DataSourceWrapper> healthySelector =
+                LoadBalanceSelector<DataSourceWrapper> healthySelector =
                         healthyDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase, operation));
                 if (healthySelector == null) {
                     healthySelector = healthyDataSourceSelectorMap.get(generateDataSourceSelectorName(targetDatabase,
@@ -467,7 +467,7 @@ public class MySplitterDataSourceManager {
         Map<String, Object> status = new HashMap<>();
 
         Map<String, Object> healthy = new TreeMap<>();
-        for (Map.Entry<String, AbstractLoadBalanceSelector<DataSourceWrapper>> entry :
+        for (Map.Entry<String, LoadBalanceSelector<DataSourceWrapper>> entry :
                 healthyDataSourceSelectorMap.entrySet()) {
             List<String> data = new ArrayList<>();
             for (DataSourceWrapper dataSourceWrapper : entry.getValue().listAll()) {
@@ -478,7 +478,7 @@ public class MySplitterDataSourceManager {
         status.put("healthy", healthy);
 
         Map<String, Object> ill = new TreeMap<>();
-        for (Map.Entry<String, AbstractLoadBalanceSelector<DataSourceWrapper>> entry :
+        for (Map.Entry<String, LoadBalanceSelector<DataSourceWrapper>> entry :
                 illDataSourceSelectorMap.entrySet()) {
             List<String> data = new ArrayList<>();
             for (DataSourceWrapper dataSourceWrapper : entry.getValue().listAll()) {

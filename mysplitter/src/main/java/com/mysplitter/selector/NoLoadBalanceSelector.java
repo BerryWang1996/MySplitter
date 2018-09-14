@@ -26,7 +26,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 /**
  * 无负载均衡选择器
  */
-public class NoLoadBalanceSelector<T> extends AbstractLoadBalanceSelector<T> {
+public class NoLoadBalanceSelector<T> implements LoadBalanceSelector<T> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(NoLoadBalanceSelector.class);
 
