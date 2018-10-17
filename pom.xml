@@ -110,6 +110,17 @@
 
     <properties>
         <spring-boot.version>1.5.15.RELEASE</spring-boot.version>
+        <snakeyaml.version>1.23</snakeyaml.version>
+        <slf4j.version>1.7.25</slf4j.version>
+        <test.junit.version>4.12</test.junit.version>
+        <test.fastjson.version>1.2.51</test.fastjson.version>
+        <test.druid.version>1.1.12</test.druid.version>
+        <test.mysql-connector.version>5.1.46</test.mysql-connector.version>
+        <test.commons-dbcp2.version>2.5.0</test.commons-dbcp2.version>
+        <test.c3p0.version>0.9.5.2</test.c3p0.version>
+        <test.bonecp.version>0.8.0.RELEASE</test.bonecp.version>
+        <test.tomcat-jdbc.version>9.0.12</test.tomcat-jdbc.version>
+        <test.hikaricp.version>2.3.13</test.hikaricp.version>
     </properties>
 
     <dependencyManagement>
@@ -117,65 +128,65 @@
             <dependency>
                 <groupId>org.yaml</groupId>
                 <artifactId>snakeyaml</artifactId>
-                <version>1.21</version>
+                <version>${snakeyaml.version}</version>
             </dependency>
             <dependency>
-                <groupId>ch.qos.logback</groupId>
-                <artifactId>logback-classic</artifactId>
-                <version>1.2.3</version>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-api</artifactId>
+                <version>${slf4j.version}</version>
             </dependency>
             <dependency>
                 <groupId>junit</groupId>
                 <artifactId>junit</artifactId>
-                <version>4.12</version>
+                <version>${test.junit.version}</version>
                 <scope>test</scope>
             </dependency>
             <dependency>
                 <groupId>com.alibaba</groupId>
                 <artifactId>fastjson</artifactId>
-                <version>1.2.47</version>
+                <version>${test.fastjson.version}</version>
                 <scope>test</scope>
             </dependency>
             <dependency>
                 <groupId>com.alibaba</groupId>
                 <artifactId>druid</artifactId>
-                <version>1.1.9</version>
+                <version>${test.druid.version}</version>
                 <scope>test</scope>
             </dependency>
             <dependency>
                 <groupId>mysql</groupId>
                 <artifactId>mysql-connector-java</artifactId>
-                <version>5.1.46</version>
+                <version>${test.mysql-connector.version}</version>
                 <scope>test</scope>
             </dependency>
             <dependency>
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-dbcp2</artifactId>
-                <version>2.3.0</version>
+                <version>${test.commons-dbcp2.version}</version>
                 <scope>test</scope>
             </dependency>
             <dependency>
                 <groupId>com.mchange</groupId>
                 <artifactId>c3p0</artifactId>
-                <version>0.9.5.2</version>
+                <version>${test.c3p0.version}</version>
                 <scope>test</scope>
             </dependency>
             <dependency>
                 <groupId>com.jolbox</groupId>
                 <artifactId>bonecp</artifactId>
-                <version>0.8.0.RELEASE</version>
+                <version>${test.bonecp.version}</version>
                 <scope>test</scope>
             </dependency>
             <dependency>
                 <groupId>org.apache.tomcat</groupId>
                 <artifactId>tomcat-jdbc</artifactId>
-                <version>9.0.8</version>
+                <version>${test.tomcat-jdbc.version}</version>
                 <scope>test</scope>
             </dependency>
             <dependency>
                 <groupId>com.zaxxer</groupId>
                 <artifactId>HikariCP-java6</artifactId>
-                <version>2.3.13</version>
+                <version>${test.hikaricp.version}</version>
                 <scope>test</scope>
             </dependency>
         </dependencies>
