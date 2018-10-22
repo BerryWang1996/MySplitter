@@ -30,6 +30,8 @@ public class MySplitterConnectionHolder {
 
     /**
      * 设置当前操作真正的数据连接
+     *
+     * @param connection set current connection
      */
     public void setCurrent(Connection connection) {
         connections.add(connection);
@@ -37,6 +39,8 @@ public class MySplitterConnectionHolder {
 
     /**
      * 获取当前操作真正的数据连接
+     *
+     * @return current connection
      */
     public Connection getCurrent() {
         if (connections.size() == 0) {
@@ -47,6 +51,8 @@ public class MySplitterConnectionHolder {
 
     /**
      * 获取所有的数据连接
+     *
+     * @return all connection
      */
     public synchronized List<Connection> listAll() {
         return connections;

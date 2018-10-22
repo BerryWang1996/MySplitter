@@ -19,6 +19,7 @@ package com.mysplitter.advise;
 public interface ReadAndWriteParserAdvise {
 
     /**
+     * @param sql sql
      * @return sql will use writer data source when return "writers" ,
      * use reader data source when return "readers", use integrates when return others.
      */

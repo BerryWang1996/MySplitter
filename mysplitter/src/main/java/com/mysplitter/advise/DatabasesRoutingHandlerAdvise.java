@@ -22,11 +22,13 @@ package com.mysplitter.advise;
 public interface DatabasesRoutingHandlerAdvise {
 
     /**
+     * @param sql sql
      * @return database name (in mysplitter.yml)
      */
     String routerHandler(String sql);
 
     /**
+     * @param sql sql
      * @return new sql
      */
     String rewriteSql(String sql);
