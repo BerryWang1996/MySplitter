@@ -49,6 +49,11 @@ public class MySplitterStatementProxy implements Statement {
      * @param mySplitterDataSourceManager                   数据源管理器
      * @param mySplitterConnectionProxyStandByExecuteHolder 数据源连接代理待执行方法保持器
      * @param mySplitterConnectionHolder                    数据源连接保持器
+     * @param username                                      用户名
+     * @param password                                      密码
+     * @param resultSetType                                 resultSetType
+     * @param resultSetConcurrency                          resultSetConcurrency
+     * @param resultSetHoldability                          resultSetHoldability
      */
     public MySplitterStatementProxy(MySplitterDataSourceManager mySplitterDataSourceManager,
                                     MySplitterStandByExecuteHolder mySplitterConnectionProxyStandByExecuteHolder,
@@ -71,6 +76,8 @@ public class MySplitterStatementProxy implements Statement {
 
     /**
      * 根据sql进行解析设置当前操作真正的连接
+     *
+     * @param sql sql
      */
     private void setConnectionHolder(MySplitterSqlWrapper sql) throws SQLException {
         // 根据是否设置username和password获取真正的连接
@@ -90,6 +97,8 @@ public class MySplitterStatementProxy implements Statement {
 
     /**
      * 根据构造器所传参数获取Statement
+     *
+     * @return statement wrapper
      */
     private Statement getStatement() throws SQLException {
         // TODO 是否也应该设置一个StatementHolder？

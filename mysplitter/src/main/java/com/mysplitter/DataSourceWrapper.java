@@ -45,9 +45,10 @@ public class DataSourceWrapper {
     /**
      * 包装类构造方法
      *
-     * @param nodeName     节点名称
-     * @param dataBaseName 数据库名称
-     * @param nodeConfig   节点配置
+     * @param nodeName          节点名称
+     * @param dataBaseName      数据库名称
+     * @param nodeConfig        节点配置
+     * @param loadBalanceConfig 负载均衡配置
      */
     public DataSourceWrapper(String nodeName,
                              String dataBaseName,
@@ -71,6 +72,8 @@ public class DataSourceWrapper {
 
     /**
      * 获取真正数据源
+     *
+     * @return real data source
      */
     public DataSource getRealDataSource() {
         return realDataSource;
@@ -130,6 +133,8 @@ public class DataSourceWrapper {
 
     /**
      * 关闭真正的数据源
+     *
+     * @throws Exception Don't catch any exception here.
      */
     public synchronized void releaseRealDataSource() throws Exception {
         if (isInitialized.get()) {
@@ -152,6 +157,8 @@ public class DataSourceWrapper {
 
     /**
      * 获取节点名称（监控用）
+     *
+     * @return node name
      */
     public String getNodeName() {
         return nodeName;
@@ -159,6 +166,8 @@ public class DataSourceWrapper {
 
     /**
      * 获取数据库名称（监控用）
+     *
+     * @return database name
      */
     public String getDataBaseName() {
         return dataBaseName;
@@ -166,11 +175,18 @@ public class DataSourceWrapper {
 
     /**
      * 获取数据源的配置（监控用）
+     *
+     * @return datasource node config
      */
     public MySplitterDataSourceNodeConfig getNodeConfig() {
         return nodeConfig;
     }
 
+    /**
+     * 获取数据源的负载均衡配置（监控用）
+     *
+     * @return datasource load balance config
+     */
     public MySplitterLoadBalanceConfig getLoadBalanceConfig() {
         return loadBalanceConfig;
     }
