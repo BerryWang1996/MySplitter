@@ -103,10 +103,6 @@ public class MySplitterConnectionProxy implements Connection {
 
     @Override
     public Statement createStatement() throws SQLException {
-        // TODO Statement 未完成
-        if (true) {
-            throw new SQLFeatureNotSupportedException("Operation not support now!");
-        }
         return new MySplitterStatementProxy(this.mySplitterDataSourceManager,
                 this.mySplitterStandByExecuteHolder,
                 this.mySplitterConnectionHolder,
@@ -230,10 +226,6 @@ public class MySplitterConnectionProxy implements Connection {
 
     @Override
     public Statement createStatement(int resultSetType, int resultSetConcurrency) throws SQLException {
-        // TODO Statement 未完成
-        if (true) {
-            throw new SQLFeatureNotSupportedException("Operation not support now!");
-        }
         return new MySplitterStatementProxy(this.mySplitterDataSourceManager,
                 this.mySplitterStandByExecuteHolder,
                 this.mySplitterConnectionHolder,
@@ -355,10 +347,6 @@ public class MySplitterConnectionProxy implements Connection {
     @Override
     public Statement createStatement(int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws
             SQLException {
-        // TODO Statement 未完成
-        if (true) {
-            throw new SQLFeatureNotSupportedException("Operation not support now!");
-        }
         return new MySplitterStatementProxy(this.mySplitterDataSourceManager,
                 this.mySplitterStandByExecuteHolder,
                 this.mySplitterConnectionHolder,

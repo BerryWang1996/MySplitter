@@ -37,6 +37,8 @@ public class MySplitterStatementProxy implements Statement {
 
     private MySplitterConnectionHolder mySplitterConnectionHolder;
 
+    private MySplitterStatementHolder mySplitterStatementHolder = new MySplitterStatementHolder();
+
     // TODO 会不会发生内存泄漏问题？
     private MySplitterStandByExecuteHolder mySplitterStatementProxyStandByExecuteHolder;
 
@@ -101,17 +103,20 @@ public class MySplitterStatementProxy implements Statement {
      * @return statement wrapper
      */
     private Statement getStatement() throws SQLException {
-        // TODO 是否也应该设置一个StatementHolder？
+        Statement statement;
         if (this.resultSetHoldability != null) {
-            return this.mySplitterConnectionHolder.getCurrent().createStatement(this.resultSetType,
+            statement = this.mySplitterConnectionHolder.getCurrent().createStatement(this.resultSetType,
                     this.resultSetConcurrency,
                     this.resultSetHoldability);
         } else if (this.resultSetConcurrency != null || this.resultSetType != null) {
-            return this.mySplitterConnectionHolder.getCurrent().createStatement(this.resultSetType,
+            statement = this.mySplitterConnectionHolder.getCurrent().createStatement(this.resultSetType,
                     this.resultSetConcurrency);
         } else {
-            return this.mySplitterConnectionHolder.getCurrent().createStatement();
+            statement = this.mySplitterConnectionHolder.getCurrent().createStatement();
         }
+        // 设置StatementHolder
+        this.mySplitterStatementHolder.setCurrent(statement);
+        return statement;
     }
 
     @Override
@@ -130,7 +135,7 @@ public class MySplitterStatementProxy implements Statement {
 
     @Override
     public void close() throws SQLException {
-        // TODO Statement 未完成
+        this.mySplitterStatementHolder.clearAll();
     }
 
     @Override
@@ -140,7 +145,7 @@ public class MySplitterStatementProxy implements Statement {
 
     @Override
     public void setMaxFieldSize(int max) throws SQLException {
-        // TODO Statement 未完成
+        this.mySplitterStatementProxyStandByExecuteHolder.standBy("setMaxFieldSize", max);
     }
 
     @Override
@@ -150,12 +155,12 @@ public class MySplitterStatementProxy implements Statement {
 
     @Override
     public void setMaxRows(int max) throws SQLException {
-        // TODO Statement 未完成
+        this.mySplitterStatementProxyStandByExecuteHolder.standBy("setMaxRows", max);
     }
 
     @Override
     public void setEscapeProcessing(boolean enable) throws SQLException {
-        // TODO Statement 未完成
+        this.mySplitterStatementProxyStandByExecuteHolder.standBy("setEscapeProcessing", enable);
     }
 
     @Override
@@ -165,12 +170,22 @@ public class MySplitterStatementProxy implements Statement {
 
     @Override
     public void setQueryTimeout(int seconds) throws SQLException {
-        // TODO Statement 未完成
+        this.mySplitterStatementProxyStandByExecuteHolder.standBy("setQueryTimeout", seconds);
     }
 
     @Override
     public void cancel() throws SQLException {
-        // TODO Statement 未完成
+        SQLException sqlException = null;
+        for (Statement statement : this.mySplitterStatementHolder.listAll()) {
+            try {
+                statement.cancel();
+            } catch (SQLException e) {
+                sqlException = e;
+            }
+        }
+        if (sqlException != null) {
+            throw sqlException;
+        }
     }
 
     @Override
@@ -180,192 +195,193 @@ public class MySplitterStatementProxy implements Statement {
 
     @Override
     public void clearWarnings() throws SQLException {
-        // TODO Statement 未完成
+        SQLException sqlException = null;
+        for (Statement statement : this.mySplitterStatementHolder.listAll()) {
+            try {
+                statement.clearWarnings();
+            } catch (SQLException e) {
+                sqlException = e;
+            }
+        }
+        if (sqlException != null) {
+            throw sqlException;
+        }
     }
 
     @Override
     public void setCursorName(String name) throws SQLException {
-        // TODO Statement 未完成
+        this.mySplitterStatementProxyStandByExecuteHolder.standBy("setCursorName", name);
     }
 
     @Override
     public boolean execute(String sql) throws SQLException {
-        // TODO Statement 未完成
-        return false;
+        MySplitterSqlWrapper sqlWrapper = new MySplitterSqlWrapper(sql);
+        setConnectionHolder(sqlWrapper);
+        return getStatement().execute(sqlWrapper.getSql());
     }
 
     @Override
     public ResultSet getResultSet() throws SQLException {
-        // TODO Statement 未完成
-        return null;
+        return this.mySplitterStatementHolder.getCurrent().getResultSet();
     }
 
     @Override
     public int getUpdateCount() throws SQLException {
-        // TODO Statement 未完成
-        return 0;
+        return this.mySplitterStatementHolder.getCurrent().getUpdateCount();
     }
 
     @Override
     public boolean getMoreResults() throws SQLException {
-        // TODO Statement 未完成
-        return false;
+        return this.mySplitterStatementHolder.getCurrent().getMoreResults();
     }
 
     @Override
     public void setFetchDirection(int direction) throws SQLException {
-        // TODO Statement 未完成
-
+        this.mySplitterStatementProxyStandByExecuteHolder.standBy("setFetchDirection", direction);
     }
 
     @Override
     public int getFetchDirection() throws SQLException {
-        // TODO Statement 未完成
-        return 0;
+        return this.mySplitterStatementHolder.getCurrent().getFetchDirection();
     }
 
     @Override
     public void setFetchSize(int rows) throws SQLException {
-        // TODO Statement 未完成
-
+        this.mySplitterStatementProxyStandByExecuteHolder.standBy("setFetchSize", rows);
     }
 
     @Override
     public int getFetchSize() throws SQLException {
-        // TODO Statement 未完成
-        return 0;
+        return this.mySplitterStatementHolder.getCurrent().getFetchSize();
     }
 
     @Override
     public int getResultSetConcurrency() throws SQLException {
-        // TODO Statement 未完成
-        return 0;
+        return this.mySplitterStatementHolder.getCurrent().getResultSetConcurrency();
     }
 
     @Override
     public int getResultSetType() throws SQLException {
-        // TODO Statement 未完成
-        return 0;
+        return this.mySplitterStatementHolder.getCurrent().getResultSetType();
     }
 
     @Override
     public void addBatch(String sql) throws SQLException {
-        // TODO Statement 未完成
-
+        MySplitterSqlWrapper sqlWrapper = new MySplitterSqlWrapper(sql);
+        setConnectionHolder(sqlWrapper);
+        getStatement().addBatch(sqlWrapper.getSql());
     }
 
     @Override
     public void clearBatch() throws SQLException {
-        // TODO Statement 未完成
-
+        getStatement().clearBatch();
     }
 
     @Override
     public int[] executeBatch() throws SQLException {
-        // TODO Statement 未完成
-        return new int[0];
+        return getStatement().executeBatch();
     }
 
     @Override
     public Connection getConnection() throws SQLException {
-        // TODO Statement 未完成
-        return null;
+        return this.mySplitterConnectionHolder.getCurrent();
     }
 
     @Override
     public boolean getMoreResults(int current) throws SQLException {
-        // TODO Statement 未完成
-        return false;
+        return this.mySplitterStatementHolder.getCurrent().getMoreResults(current);
     }
 
     @Override
     public ResultSet getGeneratedKeys() throws SQLException {
-        // TODO Statement 未完成
-        return null;
+        return this.mySplitterStatementHolder.getCurrent().getGeneratedKeys();
     }
 
     @Override
     public int executeUpdate(String sql, int autoGeneratedKeys) throws SQLException {
-        // TODO Statement 未完成
-        return 0;
+        MySplitterSqlWrapper sqlWrapper = new MySplitterSqlWrapper(sql);
+        setConnectionHolder(sqlWrapper);
+        return getStatement().executeUpdate(sqlWrapper.getSql(), autoGeneratedKeys);
     }
 
     @Override
     public int executeUpdate(String sql, int[] columnIndexes) throws SQLException {
-        // TODO Statement 未完成
-        return 0;
+        MySplitterSqlWrapper sqlWrapper = new MySplitterSqlWrapper(sql);
+        setConnectionHolder(sqlWrapper);
+        return getStatement().executeUpdate(sqlWrapper.getSql(), columnIndexes);
     }
 
     @Override
     public int executeUpdate(String sql, String[] columnNames) throws SQLException {
-        // TODO Statement 未完成
-        return 0;
+        MySplitterSqlWrapper sqlWrapper = new MySplitterSqlWrapper(sql);
+        setConnectionHolder(sqlWrapper);
+        return getStatement().executeUpdate(sqlWrapper.getSql(), columnNames);
     }
 
     @Override
     public boolean execute(String sql, int autoGeneratedKeys) throws SQLException {
-        // TODO Statement 未完成
-        return false;
+        MySplitterSqlWrapper sqlWrapper = new MySplitterSqlWrapper(sql);
+        setConnectionHolder(sqlWrapper);
+        return getStatement().execute(sqlWrapper.getSql(), autoGeneratedKeys);
     }
 
     @Override
     public boolean execute(String sql, int[] columnIndexes) throws SQLException {
-        // TODO Statement 未完成
-        return false;
+        MySplitterSqlWrapper sqlWrapper = new MySplitterSqlWrapper(sql);
+        setConnectionHolder(sqlWrapper);
+        return getStatement().execute(sqlWrapper.getSql(), columnIndexes);
     }
 
     @Override
     public boolean execute(String sql, String[] columnNames) throws SQLException {
-        // TODO Statement 未完成
-        return false;
+        MySplitterSqlWrapper sqlWrapper = new MySplitterSqlWrapper(sql);
+        setConnectionHolder(sqlWrapper);
+        return getStatement().execute(sqlWrapper.getSql(), columnNames);
     }
 
     @Override
     public int getResultSetHoldability() throws SQLException {
-        // TODO Statement 未完成
-        return 0;
+        return this.mySplitterStatementHolder.getCurrent().getResultSetHoldability();
     }
 
     @Override
     public boolean isClosed() throws SQLException {
-        // TODO Statement 未完成
-        return false;
+        for (Statement statement : this.mySplitterStatementHolder.listAll()) {
+            if (!statement.isClosed()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override
     public void setPoolable(boolean poolable) throws SQLException {
-        // TODO Statement 未完成
-
+        this.mySplitterStatementProxyStandByExecuteHolder.standBy("setPoolable", poolable);
     }
 
     @Override
     public boolean isPoolable() throws SQLException {
-        // TODO Statement 未完成
-        return false;
+        return getStatement().isPoolable();
     }
 
     @Override
     public void closeOnCompletion() throws SQLException {
-        // TODO Statement 未完成
-
+        this.mySplitterStatementProxyStandByExecuteHolder.standBy("closeOnCompletion");
     }
 
     @Override
     public boolean isCloseOnCompletion() throws SQLException {
-        // TODO Statement 未完成
-        return false;
+        return getStatement().isCloseOnCompletion();
     }
 
     @Override
     public <T> T unwrap(Class<T> iface) throws SQLException {
-        // TODO Statement 未完成
-        return null;
+        return getStatement().unwrap(iface);
     }
 
     @Override
     public boolean isWrapperFor(Class<?> iface) throws SQLException {
-        // TODO Statement 未完成
-        return false;
+        return getStatement().isWrapperFor(iface);
     }
 
 }

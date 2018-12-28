@@ -16,7 +16,7 @@
 
 package com.mysplitter;
 
-import java.sql.Connection;
+import java.sql.Statement;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -24,38 +24,38 @@ import java.util.concurrent.CopyOnWriteArrayList;
 /**
  * 数据源连接保持器（用于在操作数据源时获取当前正在操作的真正的数据源连接）
  */
-public class MySplitterConnectionHolder {
+public class MySplitterStatementHolder {
 
-    private List<Connection> connections = new CopyOnWriteArrayList<Connection>();
+    private List<Statement> statements = new CopyOnWriteArrayList<Statement>();
 
     /**
      * 设置当前操作真正的数据连接
      *
-     * @param connection set current connection
+     * @param statement set current statement
      */
-    public void setCurrent(Connection connection) {
-        connections.add(connection);
+    public void setCurrent(Statement statement) {
+        statements.add(statement);
     }
 
     /**
      * 获取当前操作真正的数据连接
      *
-     * @return current connection
+     * @return current statement
      */
-    public Connection getCurrent() {
-        if (connections.size() == 0) {
+    public Statement getCurrent() {
+        if (statements.size() == 0) {
             return null;
         }
-        return connections.get(connections.size() - 1);
+        return statements.get(statements.size() - 1);
     }
 
     /**
      * 获取所有的数据连接
      *
-     * @return all connection
+     * @return all statement
      */
-    public synchronized List<Connection> listAll() {
-        return connections;
+    public synchronized List<Statement> listAll() {
+        return statements;
     }
 
     /**
@@ -63,10 +63,10 @@ public class MySplitterConnectionHolder {
      */
     public synchronized void closeAll() throws SQLException {
         SQLException exceptionHolder = null;
-        for (Connection connection : connections) {
+        for (Statement statement : statements) {
             try {
-                if (connection != null) {
-                    connection.close();
+                if (statement != null) {
+                    statement.close();
                 }
             } catch (SQLException e) {
                 exceptionHolder = e;
@@ -87,7 +87,7 @@ public class MySplitterConnectionHolder {
         } catch (SQLException e) {
             exceptionHolder = e;
         }
-        connections.clear();
+        statements.clear();
         if (exceptionHolder != null) {
             throw exceptionHolder;
         }
