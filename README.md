@@ -47,7 +47,7 @@ mysplitter:
   readAndWriteParser: com.example.ReadAndWriteParser
   illAlertHandler: com.example.DataSourceIllAlertHandler
   common:
-    dataSourceClass: com.alibaba.druid.pool.DruidDataSource
+    dataSourceClass: com.zaxxer.hikari.HikariDataSource
     loadBalance:
       read:
         enabled: true
@@ -62,17 +62,19 @@ mysplitter:
       readers:
         reader-1:
           configuration:
-            url: jdbc:mysql://localhost:3306/user
+            jdbcUrl: jdbc:mysql://localhost:3306/user
             username: root
             password: root
             driverClassName: com.mysql.jdbc.Driver
+            connectionTimeout: 1000
       writers:
         writer-1:
           configuration:
-            url: jdbc:mysql://localhost:3306/user
+            jdbcUrl: jdbc:mysql://localhost:3306/user
             username: root
             password: root
             driverClassName: com.mysql.jdbc.Driver
+            connectionTimeout: 1000
 ```
 
 ## Current Configuration Model
@@ -84,7 +86,15 @@ mysplitter:
   - or `readers` plus `writers`
 - `classpath:` and `file:` resource locations are supported by the Spring Boot starter.
 
+## Pool Support
+
+- `HikariCP` is the first-class pool for the current `v1.0.0` release baseline.
+- `Druid`, `DBCP2`, `C3P0`, `BoneCP`, and `Tomcat JDBC` remain compatibility options, not the primary documented baseline.
+- Pool-specific configuration keys still map directly to the target `DataSource` setters, so HikariCP examples use `jdbcUrl` and `connectionTimeout`.
+- See `docs/v1.0-pool-support-policy.md` for the current support tiers and configuration guidance.
+
 ## Notes
 
-- The current baseline is still the original `Spring Boot 1.5.x` / `Java 7` compatible core line.
+- The current release baseline is `Java 8`.
+- The starter still targets the legacy `Spring Boot 1.5.x` registration model, while the demo remains on `Spring Boot 2.0.x` until the next migration slice.
 - The demo module remains a sample application and is not the recommended production baseline.

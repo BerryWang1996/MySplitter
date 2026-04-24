@@ -29,8 +29,9 @@ Current checkpoint:
 - The Java 8 baseline is now landed in the Maven build and regression dependency stack.
 - Cold-reactor compile smoke checks are now green for both `mysplitter-spring-boot-starter` and `demo` without relying on install-first verification.
 - Starter bootstrap behavior is now isolated behind a dedicated configuration loader and covered by starter-module tests.
+- HikariCP is now the documented and regression-validated primary pool for the `v1.0.0` release baseline.
 
-The next goal is to finish the release-baseline pool support policy and then move from starter scoping into the Boot 2.7 implementation slice.
+The next goal is to start the Boot 2.7 implementation slice from the now-documented starter and pool boundaries.
 
 ## Review Reconciliation
 
@@ -250,14 +251,15 @@ Exit criteria:
 18. Done: aligned `demo` clean-plugin configuration with the offline toolchain used by the rest of the repo so cold compile checks remain reproducible.
 19. Done: documented the current Boot 1.5 starter assumptions, the Boot 2.0 demo split, and the future Boot 2.7/3.x migration files in `docs/v1.0-starter-compatibility-scope.md`.
 20. Done: isolated starter resource loading into a dedicated loader and added starter-module tests for classpath, file, and missing-resource bootstrap paths.
-21. Next: define the Hikari-first pool support policy in docs and examples, while keeping the older pools in compatibility-validation mode.
+21. Done: landed the Hikari-first pool support policy in docs, demo configuration, and the main regression path, while keeping older pools in compatibility-validation mode.
 22. Next: start the Boot 2.7 implementation slice with dual registration planning for `spring.factories` and `AutoConfiguration.imports`.
+23. Next: decide whether the Boot 2.7 slice lands as dual-registration only or also upgrades the demo consumer in the same pass.
 
 ## Suggested Delivery Sequence
 
 1. Keep the `v0.11` and `v0.12` baseline green with module and integration tests while `v1.0.0` progresses.
-2. Land the `v1.0.0` pool support policy and compatibility notes.
-3. Start the Boot 2.7 implementation slice from the now-documented starter boundaries.
+2. Start the Boot 2.7 implementation slice from the now-documented starter and pool boundaries.
+3. Re-evaluate the demo upgrade once dual registration support is in place.
 4. Add metrics and operational integration in `v1.1.0`.
 5. Build out the full regression suite in `v1.2.0`.
 

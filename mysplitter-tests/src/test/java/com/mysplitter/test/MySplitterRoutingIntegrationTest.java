@@ -139,7 +139,7 @@ public class MySplitterRoutingIntegrationTest {
         mySplitterConfig.setFilters(Arrays.asList(TestRouteRecordingFilter.class.getName()));
 
         MySplitterCommonConfig commonConfig = new MySplitterCommonConfig();
-        commonConfig.setDataSourceClass("com.alibaba.druid.pool.DruidDataSource");
+        commonConfig.setDataSourceClass("com.zaxxer.hikari.HikariDataSource");
         mySplitterConfig.setCommon(commonConfig);
 
         LinkedHashMap<String, MySplitterDataBaseConfig> databases = new LinkedHashMap<String, MySplitterDataBaseConfig>();
@@ -164,10 +164,11 @@ public class MySplitterRoutingIntegrationTest {
 
     private Map<String, Object> createDataSourceConfiguration() {
         Map<String, Object> configuration = new HashMap<String, Object>();
-        configuration.put("url", MYSQL_CONTAINER.getJdbcUrl());
+        configuration.put("jdbcUrl", MYSQL_CONTAINER.getJdbcUrl());
         configuration.put("username", MYSQL_CONTAINER.getUsername());
         configuration.put("password", MYSQL_CONTAINER.getPassword());
         configuration.put("driverClassName", MYSQL_CONTAINER.getDriverClassName());
+        configuration.put("connectionTimeout", Long.valueOf(1000L));
         return configuration;
     }
 

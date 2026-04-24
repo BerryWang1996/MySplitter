@@ -66,7 +66,7 @@ public class MySplitterAutoConfigureTest {
         assertNotNull(rootConfig);
         assertNotNull(mySplitterConfig);
         assertNotNull(commonConfig);
-        assertEquals("com.alibaba.druid.pool.DruidDataSource",
+        assertEquals("com.zaxxer.hikari.HikariDataSource",
                 invoke(commonConfig, "getDataSourceClass"));
     }
 

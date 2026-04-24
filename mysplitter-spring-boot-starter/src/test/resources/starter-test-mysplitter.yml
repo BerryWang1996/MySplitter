@@ -1,4 +1,4 @@
 mysplitter:
   readAndWriteParser: com.mysplitter.DefaultReadAndWriteParser
   common:
-    dataSourceClass: com.alibaba.druid.pool.DruidDataSource
+    dataSourceClass: com.zaxxer.hikari.HikariDataSource

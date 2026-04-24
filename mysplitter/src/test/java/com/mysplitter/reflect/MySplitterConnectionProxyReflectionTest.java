@@ -58,7 +58,7 @@ public class MySplitterConnectionProxyReflectionTest {
         Object nodeConfig = nodeConfigClass.getConstructor().newInstance();
 
         invoke(commonClass, commonConfig, "setDataSourceClass",
-                new Class<?>[]{String.class}, new Object[]{"com.alibaba.druid.pool.DruidDataSource"});
+                new Class<?>[]{String.class}, new Object[]{"com.zaxxer.hikari.HikariDataSource"});
         invoke(configClass, mySplitterConfig, "setCommon",
                 new Class<?>[]{commonClass}, new Object[]{commonConfig});
 
@@ -84,10 +84,11 @@ public class MySplitterConnectionProxyReflectionTest {
 
     private Map<String, Object> createDataSourceConfiguration() {
         Map<String, Object> configuration = new HashMap<String, Object>();
-        configuration.put("url", "jdbc:mysql://127.0.0.1:65535/mysplitter_abort");
+        configuration.put("jdbcUrl", "jdbc:mysql://127.0.0.1:65535/mysplitter_abort");
         configuration.put("username", "test");
         configuration.put("password", "test");
         configuration.put("driverClassName", "com.mysql.jdbc.Driver");
+        configuration.put("connectionTimeout", Long.valueOf(1000L));
         return configuration;
     }
 

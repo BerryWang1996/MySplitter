@@ -59,7 +59,7 @@ public class MySplitterConnectionProxyLifecycleTest {
         rootConfig.setMysplitter(mySplitterConfig);
 
         MySplitterCommonConfig commonConfig = new MySplitterCommonConfig();
-        commonConfig.setDataSourceClass("com.alibaba.druid.pool.DruidDataSource");
+        commonConfig.setDataSourceClass("com.zaxxer.hikari.HikariDataSource");
         mySplitterConfig.setCommon(commonConfig);
 
         LinkedHashMap<String, MySplitterDataBaseConfig> databases =
@@ -84,10 +84,11 @@ public class MySplitterConnectionProxyLifecycleTest {
 
     private Map<String, Object> createDataSourceConfiguration() {
         Map<String, Object> configuration = new HashMap<String, Object>();
-        configuration.put("url", "jdbc:mysql://127.0.0.1:65535/mysplitter_abort");
+        configuration.put("jdbcUrl", "jdbc:mysql://127.0.0.1:65535/mysplitter_abort");
         configuration.put("username", "test");
         configuration.put("password", "test");
         configuration.put("driverClassName", "com.mysql.jdbc.Driver");
+        configuration.put("connectionTimeout", Long.valueOf(1000L));
         return configuration;
     }
 }
