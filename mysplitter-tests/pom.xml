@@ -64,7 +64,7 @@
         </dependency>
         <dependency>
             <groupId>com.zaxxer</groupId>
-            <artifactId>HikariCP-java6</artifactId>
+            <artifactId>HikariCP</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>

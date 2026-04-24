@@ -34,11 +34,12 @@ Notes:
 Use these commands to confirm downstream modules still compile against the current reactor:
 
 ```powershell
-.\mvnw.cmd -q "-Dmaven.test.skip=true" -pl mysplitter-spring-boot-starter -am compile
-.\mvnw.cmd -q "-Dmaven.test.skip=true" -pl demo -am compile
+.\mvnw.cmd -q -pl mysplitter-spring-boot-starter -am "-Dmaven.test.skip=true" clean compile
+.\mvnw.cmd -q -pl demo -am "-Dmaven.test.skip=true" clean compile
 ```
 
 Notes:
 
 - In PowerShell, quote `"-Dmaven.test.skip=true"` so Maven receives it as one argument.
 - These commands are intended as compatibility smoke checks, not as full runtime validation.
+- The current reactor now validates directly from a cold `clean compile` state, so install-first smoke checks are no longer required for starter or demo.

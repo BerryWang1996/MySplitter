@@ -110,6 +110,7 @@
     </profiles>
 
     <properties>
+        <java.version>1.8</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <maven.compiler.encoding>UTF-8</maven.compiler.encoding>
@@ -125,7 +126,7 @@
         <test.c3p0.version>0.9.5.2</test.c3p0.version>
         <test.bonecp.version>0.8.0.RELEASE</test.bonecp.version>
         <test.tomcat-jdbc.version>9.0.12</test.tomcat-jdbc.version>
-        <test.hikaricp.version>2.3.13</test.hikaricp.version>
+        <test.hikaricp.version>3.2.0</test.hikaricp.version>
     </properties>
 
     <dependencyManagement>
@@ -190,7 +191,7 @@
             </dependency>
             <dependency>
                 <groupId>com.zaxxer</groupId>
-                <artifactId>HikariCP-java6</artifactId>
+                <artifactId>HikariCP</artifactId>
                 <version>${test.hikaricp.version}</version>
                 <scope>test</scope>
             </dependency>
@@ -219,8 +220,8 @@
                 <configuration>
                     <encoding>${project.build.sourceEncoding}</encoding>
                     <fork>true</fork>
-                    <source>7</source>
-                    <target>7</target>
+                    <source>${java.version}</source>
+                    <target>${java.version}</target>
                 </configuration>
             </plugin>
             <plugin>

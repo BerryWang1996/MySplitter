@@ -24,9 +24,12 @@ Current checkpoint:
 - Concurrent health-state transitions now have dedicated regression coverage, including stale recovery and version-matched healing scenarios.
 - Bounded failover now uses per-call candidate snapshots so a node that fails during one route/default-connection attempt is not immediately retried again in the same call as an ill-node fallback.
 - The `v0.12` routing/health design is now documented in `docs/v0.12-routing-health-design.md`.
-- The main active gap before a release baseline is deciding whether any lightweight failover observability hooks should be added before `v1.0.0`, then shifting into release-baseline upgrade work.
+- Failover observability is now explicitly deferred to `v1.1.0` so `v1.0.0` can stay focused on release-baseline compatibility work.
+- The `v1.0.0` release-baseline slices are now documented in `docs/v1.0-release-baseline-plan.md`.
+- The Java 8 baseline is now landed in the Maven build and regression dependency stack.
+- Cold-reactor compile smoke checks are now green for both `mysplitter-spring-boot-starter` and `demo` without relying on install-first verification.
 
-The next goal is to close the remaining `v0.12` health and failover risks, then move into release-baseline upgrades.
+The next goal is to finish scoping the starter migration path for later Boot 2.7 support and to document the release-baseline pool support policy.
 
 ## Review Reconciliation
 
@@ -238,14 +241,20 @@ Exit criteria:
 10. Done: bounded failover in `MySplitterDataSourceManager` now avoids immediate same-call retries of nodes that already failed earlier in the same acquisition path.
 11. Done: reran and documented the stable verification command set for core, integration, starter, and demo modules in `docs/verification-commands.md`.
 12. Done: updated versioned design notes so `v0.12` completion criteria match the code that is already landed.
-13. Next: decide whether failover observability stays deferred to `v1.1.0` or needs a minimal `v1.0.0` hook.
-14. Next: break `v1.0.0` into concrete upgrade slices for Java baseline, Spring Boot starter compatibility, and pool support policy.
+13. Done: deferred failover observability to `v1.1.0` to keep `v1.0.0` focused on release-baseline compatibility work.
+14. Done: broke `v1.0.0` into concrete upgrade slices for Java baseline, Spring Boot starter compatibility, and pool support policy in `docs/v1.0-release-baseline-plan.md`.
+15. Done: landed the Java 8 baseline in Maven build configuration and core regression dependencies.
+16. Done: reran the full verification command set after the Java baseline upgrade.
+17. Done: removed the install-first workaround by producing reactor-consumable jars during `compile` for upstream modules needed by downstream smoke checks.
+18. Done: aligned `demo` clean-plugin configuration with the offline toolchain used by the rest of the repo so cold compile checks remain reproducible.
+19. Next: document the current Boot 1.5 core starter assumptions and the Boot 2.0 demo split before starting the Boot 2.7 migration work.
+20. Next: define the Hikari-first pool support policy in docs and examples, while keeping the older pools in compatibility-validation mode.
 
 ## Suggested Delivery Sequence
 
-1. Finish `v0.12.2` health and failover hardening.
-2. Reconfirm `v0.11` transaction semantics and `v0.12` routing semantics with green module and integration tests.
-3. Upgrade release baseline for `v1.0.0`.
+1. Keep the `v0.11` and `v0.12` baseline green with module and integration tests while `v1.0.0` progresses.
+2. Finish the remaining `v1.0.0` starter compatibility scoping work.
+3. Land the `v1.0.0` pool support policy and compatibility notes.
 4. Add metrics and operational integration in `v1.1.0`.
 5. Build out the full regression suite in `v1.2.0`.
 
