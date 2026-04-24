@@ -24,13 +24,13 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- * 无负载均衡选择器
+ * 鏃犺礋杞藉潎琛￠€夋嫨鍣?
  */
 public class NoLoadBalanceSelector<T> implements LoadBalanceSelector<T> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(NoLoadBalanceSelector.class);
 
-    private List<T> list = new CopyOnWriteArrayList<T>();
+    private final List<T> list = new CopyOnWriteArrayList<T>();
 
     @Override
     public synchronized void register(T object, int weight) {
@@ -43,10 +43,16 @@ public class NoLoadBalanceSelector<T> implements LoadBalanceSelector<T> {
     @Override
     public synchronized T acquire() {
         LOGGER.debug("Acquire somethings.");
-        if (list.size() == 0) {
+        return acquire(list);
+    }
+
+    @Override
+    public synchronized T acquire(List<T> candidates) {
+        LOGGER.debug("Acquire somethings from candidates.");
+        if (candidates == null || candidates.size() == 0) {
             return null;
         }
-        return list.get(0);
+        return candidates.get(0);
     }
 
     @Override
@@ -60,7 +66,7 @@ public class NoLoadBalanceSelector<T> implements LoadBalanceSelector<T> {
 
     @Override
     public List<T> listAll() {
-        return new ArrayList<>(list);
+        return new ArrayList<T>(list);
     }
 
 }

@@ -25,15 +25,15 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * 轮询算法负载均衡选择器
+ * 杞绠楁硶璐熻浇鍧囪　閫夋嫨鍣?
  */
 public class RoundRobinLoadBalanceSelector<T> implements LoadBalanceSelector<T> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RoundRobinLoadBalanceSelector.class);
 
-    private List<T> list = new CopyOnWriteArrayList<T>();
+    private final List<T> list = new CopyOnWriteArrayList<T>();
 
-    private AtomicInteger atomicFetch = new AtomicInteger(0);
+    private final AtomicInteger atomicFetch = new AtomicInteger(0);
 
     @Override
     public synchronized void register(T object, int weight) {
@@ -46,15 +46,22 @@ public class RoundRobinLoadBalanceSelector<T> implements LoadBalanceSelector<T> 
     @Override
     public synchronized T acquire() {
         LOGGER.debug("Acquire somethings.");
-        if (list.size() == 0) {
+        return acquire(list);
+    }
+
+    @Override
+    public synchronized T acquire(List<T> candidates) {
+        LOGGER.debug("Acquire somethings from candidates.");
+        if (candidates == null || candidates.size() == 0) {
             return null;
         }
+        int size = candidates.size();
         int index = atomicFetch.getAndIncrement();
-        if (index >= list.size()) {
-            atomicFetch.set(1);
-            index = 0;
+        if (index >= size) {
+            index = Math.abs(index % size);
+            atomicFetch.set(index + 1);
         }
-        return list.get(index);
+        return candidates.get(index);
     }
 
     @Override
@@ -64,11 +71,14 @@ public class RoundRobinLoadBalanceSelector<T> implements LoadBalanceSelector<T> 
             return;
         }
         list.remove(object);
+        if (atomicFetch.get() > list.size()) {
+            atomicFetch.set(0);
+        }
     }
 
     @Override
     public List<T> listAll() {
-        return new ArrayList<>(list);
+        return new ArrayList<T>(list);
     }
 
 }

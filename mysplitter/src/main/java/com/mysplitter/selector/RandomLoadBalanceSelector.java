@@ -20,36 +20,58 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- * 随机权重算法负载均衡选择器
+ * 闅忔満鏉冮噸绠楁硶璐熻浇鍧囪　閫夋嫨鍣?
  */
 public class RandomLoadBalanceSelector<T> implements LoadBalanceSelector<T> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RandomLoadBalanceSelector.class);
 
-    private List<T> list = new CopyOnWriteArrayList<T>();
+    private final Map<T, Integer> weightMap = new LinkedHashMap<T, Integer>();
+
+    private final Random random = new Random();
 
     @Override
     public synchronized void register(T object, int weight) {
         LOGGER.debug("Registers {} weight {}.", object, weight);
-        for (T key : list) {
-            if (key == object) {
-                release(object);
-            }
+        if (object == null) {
+            return;
         }
-        for (int i = 0; i < weight; i++) {
-            list.add(object);
-        }
+        weightMap.put(object, weight < 1 ? 1 : weight);
     }
 
     @Override
     public synchronized T acquire() {
         LOGGER.debug("Acquire somethings.");
-        return list.size() == 0 ? null : list.get(new Random().nextInt(list.size()));
+        return acquire(listAll());
+    }
+
+    @Override
+    public synchronized T acquire(List<T> candidates) {
+        LOGGER.debug("Acquire somethings from candidates.");
+        if (candidates == null || candidates.size() == 0) {
+            return null;
+        }
+        int totalWeight = 0;
+        for (T candidate : candidates) {
+            totalWeight += getWeight(candidate);
+        }
+        if (totalWeight <= 0) {
+            return candidates.get(0);
+        }
+        int current = random.nextInt(totalWeight);
+        for (T candidate : candidates) {
+            current -= getWeight(candidate);
+            if (current < 0) {
+                return candidate;
+            }
+        }
+        return candidates.get(candidates.size() - 1);
     }
 
     @Override
@@ -58,16 +80,17 @@ public class RandomLoadBalanceSelector<T> implements LoadBalanceSelector<T> {
         if (object == null) {
             return;
         }
-        for (T objectInList : list) {
-            if (objectInList == object) {
-                list.remove(objectInList);
-            }
-        }
+        weightMap.remove(object);
     }
 
     @Override
-    public List<T> listAll() {
-        return new ArrayList<>(list);
+    public synchronized List<T> listAll() {
+        return new ArrayList<T>(weightMap.keySet());
+    }
+
+    private int getWeight(T object) {
+        Integer weight = weightMap.get(object);
+        return weight == null || weight.intValue() < 1 ? 1 : weight.intValue();
     }
 
 }

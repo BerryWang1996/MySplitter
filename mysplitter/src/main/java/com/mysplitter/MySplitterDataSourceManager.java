@@ -28,23 +28,14 @@ import com.mysplitter.selector.NoLoadBalanceSelector;
 import com.mysplitter.selector.RandomLoadBalanceSelector;
 import com.mysplitter.selector.RoundRobinLoadBalanceSelector;
 import com.mysplitter.util.ClassLoaderUtil;
-import com.mysplitter.util.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class MySplitterDataSourceManager {
@@ -57,11 +48,7 @@ public class MySplitterDataSourceManager {
 
     private final List<DataSourceFilterAdvise> dataSourceFilters = new ArrayList<DataSourceFilterAdvise>();
 
-    private final Map<String, LoadBalanceSelector<DataSourceWrapper>> healthyDataSourceSelectorMap =
-            new ConcurrentHashMap<String, LoadBalanceSelector<DataSourceWrapper>>();
-
-    private final Map<String, LoadBalanceSelector<DataSourceWrapper>> illDataSourceSelectorMap =
-            new ConcurrentHashMap<String, LoadBalanceSelector<DataSourceWrapper>>();
+    private final MySplitterDataSourceRegistry dataSourceRegistry = new MySplitterDataSourceRegistry();
 
     private MySplitterDatabaseManager databaseManager;
 
@@ -69,7 +56,7 @@ public class MySplitterDataSourceManager {
 
     private DataSourceIllAlerterAdvise dataSourceIllAlerter;
 
-    private ScheduledThreadPoolExecutor illDataSourceFailTimeoutExecutor;
+    private MySplitterDataSourceHealthManager dataSourceHealthManager;
 
     MySplitterDataSourceManager(MySplitterDataSource router) throws Exception {
         this.router = router;
@@ -93,78 +80,105 @@ public class MySplitterDataSourceManager {
         return new MySplitterConnectionProxy(this, username, password);
     }
 
-    Connection getConnection(MySplitterSqlWrapper sql) throws SQLException {
-        return getConnection(sql, null, null);
+    MySplitterRouteSelection getRouteSelection(MySplitterConnectionContext connectionContext,
+                                               MySplitterSqlWrapper sql) throws SQLException {
+        return getRouteSelection(connectionContext, sql, null, null);
     }
 
-    Connection getConnection(MySplitterSqlWrapper sql, String username, String password) throws SQLException {
+    MySplitterRouteSelection getRouteSelection(MySplitterConnectionContext connectionContext,
+                                               MySplitterSqlWrapper sql,
+                                               String username,
+                                               String password) throws SQLException {
         String targetDatabase = this.databaseManager.routerHandler(sql.getOriginalSql());
         String rewriteSql = this.databaseManager.rewriteSql(sql.getSql());
         if (rewriteSql != null) {
             sql.rewrite(rewriteSql);
         }
+
         String operation = this.readAndWriteParser.parseOperation(sql.getSql());
-        LoadBalanceSelector<DataSourceWrapper> healthySelector = getSelector(healthyDataSourceSelectorMap,
-                targetDatabase, operation);
-        if (healthySelector == null) {
+        if (connectionContext.isTransactionActive() && "readers".equals(operation)) {
+            operation = "writers";
+        }
+
+        MySplitterRouteKey pinnedRoute = connectionContext.getPinnedRoute(targetDatabase);
+        if (pinnedRoute != null) {
+            Connection connection = connectionContext.getConnection(pinnedRoute);
+            if (connection != null) {
+                doFilters(pinnedRoute.getDatabaseName(), pinnedRoute.getNodeName(), sql.getSql());
+                return new MySplitterRouteSelection(pinnedRoute, connection);
+            }
+            connectionContext.clearPinnedRoute(targetDatabase);
+        }
+
+        MySplitterDataSourceGroup group = dataSourceRegistry.getGroup(targetDatabase, operation);
+        if (group == null) {
             throw new IllegalArgumentException("Can not find database:" + targetDatabase + ", operation:" + operation
                     + ". May be databasesRoutingHandler or readAndWriteParser return wrong database or operation.");
         }
 
-        DataSourceWrapper dataSourceWrapper = null;
-        try {
-            dataSourceWrapper = healthySelector.acquire();
+        SQLException exceptionHolder = null;
+        while (true) {
+            List<DataSourceWrapper> healthyNodes = dataSourceHealthManager.getHealthyNodes(group);
+            DataSourceWrapper dataSourceWrapper = group.acquire(healthyNodes);
             if (dataSourceWrapper == null) {
-                throw new NoHealthyDataSourceException();
+                break;
             }
-            doFilters(dataSourceWrapper, sql.getSql());
-            return openConnection(dataSourceWrapper, username, password);
-        } catch (NoHealthyDataSourceException e) {
-            return recoverFromIllDataSource(targetDatabase, operation, sql.getSql(), username, password);
-        } catch (Exception e) {
-            handleDataSourceFailure(targetDatabase, operation, healthySelector, dataSourceWrapper, e);
-            return getConnection(sql, username, password);
+            MySplitterRouteKey routeKey =
+                    new MySplitterRouteKey(targetDatabase, group.getNodeGroup(), dataSourceWrapper.getNodeName());
+            Connection existing = connectionContext.getConnection(routeKey);
+            if (existing != null) {
+                doFilters(routeKey.getDatabaseName(), routeKey.getNodeName(), sql.getSql());
+                pinRouteIfNecessary(connectionContext, routeKey);
+                return new MySplitterRouteSelection(routeKey, existing);
+            }
+            try {
+                doFilters(dataSourceWrapper, sql.getSql());
+                Connection connection = openConnection(dataSourceWrapper, username, password);
+                connectionContext.getConnectionState().apply(connection);
+                connectionContext.registerConnection(routeKey, connection);
+                pinRouteIfNecessary(connectionContext, routeKey);
+                return new MySplitterRouteSelection(routeKey, connection);
+            } catch (Exception e) {
+                handleDataSourceFailure(group, dataSourceWrapper, e);
+                exceptionHolder = mergeSqlException(exceptionHolder,
+                        toSqlException("Failed to open routed connection.", e));
+            }
         }
+
+        return recoverFromIllDataSource(connectionContext, group, targetDatabase, sql.getSql(), username, password,
+                exceptionHolder);
     }
 
     Connection getDefaultConnection() throws SQLException {
         LOGGER.debug("MySplitter is getting default connection.");
         SQLException exceptionHolder = null;
-        for (Map.Entry<String, LoadBalanceSelector<DataSourceWrapper>> entry : healthyDataSourceSelectorMap.entrySet()) {
-            for (DataSourceWrapper dataSourceWrapper : uniqueDataSources(entry.getValue())) {
+        for (MySplitterDataSourceGroup group : dataSourceRegistry.listGroups()) {
+            for (DataSourceWrapper dataSourceWrapper : dataSourceHealthManager.getHealthyNodes(group)) {
                 try {
                     return dataSourceWrapper.getRealDataSource().getConnection();
                 } catch (SQLException e) {
-                    exceptionHolder = e;
-                    entry.getValue().release(dataSourceWrapper);
-                    LoadBalanceSelector<DataSourceWrapper> illSelector = illDataSourceSelectorMap.get(entry.getKey());
-                    if (illSelector != null) {
-                        illSelector.register(dataSourceWrapper, dataSourceWrapper.getNodeConfig().getWeight());
-                    }
-                    dataSourceIllAlerter.alert(dataSourceWrapper.getDataBaseName(), dataSourceWrapper.getNodeName(), e);
-                    submitDataSourceFailTimeoutTask(dataSourceWrapper.getDataBaseName(),
-                            entry.getKey().split(":")[1], dataSourceWrapper);
+                    exceptionHolder = mergeSqlException(exceptionHolder, e);
+                    dataSourceHealthManager.markIll(group, dataSourceWrapper, e);
                 }
             }
         }
 
-        for (Map.Entry<String, LoadBalanceSelector<DataSourceWrapper>> entry : illDataSourceSelectorMap.entrySet()) {
-            for (DataSourceWrapper dataSourceWrapper : uniqueDataSources(entry.getValue())) {
+        for (MySplitterDataSourceGroup group : dataSourceRegistry.listGroups()) {
+            List<DataSourceWrapper> illNodes = new ArrayList<DataSourceWrapper>(dataSourceHealthManager.getIllNodes(group));
+            while (!illNodes.isEmpty()) {
+                DataSourceWrapper dataSourceWrapper = group.acquire(illNodes);
+                if (dataSourceWrapper == null) {
+                    break;
+                }
                 try {
                     Connection connection = dataSourceWrapper.getRealDataSource().getConnection();
-                    entry.getValue().release(dataSourceWrapper);
-                    LoadBalanceSelector<DataSourceWrapper> healthySelector =
-                            healthyDataSourceSelectorMap.get(entry.getKey());
-                    if (healthySelector != null) {
-                        healthySelector.register(dataSourceWrapper, dataSourceWrapper.getNodeConfig().getWeight());
-                    }
+                    dataSourceHealthManager.markHealthy(group, dataSourceWrapper);
                     return connection;
                 } catch (SQLException e) {
                     LOGGER.warn("Failed to recover default connection from ill datasource node {} in database {}.",
                             dataSourceWrapper.getNodeName(), dataSourceWrapper.getDataBaseName(), e);
-                    if (exceptionHolder == null) {
-                        exceptionHolder = e;
-                    }
+                    exceptionHolder = mergeSqlException(exceptionHolder, e);
+                    illNodes.remove(dataSourceWrapper);
                 }
             }
         }
@@ -183,35 +197,30 @@ public class MySplitterDataSourceManager {
         this.databaseManager = new MySplitterDatabaseManager(this.router);
         createReadAndWriteParser();
         createDataSourceIllAlerter();
+        createHealthManager();
         createDataSourceFilters();
-        createIllDataSourceFailTimeoutExecutor();
         createDataSources();
     }
 
     void close() throws Exception {
         Exception closeException = null;
-        Set<DataSourceWrapper> released = new HashSet<DataSourceWrapper>();
         try {
-            if (illDataSourceFailTimeoutExecutor != null) {
-                illDataSourceFailTimeoutExecutor.shutdownNow();
+            if (dataSourceHealthManager != null) {
+                dataSourceHealthManager.close();
             }
         } catch (Exception e) {
             closeException = mergeException(closeException, e);
         }
-        try {
-            release(healthyDataSourceSelectorMap, released);
-        } catch (Exception e) {
-            closeException = mergeException(closeException, e);
+        for (DataSourceWrapper dataSourceWrapper : dataSourceRegistry.listAllNodes()) {
+            try {
+                dataSourceWrapper.releaseRealDataSource();
+            } catch (Exception e) {
+                closeException = mergeException(closeException, e);
+            }
         }
-        try {
-            release(illDataSourceSelectorMap, released);
-        } catch (Exception e) {
-            closeException = mergeException(closeException, e);
-        }
-        healthyDataSourceSelectorMap.clear();
-        illDataSourceSelectorMap.clear();
+        dataSourceRegistry.clear();
         dataSourceFilters.clear();
-        illDataSourceFailTimeoutExecutor = null;
+        dataSourceHealthManager = null;
         isInitialized.set(false);
         if (closeException != null) {
             throw closeException;
@@ -230,6 +239,10 @@ public class MySplitterDataSourceManager {
                 DataSourceIllAlerterAdvise.class);
     }
 
+    private void createHealthManager() {
+        dataSourceHealthManager = new MySplitterDataSourceHealthManager(dataSourceIllAlerter);
+    }
+
     private void createDataSourceFilters() throws Exception {
         List<String> filters = this.router.getMySplitterConfig().getMysplitter().getFilters();
         if (filters == null) {
@@ -238,12 +251,6 @@ public class MySplitterDataSourceManager {
         for (String filter : filters) {
             dataSourceFilters.add(ClassLoaderUtil.getInstance(filter, DataSourceFilterAdvise.class));
         }
-    }
-
-    private void createIllDataSourceFailTimeoutExecutor() {
-        illDataSourceFailTimeoutExecutor =
-                new ScheduledThreadPoolExecutor(Runtime.getRuntime().availableProcessors(),
-                        new DaemonThreadFactory("mysplitter fail timeout"));
     }
 
     private void createDataSources() throws Exception {
@@ -265,34 +272,32 @@ public class MySplitterDataSourceManager {
                 }
             }
         }
-        for (LoadBalanceSelector<DataSourceWrapper> selector : healthyDataSourceSelectorMap.values()) {
-            for (DataSourceWrapper dataSourceWrapper : uniqueDataSources(selector)) {
-                dataSourceWrapper.initRealDataSource();
-            }
+        for (DataSourceWrapper dataSourceWrapper : dataSourceRegistry.listAllNodes()) {
+            dataSourceWrapper.initRealDataSource();
         }
     }
 
     private void createReadersDataSource(String dbKey,
                                          Map<String, MySplitterDataSourceNodeConfig> readers,
                                          MySplitterLoadBalanceConfig loadBalanceConfig) {
-        String selectorName = generateDataSourceSelectorName(dbKey, "readers");
-        createLoadBalanceSelector(selectorName, loadBalanceConfig, readers);
+        MySplitterDataSourceGroup group =
+                dataSourceRegistry.createGroup(dbKey, "readers", createLoadBalanceSelector(loadBalanceConfig, readers));
         for (String readerKey : readers.keySet()) {
             MySplitterDataSourceNodeConfig nodeConfig = readers.get(readerKey);
             DataSourceWrapper wrapper = new DataSourceWrapper(readerKey, dbKey, nodeConfig, loadBalanceConfig);
-            healthyDataSourceSelectorMap.get(selectorName).register(wrapper, nodeConfig.getWeight());
+            group.register(wrapper, nodeConfig.getWeight());
         }
     }
 
     private void createWritersDataSource(String dbKey,
                                          Map<String, MySplitterDataSourceNodeConfig> writers,
                                          MySplitterLoadBalanceConfig loadBalanceConfig) {
-        String selectorName = generateDataSourceSelectorName(dbKey, "writers");
-        createLoadBalanceSelector(selectorName, loadBalanceConfig, writers);
+        MySplitterDataSourceGroup group =
+                dataSourceRegistry.createGroup(dbKey, "writers", createLoadBalanceSelector(loadBalanceConfig, writers));
         for (String writerKey : writers.keySet()) {
             MySplitterDataSourceNodeConfig nodeConfig = writers.get(writerKey);
             DataSourceWrapper wrapper = new DataSourceWrapper(writerKey, dbKey, nodeConfig, loadBalanceConfig);
-            healthyDataSourceSelectorMap.get(selectorName).register(wrapper, nodeConfig.getWeight());
+            group.register(wrapper, nodeConfig.getWeight());
         }
     }
 
@@ -302,94 +307,97 @@ public class MySplitterDataSourceManager {
             throw new IllegalArgumentException("The database named " + dbKey + " contains " + integrates.size()
                     + " datasource nodes.");
         }
-        String selectorName = generateDataSourceSelectorName(dbKey, "integrates");
-        healthyDataSourceSelectorMap.put(selectorName, new NoLoadBalanceSelector<DataSourceWrapper>());
-        illDataSourceSelectorMap.put(selectorName, new NoLoadBalanceSelector<DataSourceWrapper>());
+        MySplitterDataSourceGroup group =
+                dataSourceRegistry.createGroup(dbKey, "integrates", new NoLoadBalanceSelector<DataSourceWrapper>());
         for (String integrateKey : integrates.keySet()) {
             MySplitterDataSourceNodeConfig nodeConfig = integrates.get(integrateKey);
             DataSourceWrapper wrapper = new DataSourceWrapper(integrateKey, dbKey, nodeConfig, null);
-            healthyDataSourceSelectorMap.get(selectorName).register(wrapper, nodeConfig.getWeight());
+            group.register(wrapper, nodeConfig.getWeight());
         }
     }
 
-    private void createLoadBalanceSelector(String selectorName,
-                                           MySplitterLoadBalanceConfig loadBalanceConfig,
-                                           Map<String, MySplitterDataSourceNodeConfig> readersOrWriters) {
+    private LoadBalanceSelector<DataSourceWrapper> createLoadBalanceSelector(
+            MySplitterLoadBalanceConfig loadBalanceConfig,
+            Map<String, MySplitterDataSourceNodeConfig> readersOrWriters) {
         if (loadBalanceConfig.isEnabled() && readersOrWriters.size() > 1) {
             if ("polling".equals(loadBalanceConfig.getStrategy())) {
-                healthyDataSourceSelectorMap.put(selectorName, new RoundRobinLoadBalanceSelector<DataSourceWrapper>());
-                illDataSourceSelectorMap.put(selectorName, new RoundRobinLoadBalanceSelector<DataSourceWrapper>());
-                return;
+                return new RoundRobinLoadBalanceSelector<DataSourceWrapper>();
             }
             if ("random".equals(loadBalanceConfig.getStrategy())) {
-                healthyDataSourceSelectorMap.put(selectorName, new RandomLoadBalanceSelector<DataSourceWrapper>());
-                illDataSourceSelectorMap.put(selectorName, new RandomLoadBalanceSelector<DataSourceWrapper>());
-                return;
+                return new RandomLoadBalanceSelector<DataSourceWrapper>();
             }
         }
-        healthyDataSourceSelectorMap.put(selectorName, new NoLoadBalanceSelector<DataSourceWrapper>());
-        illDataSourceSelectorMap.put(selectorName, new NoLoadBalanceSelector<DataSourceWrapper>());
+        return new NoLoadBalanceSelector<DataSourceWrapper>();
     }
 
-    private Connection recoverFromIllDataSource(String targetDatabase,
-                                                String operation,
-                                                String sql,
-                                                String username,
-                                                String password) throws SQLException {
-        LoadBalanceSelector<DataSourceWrapper> illSelector = getSelector(illDataSourceSelectorMap,
-                targetDatabase, operation);
-        if (illSelector == null) {
+    private MySplitterRouteSelection recoverFromIllDataSource(MySplitterConnectionContext connectionContext,
+                                                              MySplitterDataSourceGroup group,
+                                                              String targetDatabase,
+                                                              String sql,
+                                                              String username,
+                                                              String password,
+                                                              SQLException currentException) throws SQLException {
+        List<DataSourceWrapper> illNodes = new ArrayList<DataSourceWrapper>(dataSourceHealthManager.getIllNodes(group));
+        if (illNodes.size() == 0) {
+            if (currentException != null) {
+                throw currentException;
+            }
             throw new NoHealthyDataSourceException("No data source node was found.");
         }
 
-        List<DataSourceWrapper> dataSourceWrappers = uniqueDataSources(illSelector);
-        if (dataSourceWrappers.size() == 0) {
-            throw new NoHealthyDataSourceException("No data source node was found.");
-        }
-
-        Exception lastException = null;
-        for (DataSourceWrapper dataSourceWrapper : dataSourceWrappers) {
+        SQLException exceptionHolder = currentException;
+        while (!illNodes.isEmpty()) {
+            DataSourceWrapper dataSourceWrapper = group.acquire(illNodes);
+            if (dataSourceWrapper == null) {
+                break;
+            }
+            MySplitterRouteKey routeKey =
+                    new MySplitterRouteKey(targetDatabase, group.getNodeGroup(), dataSourceWrapper.getNodeName());
+            Connection existing = connectionContext.getConnection(routeKey);
+            if (existing != null) {
+                doFilters(routeKey.getDatabaseName(), routeKey.getNodeName(), sql);
+                dataSourceHealthManager.markHealthy(group, dataSourceWrapper);
+                pinRouteIfNecessary(connectionContext, routeKey);
+                return new MySplitterRouteSelection(routeKey, existing);
+            }
             try {
                 doFilters(dataSourceWrapper, sql);
                 Connection connection = openConnection(dataSourceWrapper, username, password);
-                illSelector.release(dataSourceWrapper);
-                LoadBalanceSelector<DataSourceWrapper> healthySelector =
-                        getSelector(healthyDataSourceSelectorMap, targetDatabase, operation);
-                if (healthySelector != null) {
-                    healthySelector.register(dataSourceWrapper, dataSourceWrapper.getNodeConfig().getWeight());
-                }
-                return connection;
+                connectionContext.getConnectionState().apply(connection);
+                connectionContext.registerConnection(routeKey, connection);
+                dataSourceHealthManager.markHealthy(group, dataSourceWrapper);
+                pinRouteIfNecessary(connectionContext, routeKey);
+                return new MySplitterRouteSelection(routeKey, connection);
             } catch (Exception e) {
                 LOGGER.warn("Failed to recover connection from ill datasource node {} in database {}.",
                         dataSourceWrapper.getNodeName(), dataSourceWrapper.getDataBaseName(), e);
-                lastException = e;
+                exceptionHolder = mergeSqlException(exceptionHolder,
+                        toSqlException("Failed to recover connection from ill datasource.", e));
+                illNodes.remove(dataSourceWrapper);
             }
         }
 
-        if (lastException instanceof SQLException) {
-            throw (SQLException) lastException;
+        if (exceptionHolder != null) {
+            throw exceptionHolder;
         }
-        throw new SQLException("Failed to recover connection from ill datasource.", lastException);
+        throw new NoHealthyDataSourceException("No data source node was found.");
     }
 
-    private void handleDataSourceFailure(String targetDatabase,
-                                         String operation,
-                                         LoadBalanceSelector<DataSourceWrapper> healthySelector,
+    private void pinRouteIfNecessary(MySplitterConnectionContext connectionContext, MySplitterRouteKey routeKey) {
+        if (connectionContext.isTransactionActive() && !"readers".equals(routeKey.getNodeGroup())) {
+            connectionContext.pinRoute(routeKey.getDatabaseName(), routeKey);
+        }
+    }
+
+    private void handleDataSourceFailure(MySplitterDataSourceGroup group,
                                          DataSourceWrapper dataSourceWrapper,
                                          Exception exception) {
         if (dataSourceWrapper == null) {
             return;
         }
         LOGGER.warn("MySplitter failed to get connection from database {}, operation {}, node {}. Retrying with other nodes.",
-                targetDatabase, operation, dataSourceWrapper.getNodeName(), exception);
-        healthySelector.release(dataSourceWrapper);
-        LoadBalanceSelector<DataSourceWrapper> illSelector =
-                getSelector(illDataSourceSelectorMap, targetDatabase, operation);
-        if (illSelector != null) {
-            illSelector.register(dataSourceWrapper, dataSourceWrapper.getNodeConfig().getWeight());
-        }
-        dataSourceIllAlerter.alert(dataSourceWrapper.getDataBaseName(), dataSourceWrapper.getNodeName(), exception);
-        submitDataSourceFailTimeoutTask(targetDatabase, operation, dataSourceWrapper);
+                group.getDatabaseName(), group.getNodeGroup(), dataSourceWrapper.getNodeName(), exception);
+        dataSourceHealthManager.markIll(group, dataSourceWrapper, exception);
     }
 
     private Connection openConnection(DataSourceWrapper dataSourceWrapper,
@@ -402,53 +410,17 @@ public class MySplitterDataSourceManager {
     }
 
     private void doFilters(DataSourceWrapper dataSourceWrapper, String sql) throws SQLException {
+        doFilters(dataSourceWrapper.getDataBaseName(), dataSourceWrapper.getNodeName(), sql);
+    }
+
+    private void doFilters(String databaseName, String nodeName, String sql) throws SQLException {
         for (DataSourceFilterAdvise dataSourceFilter : dataSourceFilters) {
             try {
-                dataSourceFilter.doFilter(dataSourceWrapper.getDataBaseName(), dataSourceWrapper.getNodeName(), sql);
+                dataSourceFilter.doFilter(databaseName, nodeName, sql);
             } catch (Exception e) {
                 throw new SQLException("Execute datasource filter failed.", e);
             }
         }
-    }
-
-    private LoadBalanceSelector<DataSourceWrapper> getSelector(
-            Map<String, LoadBalanceSelector<DataSourceWrapper>> selectorMap,
-            String targetDatabase,
-            String operation) {
-        LoadBalanceSelector<DataSourceWrapper> selector =
-                selectorMap.get(generateDataSourceSelectorName(targetDatabase, operation));
-        if (selector == null) {
-            selector = selectorMap.get(generateDataSourceSelectorName(targetDatabase, "integrates"));
-        }
-        return selector;
-    }
-
-    private void release(Map<String, LoadBalanceSelector<DataSourceWrapper>> selectorMap,
-                         Set<DataSourceWrapper> released) throws Exception {
-        Exception releaseException = null;
-        for (Map.Entry<String, LoadBalanceSelector<DataSourceWrapper>> entry : selectorMap.entrySet()) {
-            for (DataSourceWrapper dataSourceWrapper : uniqueDataSources(entry.getValue())) {
-                if (released.add(dataSourceWrapper)) {
-                    try {
-                        dataSourceWrapper.releaseRealDataSource();
-                    } catch (Exception e) {
-                        releaseException = mergeException(releaseException, e);
-                    }
-                }
-            }
-        }
-        if (releaseException != null) {
-            throw releaseException;
-        }
-    }
-
-    private List<DataSourceWrapper> uniqueDataSources(LoadBalanceSelector<DataSourceWrapper> selector) {
-        LinkedHashSet<DataSourceWrapper> wrappers = new LinkedHashSet<DataSourceWrapper>(selector.listAll());
-        return new ArrayList<DataSourceWrapper>(wrappers);
-    }
-
-    private String generateDataSourceSelectorName(String databaseName, String operation) {
-        return databaseName + ":" + operation;
     }
 
     private Exception mergeException(Exception current, Exception next) {
@@ -459,73 +431,25 @@ public class MySplitterDataSourceManager {
         return current;
     }
 
-    private void submitDataSourceFailTimeoutTask(final String targetDatabase,
-                                                 final String operation,
-                                                 final DataSourceWrapper dataSourceWrapper) {
-        final String time;
-        if (dataSourceWrapper.getLoadBalanceConfig() == null
-                || StringUtil.isBlank(dataSourceWrapper.getLoadBalanceConfig().getFailTimeout())) {
-            time = "30s";
-        } else {
-            time = dataSourceWrapper.getLoadBalanceConfig().getFailTimeout();
+    private SQLException mergeSqlException(SQLException current, SQLException next) {
+        if (current == null) {
+            return next;
         }
-        illDataSourceFailTimeoutExecutor.schedule(new Runnable() {
-            @Override
-            public void run() {
-                LoadBalanceSelector<DataSourceWrapper> illSelector =
-                        getSelector(illDataSourceSelectorMap, targetDatabase, operation);
-                if (illSelector == null || illSelector.listAll().size() == 0) {
-                    return;
-                }
-                illSelector.release(dataSourceWrapper);
-                LoadBalanceSelector<DataSourceWrapper> healthySelector =
-                        getSelector(healthyDataSourceSelectorMap, targetDatabase, operation);
-                if (healthySelector != null) {
-                    healthySelector.register(dataSourceWrapper, dataSourceWrapper.getNodeConfig().getWeight());
-                }
-            }
-        }, parseTimePeriod(time), parseTimeTimeUnit(time));
+        current.addSuppressed(next);
+        return current;
     }
 
-    private Integer parseTimePeriod(String time) {
-        return Integer.parseInt(time.substring(0, time.length() - 1));
-    }
-
-    private TimeUnit parseTimeTimeUnit(String time) {
-        String suffix = time.substring(time.length() - 1);
-        if ("s".equalsIgnoreCase(suffix)) {
-            return TimeUnit.SECONDS;
+    private SQLException toSqlException(String message, Exception exception) {
+        if (exception instanceof SQLException) {
+            return (SQLException) exception;
         }
-        if ("m".equalsIgnoreCase(suffix)) {
-            return TimeUnit.MINUTES;
-        }
-        if ("h".equalsIgnoreCase(suffix)) {
-            return TimeUnit.HOURS;
-        }
-        return TimeUnit.SECONDS;
+        return new SQLException(message, exception);
     }
 
     Map<String, Object> getStatus() {
-        Map<String, Object> status = new HashMap<String, Object>();
-        Map<String, Object> healthy = new TreeMap<String, Object>();
-        for (Map.Entry<String, LoadBalanceSelector<DataSourceWrapper>> entry : healthyDataSourceSelectorMap.entrySet()) {
-            LinkedHashSet<String> data = new LinkedHashSet<String>();
-            for (DataSourceWrapper dataSourceWrapper : entry.getValue().listAll()) {
-                data.add(dataSourceWrapper.getNodeName());
-            }
-            healthy.put(entry.getKey(), new ArrayList<String>(data));
+        if (dataSourceHealthManager == null) {
+            return new java.util.HashMap<String, Object>();
         }
-        status.put("healthy", healthy);
-
-        Map<String, Object> ill = new TreeMap<String, Object>();
-        for (Map.Entry<String, LoadBalanceSelector<DataSourceWrapper>> entry : illDataSourceSelectorMap.entrySet()) {
-            LinkedHashSet<String> data = new LinkedHashSet<String>();
-            for (DataSourceWrapper dataSourceWrapper : entry.getValue().listAll()) {
-                data.add(dataSourceWrapper.getNodeName());
-            }
-            ill.put(entry.getKey(), new ArrayList<String>(data));
-        }
-        status.put("ill", ill);
-        return status;
+        return dataSourceHealthManager.getStatus(dataSourceRegistry);
     }
 }

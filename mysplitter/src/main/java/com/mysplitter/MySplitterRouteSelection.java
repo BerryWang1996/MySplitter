@@ -14,23 +14,26 @@
  * limitations under the License.
  */
 
-package com.mysplitter.selector;
+package com.mysplitter;
 
-import java.util.List;
+import java.sql.Connection;
 
-/**
- * 璐熻浇鍧囪　閫夋嫨鍣?
- */
-public interface LoadBalanceSelector<T> {
+public class MySplitterRouteSelection {
 
-    void register(T object, int weight);
+    private final MySplitterRouteKey routeKey;
 
-    T acquire();
+    private final Connection connection;
 
-    T acquire(List<T> candidates);
+    public MySplitterRouteSelection(MySplitterRouteKey routeKey, Connection connection) {
+        this.routeKey = routeKey;
+        this.connection = connection;
+    }
 
-    void release(T object);
+    public MySplitterRouteKey getRouteKey() {
+        return routeKey;
+    }
 
-    List<T> listAll();
-
+    public Connection getConnection() {
+        return connection;
+    }
 }

@@ -1,14 +1,9 @@
 package com.mysplitter.demo.domain;
 
-import lombok.Getter;
-import lombok.Setter;
-
 /**
  * @author berrywang1996
  * @version V1.0.0
  */
-@Getter
-@Setter
 public class User {
 
     private long id;
@@ -16,5 +11,29 @@ public class User {
     private String name;
 
     private Integer age;
+
+    public long getId() {
+        return id;
+    }
+
+    public void setId(long id) {
+        this.id = id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public Integer getAge() {
+        return age;
+    }
+
+    public void setAge(Integer age) {
+        this.age = age;
+    }
 
 }

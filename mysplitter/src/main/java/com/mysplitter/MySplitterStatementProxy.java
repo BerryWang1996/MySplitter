@@ -24,6 +24,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLWarning;
 import java.sql.Statement;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 public class MySplitterStatementProxy implements Statement {
 
@@ -46,21 +48,21 @@ public class MySplitterStatementProxy implements Statement {
 
     private final Integer resultSetHoldability;
 
-    private final MySplitterConnectionHolder mySplitterConnectionHolder;
+    private final MySplitterConnectionContext connectionContext;
 
-    private final MySplitterStatementHolder mySplitterStatementHolder = new MySplitterStatementHolder();
+    private final Map<MySplitterRouteKey, Statement> statements =
+            new LinkedHashMap<MySplitterRouteKey, Statement>();
 
-    private final MySplitterStandByExecuteHolder mySplitterStatementProxyStandByExecuteHolder;
-
-    private final MySplitterStandByExecuteHolder mySplitterConnectionProxyStandByExecuteHolder;
+    private final MySplitterStandByExecuteHolder statementStandByExecuteHolder;
 
     private final Connection logicalConnection;
 
     private volatile boolean closed;
 
+    private volatile MySplitterRouteKey currentRouteKey;
+
     public MySplitterStatementProxy(MySplitterDataSourceManager mySplitterDataSourceManager,
-                                    MySplitterStandByExecuteHolder mySplitterConnectionProxyStandByExecuteHolder,
-                                    MySplitterConnectionHolder mySplitterConnectionHolder,
+                                    MySplitterConnectionContext connectionContext,
                                     String username,
                                     String password,
                                     Integer resultSetType,
@@ -68,9 +70,8 @@ public class MySplitterStatementProxy implements Statement {
                                     Integer resultSetHoldability,
                                     Connection logicalConnection) {
         this.mySplitterDataSourceManager = mySplitterDataSourceManager;
-        this.mySplitterConnectionHolder = mySplitterConnectionHolder;
-        this.mySplitterConnectionProxyStandByExecuteHolder = mySplitterConnectionProxyStandByExecuteHolder;
-        this.mySplitterStatementProxyStandByExecuteHolder = new MySplitterStandByExecuteHolder(this);
+        this.connectionContext = connectionContext;
+        this.statementStandByExecuteHolder = new MySplitterStandByExecuteHolder(this);
         this.username = username;
         this.password = password;
         this.resultSetType = resultSetType;
@@ -85,42 +86,24 @@ public class MySplitterStatementProxy implements Statement {
         }
     }
 
-    private Connection getRequiredConnection() throws SQLException {
-        assertOpen();
-        Connection currentConnection = this.mySplitterConnectionHolder.getCurrent();
-        if (currentConnection == null) {
-            throw new SQLException("Statement has no target connection yet.");
-        }
-        return currentConnection;
-    }
-
     private Statement getCurrentStatement() throws SQLException {
         assertOpen();
-        Statement statement = this.mySplitterStatementHolder.getCurrent();
+        if (currentRouteKey == null) {
+            throw new SQLException("Statement has no target statement yet.");
+        }
+        Statement statement = statements.get(currentRouteKey);
         if (statement == null) {
             throw new SQLException("Statement has no target statement yet.");
         }
         return statement;
     }
 
-    private void setConnectionHolder(MySplitterSqlWrapper sql) throws SQLException {
-        assertOpen();
-        Connection connection;
-        if (username != null || password != null) {
-            connection = this.mySplitterDataSourceManager.getConnection(sql, username, password);
-        } else {
-            connection = this.mySplitterDataSourceManager.getConnection(sql);
-        }
-        this.mySplitterConnectionProxyStandByExecuteHolder.executeAll(connection);
-        this.mySplitterConnectionHolder.setCurrent(connection);
-    }
-
-    private Statement getStatement() throws SQLException {
-        Connection currentConnection = getRequiredConnection();
-        Statement statement = this.mySplitterStatementHolder.getCurrent();
+    private Statement getStatement(MySplitterRouteSelection routeSelection) throws SQLException {
+        Statement statement = statements.get(routeSelection.getRouteKey());
         if (statement != null) {
             try {
-                if (!statement.isClosed() && statement.getConnection() == currentConnection) {
+                if (!statement.isClosed() && statement.getConnection() == routeSelection.getConnection()) {
+                    currentRouteKey = routeSelection.getRouteKey();
                     return statement;
                 }
             } catch (SQLException e) {
@@ -128,25 +111,35 @@ public class MySplitterStatementProxy implements Statement {
             }
         }
 
+        Connection connection = routeSelection.getConnection();
         if (this.resultSetHoldability != null) {
-            statement = currentConnection.createStatement(this.resultSetType,
+            statement = connection.createStatement(this.resultSetType,
                     this.resultSetConcurrency, this.resultSetHoldability);
         } else if (this.resultSetConcurrency != null || this.resultSetType != null) {
-            statement = currentConnection.createStatement(this.resultSetType, this.resultSetConcurrency);
+            statement = connection.createStatement(this.resultSetType, this.resultSetConcurrency);
         } else {
-            statement = currentConnection.createStatement();
+            statement = connection.createStatement();
         }
-        this.mySplitterStatementHolder.setCurrent(statement);
-        this.mySplitterStatementProxyStandByExecuteHolder.executeAll(statement);
+        statements.put(routeSelection.getRouteKey(), statement);
+        currentRouteKey = routeSelection.getRouteKey();
+        this.statementStandByExecuteHolder.executeAll(statement);
         return statement;
+    }
+
+    private MySplitterRouteSelection getRouteSelection(MySplitterSqlWrapper sqlWrapper) throws SQLException {
+        assertOpen();
+        if (username != null || password != null) {
+            return this.mySplitterDataSourceManager.getRouteSelection(connectionContext, sqlWrapper, username, password);
+        }
+        return this.mySplitterDataSourceManager.getRouteSelection(connectionContext, sqlWrapper);
     }
 
     private void recordAndApply(String methodName,
                                 StatementOperation operation,
                                 Object... params) throws SQLException {
         assertOpen();
-        this.mySplitterStatementProxyStandByExecuteHolder.standBy(methodName, params);
-        for (Statement statement : this.mySplitterStatementHolder.listAll()) {
+        this.statementStandByExecuteHolder.standBy(methodName, params);
+        for (Statement statement : this.statements.values()) {
             operation.apply(statement);
         }
     }
@@ -154,15 +147,15 @@ public class MySplitterStatementProxy implements Statement {
     @Override
     public ResultSet executeQuery(String sql) throws SQLException {
         MySplitterSqlWrapper sqlWrapper = new MySplitterSqlWrapper(sql);
-        setConnectionHolder(sqlWrapper);
-        return getStatement().executeQuery(sqlWrapper.getSql());
+        MySplitterRouteSelection routeSelection = getRouteSelection(sqlWrapper);
+        return getStatement(routeSelection).executeQuery(sqlWrapper.getSql());
     }
 
     @Override
     public int executeUpdate(String sql) throws SQLException {
         MySplitterSqlWrapper sqlWrapper = new MySplitterSqlWrapper(sql);
-        setConnectionHolder(sqlWrapper);
-        return getStatement().executeUpdate(sqlWrapper.getSql());
+        MySplitterRouteSelection routeSelection = getRouteSelection(sqlWrapper);
+        return getStatement(routeSelection).executeUpdate(sqlWrapper.getSql());
     }
 
     @Override
@@ -171,16 +164,31 @@ public class MySplitterStatementProxy implements Statement {
             return;
         }
         closed = true;
+        SQLException exceptionHolder = null;
         try {
-            this.mySplitterStatementHolder.clearAll();
+            for (Statement statement : this.statements.values()) {
+                try {
+                    statement.close();
+                } catch (SQLException e) {
+                    if (exceptionHolder == null) {
+                        exceptionHolder = e;
+                    } else {
+                        exceptionHolder.addSuppressed(e);
+                    }
+                }
+            }
         } finally {
-            this.mySplitterStatementProxyStandByExecuteHolder.releaseAll();
+            this.statements.clear();
+            this.statementStandByExecuteHolder.releaseAll();
+        }
+        if (exceptionHolder != null) {
+            throw exceptionHolder;
         }
     }
 
     @Override
     public int getMaxFieldSize() throws SQLException {
-        return getStatement().getMaxFieldSize();
+        return getCurrentStatement().getMaxFieldSize();
     }
 
     @Override
@@ -195,7 +203,7 @@ public class MySplitterStatementProxy implements Statement {
 
     @Override
     public int getMaxRows() throws SQLException {
-        return getStatement().getMaxRows();
+        return getCurrentStatement().getMaxRows();
     }
 
     @Override
@@ -220,7 +228,7 @@ public class MySplitterStatementProxy implements Statement {
 
     @Override
     public int getQueryTimeout() throws SQLException {
-        return getStatement().getQueryTimeout();
+        return getCurrentStatement().getQueryTimeout();
     }
 
     @Override
@@ -237,11 +245,15 @@ public class MySplitterStatementProxy implements Statement {
     public void cancel() throws SQLException {
         assertOpen();
         SQLException sqlException = null;
-        for (Statement statement : this.mySplitterStatementHolder.listAll()) {
+        for (Statement statement : this.statements.values()) {
             try {
                 statement.cancel();
             } catch (SQLException e) {
-                sqlException = e;
+                if (sqlException == null) {
+                    sqlException = e;
+                } else {
+                    sqlException.addSuppressed(e);
+                }
             }
         }
         if (sqlException != null) {
@@ -251,18 +263,22 @@ public class MySplitterStatementProxy implements Statement {
 
     @Override
     public SQLWarning getWarnings() throws SQLException {
-        return getStatement().getWarnings();
+        return getCurrentStatement().getWarnings();
     }
 
     @Override
     public void clearWarnings() throws SQLException {
         assertOpen();
         SQLException sqlException = null;
-        for (Statement statement : this.mySplitterStatementHolder.listAll()) {
+        for (Statement statement : this.statements.values()) {
             try {
                 statement.clearWarnings();
             } catch (SQLException e) {
-                sqlException = e;
+                if (sqlException == null) {
+                    sqlException = e;
+                } else {
+                    sqlException.addSuppressed(e);
+                }
             }
         }
         if (sqlException != null) {
@@ -283,25 +299,25 @@ public class MySplitterStatementProxy implements Statement {
     @Override
     public boolean execute(String sql) throws SQLException {
         MySplitterSqlWrapper sqlWrapper = new MySplitterSqlWrapper(sql);
-        setConnectionHolder(sqlWrapper);
-        return getStatement().execute(sqlWrapper.getSql());
+        MySplitterRouteSelection routeSelection = getRouteSelection(sqlWrapper);
+        return getStatement(routeSelection).execute(sqlWrapper.getSql());
     }
 
     @Override
     public ResultSet getResultSet() throws SQLException {
-        Statement statement = this.mySplitterStatementHolder.getCurrent();
+        Statement statement = currentRouteKey == null ? null : statements.get(currentRouteKey);
         return statement == null ? null : statement.getResultSet();
     }
 
     @Override
     public int getUpdateCount() throws SQLException {
-        Statement statement = this.mySplitterStatementHolder.getCurrent();
+        Statement statement = currentRouteKey == null ? null : statements.get(currentRouteKey);
         return statement == null ? -1 : statement.getUpdateCount();
     }
 
     @Override
     public boolean getMoreResults() throws SQLException {
-        Statement statement = this.mySplitterStatementHolder.getCurrent();
+        Statement statement = currentRouteKey == null ? null : statements.get(currentRouteKey);
         return statement != null && statement.getMoreResults();
     }
 
@@ -348,8 +364,8 @@ public class MySplitterStatementProxy implements Statement {
     @Override
     public void addBatch(String sql) throws SQLException {
         MySplitterSqlWrapper sqlWrapper = new MySplitterSqlWrapper(sql);
-        setConnectionHolder(sqlWrapper);
-        getStatement().addBatch(sqlWrapper.getSql());
+        MySplitterRouteSelection routeSelection = getRouteSelection(sqlWrapper);
+        getStatement(routeSelection).addBatch(sqlWrapper.getSql());
     }
 
     @Override
@@ -369,7 +385,7 @@ public class MySplitterStatementProxy implements Statement {
 
     @Override
     public boolean getMoreResults(int current) throws SQLException {
-        Statement statement = this.mySplitterStatementHolder.getCurrent();
+        Statement statement = currentRouteKey == null ? null : statements.get(currentRouteKey);
         return statement != null && statement.getMoreResults(current);
     }
 
@@ -381,43 +397,43 @@ public class MySplitterStatementProxy implements Statement {
     @Override
     public int executeUpdate(String sql, int autoGeneratedKeys) throws SQLException {
         MySplitterSqlWrapper sqlWrapper = new MySplitterSqlWrapper(sql);
-        setConnectionHolder(sqlWrapper);
-        return getStatement().executeUpdate(sqlWrapper.getSql(), autoGeneratedKeys);
+        MySplitterRouteSelection routeSelection = getRouteSelection(sqlWrapper);
+        return getStatement(routeSelection).executeUpdate(sqlWrapper.getSql(), autoGeneratedKeys);
     }
 
     @Override
     public int executeUpdate(String sql, int[] columnIndexes) throws SQLException {
         MySplitterSqlWrapper sqlWrapper = new MySplitterSqlWrapper(sql);
-        setConnectionHolder(sqlWrapper);
-        return getStatement().executeUpdate(sqlWrapper.getSql(), columnIndexes);
+        MySplitterRouteSelection routeSelection = getRouteSelection(sqlWrapper);
+        return getStatement(routeSelection).executeUpdate(sqlWrapper.getSql(), columnIndexes);
     }
 
     @Override
     public int executeUpdate(String sql, String[] columnNames) throws SQLException {
         MySplitterSqlWrapper sqlWrapper = new MySplitterSqlWrapper(sql);
-        setConnectionHolder(sqlWrapper);
-        return getStatement().executeUpdate(sqlWrapper.getSql(), columnNames);
+        MySplitterRouteSelection routeSelection = getRouteSelection(sqlWrapper);
+        return getStatement(routeSelection).executeUpdate(sqlWrapper.getSql(), columnNames);
     }
 
     @Override
     public boolean execute(String sql, int autoGeneratedKeys) throws SQLException {
         MySplitterSqlWrapper sqlWrapper = new MySplitterSqlWrapper(sql);
-        setConnectionHolder(sqlWrapper);
-        return getStatement().execute(sqlWrapper.getSql(), autoGeneratedKeys);
+        MySplitterRouteSelection routeSelection = getRouteSelection(sqlWrapper);
+        return getStatement(routeSelection).execute(sqlWrapper.getSql(), autoGeneratedKeys);
     }
 
     @Override
     public boolean execute(String sql, int[] columnIndexes) throws SQLException {
         MySplitterSqlWrapper sqlWrapper = new MySplitterSqlWrapper(sql);
-        setConnectionHolder(sqlWrapper);
-        return getStatement().execute(sqlWrapper.getSql(), columnIndexes);
+        MySplitterRouteSelection routeSelection = getRouteSelection(sqlWrapper);
+        return getStatement(routeSelection).execute(sqlWrapper.getSql(), columnIndexes);
     }
 
     @Override
     public boolean execute(String sql, String[] columnNames) throws SQLException {
         MySplitterSqlWrapper sqlWrapper = new MySplitterSqlWrapper(sql);
-        setConnectionHolder(sqlWrapper);
-        return getStatement().execute(sqlWrapper.getSql(), columnNames);
+        MySplitterRouteSelection routeSelection = getRouteSelection(sqlWrapper);
+        return getStatement(routeSelection).execute(sqlWrapper.getSql(), columnNames);
     }
 
     @Override
@@ -430,10 +446,10 @@ public class MySplitterStatementProxy implements Statement {
         if (closed) {
             return true;
         }
-        if (this.mySplitterStatementHolder.listAll().size() == 0) {
+        if (this.statements.size() == 0) {
             return false;
         }
-        for (Statement statement : this.mySplitterStatementHolder.listAll()) {
+        for (Statement statement : this.statements.values()) {
             if (!statement.isClosed()) {
                 return false;
             }
@@ -453,7 +469,7 @@ public class MySplitterStatementProxy implements Statement {
 
     @Override
     public boolean isPoolable() throws SQLException {
-        return getStatement().isPoolable();
+        return getCurrentStatement().isPoolable();
     }
 
     @Override
@@ -468,7 +484,7 @@ public class MySplitterStatementProxy implements Statement {
 
     @Override
     public boolean isCloseOnCompletion() throws SQLException {
-        return getStatement().isCloseOnCompletion();
+        return getCurrentStatement().isCloseOnCompletion();
     }
 
     @Override
@@ -476,7 +492,7 @@ public class MySplitterStatementProxy implements Statement {
         if (iface != null && iface.isInstance(this)) {
             return iface.cast(this);
         }
-        Statement statement = this.mySplitterStatementHolder.getCurrent();
+        Statement statement = currentRouteKey == null ? null : this.statements.get(currentRouteKey);
         if (statement == null) {
             throw new SQLException("No target statement available to unwrap " + iface + ".");
         }
@@ -488,7 +504,7 @@ public class MySplitterStatementProxy implements Statement {
         if (iface != null && iface.isInstance(this)) {
             return true;
         }
-        Statement statement = this.mySplitterStatementHolder.getCurrent();
+        Statement statement = currentRouteKey == null ? null : this.statements.get(currentRouteKey);
         return statement != null && statement.isWrapperFor(iface);
     }
 }

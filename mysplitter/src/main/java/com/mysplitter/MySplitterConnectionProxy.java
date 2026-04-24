@@ -56,9 +56,7 @@ public class MySplitterConnectionProxy implements Connection {
 
     private final String password;
 
-    private final MySplitterStandByExecuteHolder mySplitterStandByExecuteHolder;
-
-    private final MySplitterConnectionHolder mySplitterConnectionHolder;
+    private final MySplitterConnectionContext connectionContext = new MySplitterConnectionContext();
 
     private volatile boolean closed;
 
@@ -72,8 +70,6 @@ public class MySplitterConnectionProxy implements Connection {
         this.mySplitterDataSourceManager = mySplitterDataSourceManager;
         this.username = username;
         this.password = password;
-        this.mySplitterConnectionHolder = new MySplitterConnectionHolder();
-        this.mySplitterStandByExecuteHolder = new MySplitterStandByExecuteHolder(this);
     }
 
     private void assertOpen() throws SQLException {
@@ -89,49 +85,99 @@ public class MySplitterConnectionProxy implements Connection {
         }
     }
 
-    private void setConnectionHolder(MySplitterSqlWrapper sql) throws SQLException {
-        assertOpen();
-        Connection connection = getTargetConnection(sql);
-        this.mySplitterStandByExecuteHolder.executeAll(connection);
-        this.mySplitterConnectionHolder.setCurrent(connection);
+    private MySplitterConnectionState getConnectionState() {
+        return connectionContext.getConnectionState();
     }
 
-    private Connection getTargetConnection(MySplitterSqlWrapper sql) throws SQLException {
+    private Connection getAdministrativeConnection() throws SQLException {
         assertOpen();
-        if (username != null || password != null) {
-            return this.mySplitterDataSourceManager.getConnection(sql, username, password);
+        Connection connection = connectionContext.getAdministrativeConnection();
+        if (connection != null) {
+            return connection;
         }
-        return this.mySplitterDataSourceManager.getConnection(sql);
+        connection = this.mySplitterDataSourceManager.getDefaultConnection();
+        getConnectionState().apply(connection);
+        connectionContext.registerAdministrativeConnection(connection);
+        return connection;
     }
 
     private Connection getCurrentConnection() throws SQLException {
         assertOpen();
-        Connection connection = mySplitterConnectionHolder.getCurrent();
-        if (connection == null) {
-            connection = this.mySplitterDataSourceManager.getDefaultConnection();
-            this.mySplitterConnectionHolder.setCurrent(connection);
+        Connection connection = connectionContext.getCurrentConnection();
+        if (connection != null) {
+            return connection;
         }
-        this.mySplitterStandByExecuteHolder.executeAll(connection);
-        return connection;
+        return getAdministrativeConnection();
     }
 
-    private void recordAndApply(String methodName,
-                                ConnectionOperation operation,
-                                Object... params) throws SQLException {
+    private MySplitterRouteSelection getRouteSelection(String sql) throws SQLException {
+        return getRouteSelection(new MySplitterSqlWrapper(sql));
+    }
+
+    private MySplitterRouteSelection getRouteSelection(MySplitterSqlWrapper sqlWrapper) throws SQLException {
         assertOpen();
-        this.mySplitterStandByExecuteHolder.standBy(methodName, params);
-        List<Connection> connections = this.mySplitterConnectionHolder.listAll();
+        if (username != null || password != null) {
+            return this.mySplitterDataSourceManager.getRouteSelection(connectionContext, sqlWrapper, username, password);
+        }
+        return this.mySplitterDataSourceManager.getRouteSelection(connectionContext, sqlWrapper);
+    }
+
+    private void applyToOpenedConnections(ConnectionOperation operation) throws SQLException {
+        assertOpen();
+        List<Connection> connections = connectionContext.listAllConnections();
         for (Connection connection : connections) {
             operation.apply(connection);
         }
+    }
+
+    private SQLException mergeSQLException(SQLException current, SQLException next) {
+        if (current == null) {
+            return next;
+        }
+        current.addSuppressed(next);
+        return current;
+    }
+
+    private void terminate(ConnectionOperation operation) throws SQLException {
+        if (closed) {
+            return;
+        }
+        closed = true;
+        SQLException exceptionHolder = null;
+        try {
+            for (Connection connection : connectionContext.listAllConnections()) {
+                try {
+                    operation.apply(connection);
+                } catch (SQLException e) {
+                    exceptionHolder = mergeSQLException(exceptionHolder, e);
+                }
+            }
+        } finally {
+            connectionContext.clear();
+        }
+        if (exceptionHolder != null) {
+            throw exceptionHolder;
+        }
+    }
+
+    private int getKnownTransactionIsolation() {
+        Integer transactionIsolation = getConnectionState().getTransactionIsolation();
+        return transactionIsolation == null ? Connection.TRANSACTION_NONE : transactionIsolation.intValue();
+    }
+
+    private int getKnownHoldability() throws SQLException {
+        Integer holdability = getConnectionState().getHoldability();
+        if (holdability != null) {
+            return holdability.intValue();
+        }
+        return getAdministrativeConnection().getHoldability();
     }
 
     @Override
     public Statement createStatement() throws SQLException {
         assertOpen();
         return new MySplitterStatementProxy(this.mySplitterDataSourceManager,
-                this.mySplitterStandByExecuteHolder,
-                this.mySplitterConnectionHolder,
+                this.connectionContext,
                 this.username,
                 this.password,
                 null,
@@ -143,68 +189,81 @@ public class MySplitterConnectionProxy implements Connection {
     @Override
     public PreparedStatement prepareStatement(String sql) throws SQLException {
         MySplitterSqlWrapper sqlWrapper = new MySplitterSqlWrapper(sql);
-        setConnectionHolder(sqlWrapper);
-        return getCurrentConnection().prepareStatement(sqlWrapper.getSql());
+        MySplitterRouteSelection routeSelection = getRouteSelection(sqlWrapper);
+        return routeSelection.getConnection().prepareStatement(sqlWrapper.getSql());
     }
 
     @Override
     public CallableStatement prepareCall(String sql) throws SQLException {
         MySplitterSqlWrapper sqlWrapper = new MySplitterSqlWrapper(sql);
-        setConnectionHolder(sqlWrapper);
-        return getCurrentConnection().prepareCall(sqlWrapper.getSql());
+        MySplitterRouteSelection routeSelection = getRouteSelection(sqlWrapper);
+        return routeSelection.getConnection().prepareCall(sqlWrapper.getSql());
     }
 
     @Override
     public String nativeSQL(String sql) throws SQLException {
-        MySplitterSqlWrapper sqlWrapper = new MySplitterSqlWrapper(sql);
-        setConnectionHolder(sqlWrapper);
-        return getCurrentConnection().nativeSQL(sqlWrapper.getSql());
+        return getAdministrativeConnection().nativeSQL(sql);
     }
 
     @Override
     public void setAutoCommit(final boolean autoCommit) throws SQLException {
-        recordAndApply("setAutoCommit", new ConnectionOperation() {
+        getConnectionState().setAutoCommit(autoCommit);
+        if (autoCommit) {
+            connectionContext.clearPinnedRoutes();
+        }
+        applyToOpenedConnections(new ConnectionOperation() {
             @Override
             public void apply(Connection connection) throws SQLException {
                 connection.setAutoCommit(autoCommit);
             }
-        }, autoCommit);
+        });
     }
 
     @Override
     public boolean getAutoCommit() throws SQLException {
-        return getCurrentConnection().getAutoCommit();
+        return getConnectionState().isAutoCommit();
     }
 
     @Override
     public void commit() throws SQLException {
         assertOpen();
-        List<Connection> connections = mySplitterConnectionHolder.listAll();
-        for (Connection connection : connections) {
-            connection.commit();
+        SQLException exceptionHolder = null;
+        for (Connection connection : connectionContext.listAllConnections()) {
+            try {
+                connection.commit();
+            } catch (SQLException e) {
+                exceptionHolder = mergeSQLException(exceptionHolder, e);
+            }
+        }
+        if (exceptionHolder != null) {
+            throw exceptionHolder;
         }
     }
 
     @Override
     public void rollback() throws SQLException {
         assertOpen();
-        List<Connection> connections = mySplitterConnectionHolder.listAll();
-        for (Connection connection : connections) {
-            connection.rollback();
+        SQLException exceptionHolder = null;
+        for (Connection connection : connectionContext.listAllConnections()) {
+            try {
+                connection.rollback();
+            } catch (SQLException e) {
+                exceptionHolder = mergeSQLException(exceptionHolder, e);
+            }
+        }
+        if (exceptionHolder != null) {
+            throw exceptionHolder;
         }
     }
 
     @Override
     public void close() throws SQLException {
-        if (closed) {
-            return;
-        }
-        closed = true;
-        try {
-            mySplitterConnectionHolder.clearAll();
-        } finally {
-            mySplitterStandByExecuteHolder.releaseAll();
-        }
+        terminate(new ConnectionOperation() {
+            @Override
+            public void apply(Connection connection) throws SQLException {
+                connection.close();
+            }
+        });
     }
 
     @Override
@@ -214,52 +273,62 @@ public class MySplitterConnectionProxy implements Connection {
 
     @Override
     public DatabaseMetaData getMetaData() throws SQLException {
-        return getCurrentConnection().getMetaData();
+        return getAdministrativeConnection().getMetaData();
     }
 
     @Override
     public void setReadOnly(final boolean readOnly) throws SQLException {
-        recordAndApply("setReadOnly", new ConnectionOperation() {
+        getConnectionState().setReadOnly(readOnly);
+        applyToOpenedConnections(new ConnectionOperation() {
             @Override
             public void apply(Connection connection) throws SQLException {
                 connection.setReadOnly(readOnly);
             }
-        }, readOnly);
+        });
     }
 
     @Override
     public boolean isReadOnly() throws SQLException {
-        return getCurrentConnection().isReadOnly();
+        return getConnectionState().isReadOnly();
     }
 
     @Override
     public void setCatalog(final String catalog) throws SQLException {
-        recordAndApply("setCatalog", new ConnectionOperation() {
+        getConnectionState().setCatalog(catalog);
+        applyToOpenedConnections(new ConnectionOperation() {
             @Override
             public void apply(Connection connection) throws SQLException {
                 connection.setCatalog(catalog);
             }
-        }, catalog);
+        });
     }
 
     @Override
     public String getCatalog() throws SQLException {
-        return getCurrentConnection().getCatalog();
+        if (getConnectionState().hasCatalog()) {
+            return getConnectionState().getCatalog();
+        }
+        return getAdministrativeConnection().getCatalog();
     }
 
     @Override
     public void setTransactionIsolation(final int level) throws SQLException {
-        recordAndApply("setTransactionIsolation", new ConnectionOperation() {
+        getConnectionState().setTransactionIsolation(level);
+        applyToOpenedConnections(new ConnectionOperation() {
             @Override
             public void apply(Connection connection) throws SQLException {
                 connection.setTransactionIsolation(level);
             }
-        }, level);
+        });
     }
 
     @Override
     public int getTransactionIsolation() throws SQLException {
-        return getCurrentConnection().getTransactionIsolation();
+        Integer transactionIsolation = getConnectionState().getTransactionIsolation();
+        if (transactionIsolation != null) {
+            return transactionIsolation.intValue();
+        }
+        return getAdministrativeConnection().getTransactionIsolation();
     }
 
     @Override
@@ -269,19 +338,19 @@ public class MySplitterConnectionProxy implements Connection {
 
     @Override
     public void clearWarnings() throws SQLException {
-        assertOpen();
-        List<Connection> connections = mySplitterConnectionHolder.listAll();
-        for (Connection connection : connections) {
-            connection.clearWarnings();
-        }
+        applyToOpenedConnections(new ConnectionOperation() {
+            @Override
+            public void apply(Connection connection) throws SQLException {
+                connection.clearWarnings();
+            }
+        });
     }
 
     @Override
     public Statement createStatement(int resultSetType, int resultSetConcurrency) throws SQLException {
         assertOpen();
         return new MySplitterStatementProxy(this.mySplitterDataSourceManager,
-                this.mySplitterStandByExecuteHolder,
-                this.mySplitterConnectionHolder,
+                this.connectionContext,
                 this.username,
                 this.password,
                 resultSetType,
@@ -294,52 +363,64 @@ public class MySplitterConnectionProxy implements Connection {
     public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency)
             throws SQLException {
         MySplitterSqlWrapper sqlWrapper = new MySplitterSqlWrapper(sql);
-        setConnectionHolder(sqlWrapper);
-        return getCurrentConnection().prepareStatement(sqlWrapper.getSql(), resultSetType, resultSetConcurrency);
+        MySplitterRouteSelection routeSelection = getRouteSelection(sqlWrapper);
+        return routeSelection.getConnection().prepareStatement(sqlWrapper.getSql(), resultSetType, resultSetConcurrency);
     }
 
     @Override
     public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency) throws SQLException {
         MySplitterSqlWrapper sqlWrapper = new MySplitterSqlWrapper(sql);
-        setConnectionHolder(sqlWrapper);
-        return getCurrentConnection().prepareCall(sqlWrapper.getSql(), resultSetType, resultSetConcurrency);
+        MySplitterRouteSelection routeSelection = getRouteSelection(sqlWrapper);
+        return routeSelection.getConnection().prepareCall(sqlWrapper.getSql(), resultSetType, resultSetConcurrency);
     }
 
     @Override
     public Map<String, Class<?>> getTypeMap() throws SQLException {
-        return getCurrentConnection().getTypeMap();
+        if (getConnectionState().hasTypeMap()) {
+            return getConnectionState().getTypeMap();
+        }
+        return getAdministrativeConnection().getTypeMap();
     }
 
     @Override
     public void setTypeMap(final Map<String, Class<?>> map) throws SQLException {
-        recordAndApply("setTypeMap", new ConnectionOperation() {
+        getConnectionState().setTypeMap(map);
+        applyToOpenedConnections(new ConnectionOperation() {
             @Override
             public void apply(Connection connection) throws SQLException {
                 connection.setTypeMap(map);
             }
-        }, map);
+        });
     }
 
     @Override
     public void setHoldability(final int holdability) throws SQLException {
-        recordAndApply("setHoldability", new ConnectionOperation() {
+        getConnectionState().setHoldability(holdability);
+        applyToOpenedConnections(new ConnectionOperation() {
             @Override
             public void apply(Connection connection) throws SQLException {
                 connection.setHoldability(holdability);
             }
-        }, holdability);
+        });
     }
 
     @Override
     public int getHoldability() throws SQLException {
-        return getCurrentConnection().getHoldability();
+        Integer holdability = getConnectionState().getHoldability();
+        if (holdability != null) {
+            return holdability.intValue();
+        }
+        return getAdministrativeConnection().getHoldability();
     }
 
     @Override
     public Savepoint setSavepoint() throws SQLException {
         assertOpen();
+        List<Connection> connections = connectionContext.listAllConnections();
+        if (connections.size() == 0) {
+            throw new SQLException("No physical connection available for savepoint creation.");
+        }
         MySplitterSavepointProxy mySplitterSavepointProxy = new MySplitterSavepointProxy();
-        List<Connection> connections = mySplitterConnectionHolder.listAll();
         for (Connection connection : connections) {
             mySplitterSavepointProxy.putSavepoint(connection.hashCode(), connection.setSavepoint());
         }
@@ -349,8 +430,11 @@ public class MySplitterConnectionProxy implements Connection {
     @Override
     public Savepoint setSavepoint(String name) throws SQLException {
         assertOpen();
+        List<Connection> connections = connectionContext.listAllConnections();
+        if (connections.size() == 0) {
+            throw new SQLException("No physical connection available for savepoint creation.");
+        }
         MySplitterSavepointProxy mySplitterSavepointProxy = new MySplitterSavepointProxy(name);
-        List<Connection> connections = mySplitterConnectionHolder.listAll();
         for (Connection connection : connections) {
             mySplitterSavepointProxy.putSavepoint(connection.hashCode(), connection.setSavepoint(name));
         }
@@ -366,7 +450,7 @@ public class MySplitterConnectionProxy implements Connection {
             for (MethodDescriptor methodDescriptor : methodDescriptors) {
                 Method method = methodDescriptor.getMethod();
                 if ("getSavepoint".equals(method.getName())) {
-                    List<Connection> connections = this.mySplitterConnectionHolder.listAll();
+                    List<Connection> connections = this.connectionContext.listAllConnections();
                     for (Connection connection : connections) {
                         Savepoint realSavepoint = (Savepoint) method.invoke(savepoint, connection.hashCode());
                         if (realSavepoint != null) {
@@ -390,7 +474,7 @@ public class MySplitterConnectionProxy implements Connection {
             for (MethodDescriptor methodDescriptor : methodDescriptors) {
                 Method method = methodDescriptor.getMethod();
                 if ("getSavepoint".equals(method.getName())) {
-                    List<Connection> connections = this.mySplitterConnectionHolder.listAll();
+                    List<Connection> connections = this.connectionContext.listAllConnections();
                     for (Connection connection : connections) {
                         Savepoint realSavepoint = (Savepoint) method.invoke(savepoint, connection.hashCode());
                         if (realSavepoint != null) {
@@ -410,8 +494,7 @@ public class MySplitterConnectionProxy implements Connection {
             throws SQLException {
         assertOpen();
         return new MySplitterStatementProxy(this.mySplitterDataSourceManager,
-                this.mySplitterStandByExecuteHolder,
-                this.mySplitterConnectionHolder,
+                this.connectionContext,
                 this.username,
                 this.password,
                 resultSetType,
@@ -424,8 +507,8 @@ public class MySplitterConnectionProxy implements Connection {
     public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency,
                                               int resultSetHoldability) throws SQLException {
         MySplitterSqlWrapper sqlWrapper = new MySplitterSqlWrapper(sql);
-        setConnectionHolder(sqlWrapper);
-        return getCurrentConnection().prepareStatement(sqlWrapper.getSql(), resultSetType,
+        MySplitterRouteSelection routeSelection = getRouteSelection(sqlWrapper);
+        return routeSelection.getConnection().prepareStatement(sqlWrapper.getSql(), resultSetType,
                 resultSetConcurrency, resultSetHoldability);
     }
 
@@ -433,50 +516,50 @@ public class MySplitterConnectionProxy implements Connection {
     public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency,
                                          int resultSetHoldability) throws SQLException {
         MySplitterSqlWrapper sqlWrapper = new MySplitterSqlWrapper(sql);
-        setConnectionHolder(sqlWrapper);
-        return getCurrentConnection().prepareCall(sqlWrapper.getSql(), resultSetType, resultSetConcurrency,
+        MySplitterRouteSelection routeSelection = getRouteSelection(sqlWrapper);
+        return routeSelection.getConnection().prepareCall(sqlWrapper.getSql(), resultSetType, resultSetConcurrency,
                 resultSetHoldability);
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, int autoGeneratedKeys) throws SQLException {
         MySplitterSqlWrapper sqlWrapper = new MySplitterSqlWrapper(sql);
-        setConnectionHolder(sqlWrapper);
-        return getCurrentConnection().prepareStatement(sqlWrapper.getSql(), autoGeneratedKeys);
+        MySplitterRouteSelection routeSelection = getRouteSelection(sqlWrapper);
+        return routeSelection.getConnection().prepareStatement(sqlWrapper.getSql(), autoGeneratedKeys);
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, int[] columnIndexes) throws SQLException {
         MySplitterSqlWrapper sqlWrapper = new MySplitterSqlWrapper(sql);
-        setConnectionHolder(sqlWrapper);
-        return getCurrentConnection().prepareStatement(sqlWrapper.getSql(), columnIndexes);
+        MySplitterRouteSelection routeSelection = getRouteSelection(sqlWrapper);
+        return routeSelection.getConnection().prepareStatement(sqlWrapper.getSql(), columnIndexes);
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, String[] columnNames) throws SQLException {
         MySplitterSqlWrapper sqlWrapper = new MySplitterSqlWrapper(sql);
-        setConnectionHolder(sqlWrapper);
-        return getCurrentConnection().prepareStatement(sqlWrapper.getSql(), columnNames);
+        MySplitterRouteSelection routeSelection = getRouteSelection(sqlWrapper);
+        return routeSelection.getConnection().prepareStatement(sqlWrapper.getSql(), columnNames);
     }
 
     @Override
     public Clob createClob() throws SQLException {
-        return getCurrentConnection().createClob();
+        return getAdministrativeConnection().createClob();
     }
 
     @Override
     public Blob createBlob() throws SQLException {
-        return getCurrentConnection().createBlob();
+        return getAdministrativeConnection().createBlob();
     }
 
     @Override
     public NClob createNClob() throws SQLException {
-        return getCurrentConnection().createNClob();
+        return getAdministrativeConnection().createNClob();
     }
 
     @Override
     public SQLXML createSQLXML() throws SQLException {
-        return getCurrentConnection().createSQLXML();
+        return getAdministrativeConnection().createSQLXML();
     }
 
     @Override
@@ -484,9 +567,9 @@ public class MySplitterConnectionProxy implements Connection {
         if (closed) {
             return false;
         }
-        List<Connection> connections = this.mySplitterConnectionHolder.listAll();
+        List<Connection> connections = this.connectionContext.listAllConnections();
         if (connections.size() == 0) {
-            return getCurrentConnection().isValid(timeout);
+            return getAdministrativeConnection().isValid(timeout);
         }
         for (Connection connection : connections) {
             if (!connection.isValid(timeout)) {
@@ -499,9 +582,8 @@ public class MySplitterConnectionProxy implements Connection {
     @Override
     public void setClientInfo(String name, String value) throws SQLClientInfoException {
         assertOpenForClientInfo();
-        this.mySplitterStandByExecuteHolder.standBy("setClientInfo", name, value);
-        List<Connection> connections = this.mySplitterConnectionHolder.listAll();
-        for (Connection connection : connections) {
+        getConnectionState().setClientInfo(name, value);
+        for (Connection connection : this.connectionContext.listAllConnections()) {
             connection.setClientInfo(name, value);
         }
     }
@@ -509,71 +591,85 @@ public class MySplitterConnectionProxy implements Connection {
     @Override
     public void setClientInfo(Properties properties) throws SQLClientInfoException {
         assertOpenForClientInfo();
-        this.mySplitterStandByExecuteHolder.standBy("setClientInfo", properties);
-        List<Connection> connections = this.mySplitterConnectionHolder.listAll();
-        for (Connection connection : connections) {
+        getConnectionState().setClientInfo(properties);
+        for (Connection connection : this.connectionContext.listAllConnections()) {
             connection.setClientInfo(properties);
         }
     }
 
     @Override
     public String getClientInfo(String name) throws SQLException {
-        return getCurrentConnection().getClientInfo(name);
+        if (getConnectionState().hasClientInfo()) {
+            return getConnectionState().getClientInfo(name);
+        }
+        return getAdministrativeConnection().getClientInfo(name);
     }
 
     @Override
     public Properties getClientInfo() throws SQLException {
-        return getCurrentConnection().getClientInfo();
+        if (getConnectionState().hasClientInfo()) {
+            return getConnectionState().getClientInfo();
+        }
+        return getAdministrativeConnection().getClientInfo();
     }
 
     @Override
     public Array createArrayOf(String typeName, Object[] elements) throws SQLException {
-        return getCurrentConnection().createArrayOf(typeName, elements);
+        return getAdministrativeConnection().createArrayOf(typeName, elements);
     }
 
     @Override
     public Struct createStruct(String typeName, Object[] attributes) throws SQLException {
-        return getCurrentConnection().createStruct(typeName, attributes);
+        return getAdministrativeConnection().createStruct(typeName, attributes);
     }
 
     @Override
     public void setSchema(final String schema) throws SQLException {
-        recordAndApply("setSchema", new ConnectionOperation() {
+        getConnectionState().setSchema(schema);
+        applyToOpenedConnections(new ConnectionOperation() {
             @Override
             public void apply(Connection connection) throws SQLException {
                 connection.setSchema(schema);
             }
-        }, schema);
+        });
     }
 
     @Override
     public String getSchema() throws SQLException {
-        return getCurrentConnection().getSchema();
+        if (getConnectionState().hasSchema()) {
+            return getConnectionState().getSchema();
+        }
+        return getAdministrativeConnection().getSchema();
     }
 
     @Override
     public void abort(final Executor executor) throws SQLException {
-        recordAndApply("abort", new ConnectionOperation() {
+        terminate(new ConnectionOperation() {
             @Override
             public void apply(Connection connection) throws SQLException {
                 connection.abort(executor);
             }
-        }, executor);
+        });
     }
 
     @Override
     public void setNetworkTimeout(final Executor executor, final int milliseconds) throws SQLException {
-        recordAndApply("setNetworkTimeout", new ConnectionOperation() {
+        getConnectionState().setNetworkTimeout(executor, milliseconds);
+        applyToOpenedConnections(new ConnectionOperation() {
             @Override
             public void apply(Connection connection) throws SQLException {
                 connection.setNetworkTimeout(executor, milliseconds);
             }
-        }, executor, milliseconds);
+        });
     }
 
     @Override
     public int getNetworkTimeout() throws SQLException {
-        return getCurrentConnection().getNetworkTimeout();
+        Integer networkTimeout = getConnectionState().getNetworkTimeoutMilliseconds();
+        if (networkTimeout != null) {
+            return networkTimeout.intValue();
+        }
+        return getAdministrativeConnection().getNetworkTimeout();
     }
 
     @Override
@@ -581,7 +677,7 @@ public class MySplitterConnectionProxy implements Connection {
         if (iface != null && iface.isInstance(this)) {
             return iface.cast(this);
         }
-        Connection connection = mySplitterConnectionHolder.getCurrent();
+        Connection connection = connectionContext.getCurrentConnection();
         if (connection == null) {
             throw new SQLException("No target connection available to unwrap " + iface + ".");
         }
@@ -593,7 +689,7 @@ public class MySplitterConnectionProxy implements Connection {
         if (iface != null && iface.isInstance(this)) {
             return true;
         }
-        Connection connection = mySplitterConnectionHolder.getCurrent();
+        Connection connection = connectionContext.getCurrentConnection();
         return connection != null && connection.isWrapperFor(iface);
     }
 }

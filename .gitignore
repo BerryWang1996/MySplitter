@@ -1,0 +1,5 @@
+**/target/
+.mvn/maven-user-home/
+.tmp-*/
+*-debug.log
+*-help.txt

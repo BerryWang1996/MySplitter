@@ -18,6 +18,7 @@
 
     <modules>
         <module>mysplitter</module>
+        <module>mysplitter-tests</module>
         <module>mysplitter-spring-boot-starter</module>
         <module>demo</module>
     </modules>
@@ -112,6 +113,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <maven.compiler.encoding>UTF-8</maven.compiler.encoding>
+        <maven.compiler.plugin.version>3.11.0</maven.compiler.plugin.version>
         <spring-boot.version>1.5.15.RELEASE</spring-boot.version>
         <snakeyaml.version>1.23</snakeyaml.version>
         <slf4j.version>1.7.25</slf4j.version>
@@ -213,9 +215,10 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.7.0</version>
+                <version>${maven.compiler.plugin.version}</version>
                 <configuration>
                     <encoding>${project.build.sourceEncoding}</encoding>
+                    <fork>true</fork>
                     <source>7</source>
                     <target>7</target>
                 </configuration>
