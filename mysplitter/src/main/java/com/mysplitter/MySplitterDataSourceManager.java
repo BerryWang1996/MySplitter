@@ -170,9 +170,10 @@ public class MySplitterDataSourceManager {
                 if (dataSourceWrapper == null) {
                     break;
                 }
+                Long illVersion = dataSourceHealthManager.getIllVersion(group, dataSourceWrapper);
                 try {
                     Connection connection = dataSourceWrapper.getRealDataSource().getConnection();
-                    dataSourceHealthManager.markHealthy(group, dataSourceWrapper);
+                    dataSourceHealthManager.markHealthyIfCurrentVersionMatches(group, dataSourceWrapper, illVersion);
                     return connection;
                 } catch (SQLException e) {
                     LOGGER.warn("Failed to recover default connection from ill datasource node {} in database {}.",
@@ -351,12 +352,13 @@ public class MySplitterDataSourceManager {
             if (dataSourceWrapper == null) {
                 break;
             }
+            Long illVersion = dataSourceHealthManager.getIllVersion(group, dataSourceWrapper);
             MySplitterRouteKey routeKey =
                     new MySplitterRouteKey(targetDatabase, group.getNodeGroup(), dataSourceWrapper.getNodeName());
             Connection existing = connectionContext.getConnection(routeKey);
             if (existing != null) {
                 doFilters(routeKey.getDatabaseName(), routeKey.getNodeName(), sql);
-                dataSourceHealthManager.markHealthy(group, dataSourceWrapper);
+                dataSourceHealthManager.markHealthyIfCurrentVersionMatches(group, dataSourceWrapper, illVersion);
                 pinRouteIfNecessary(connectionContext, routeKey);
                 return new MySplitterRouteSelection(routeKey, existing);
             }
@@ -365,7 +367,7 @@ public class MySplitterDataSourceManager {
                 Connection connection = openConnection(dataSourceWrapper, username, password);
                 connectionContext.getConnectionState().apply(connection);
                 connectionContext.registerConnection(routeKey, connection);
-                dataSourceHealthManager.markHealthy(group, dataSourceWrapper);
+                dataSourceHealthManager.markHealthyIfCurrentVersionMatches(group, dataSourceWrapper, illVersion);
                 pinRouteIfNecessary(connectionContext, routeKey);
                 return new MySplitterRouteSelection(routeKey, connection);
             } catch (Exception e) {

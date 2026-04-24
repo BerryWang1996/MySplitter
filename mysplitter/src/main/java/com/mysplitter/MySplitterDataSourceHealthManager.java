@@ -24,6 +24,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -34,7 +35,7 @@ public class MySplitterDataSourceHealthManager {
 
     private final DataSourceIllAlerterAdvise dataSourceIllAlerter;
 
-    private final ScheduledThreadPoolExecutor failTimeoutExecutor;
+    private final ScheduledExecutorService failTimeoutExecutor;
 
     private final AtomicLong failureVersionSequence = new AtomicLong(0L);
 
@@ -42,9 +43,14 @@ public class MySplitterDataSourceHealthManager {
             new ConcurrentHashMap<String, ConcurrentMap<String, Long>>();
 
     public MySplitterDataSourceHealthManager(DataSourceIllAlerterAdvise dataSourceIllAlerter) {
+        this(dataSourceIllAlerter, new ScheduledThreadPoolExecutor(Runtime.getRuntime().availableProcessors(),
+                new DaemonThreadFactory("mysplitter fail timeout")));
+    }
+
+    MySplitterDataSourceHealthManager(DataSourceIllAlerterAdvise dataSourceIllAlerter,
+                                      ScheduledExecutorService failTimeoutExecutor) {
         this.dataSourceIllAlerter = dataSourceIllAlerter;
-        this.failTimeoutExecutor = new ScheduledThreadPoolExecutor(Runtime.getRuntime().availableProcessors(),
-                new DaemonThreadFactory("mysplitter fail timeout"));
+        this.failTimeoutExecutor = failTimeoutExecutor;
     }
 
     public List<DataSourceWrapper> getHealthyNodes(MySplitterDataSourceGroup group) {
@@ -89,10 +95,28 @@ public class MySplitterDataSourceHealthManager {
         if (illNodeVersions == null) {
             return;
         }
-        illNodeVersions.remove(wrapper.getNodeName());
-        if (illNodeVersions.isEmpty()) {
-            illNodeVersionsBySelector.remove(group.getSelectorName(), illNodeVersions);
+        removeIllNodeVersion(group.getSelectorName(), wrapper.getNodeName(), null, illNodeVersions);
+    }
+
+    Long getIllVersion(MySplitterDataSourceGroup group, DataSourceWrapper wrapper) {
+        ConcurrentMap<String, Long> illNodeVersions = illNodeVersionsBySelector.get(group.getSelectorName());
+        if (illNodeVersions == null) {
+            return null;
         }
+        return illNodeVersions.get(wrapper.getNodeName());
+    }
+
+    boolean markHealthyIfCurrentVersionMatches(MySplitterDataSourceGroup group,
+                                               DataSourceWrapper wrapper,
+                                               Long expectedVersion) {
+        if (expectedVersion == null) {
+            return false;
+        }
+        ConcurrentMap<String, Long> illNodeVersions = illNodeVersionsBySelector.get(group.getSelectorName());
+        if (illNodeVersions == null) {
+            return false;
+        }
+        return removeIllNodeVersion(group.getSelectorName(), wrapper.getNodeName(), expectedVersion, illNodeVersions);
     }
 
     public boolean hasIllNodes(MySplitterDataSourceGroup group) {
@@ -140,16 +164,25 @@ public class MySplitterDataSourceHealthManager {
         failTimeoutExecutor.schedule(new Runnable() {
             @Override
             public void run() {
-                ConcurrentMap<String, Long> illNodeVersions = illNodeVersionsBySelector.get(group.getSelectorName());
-                if (illNodeVersions == null) {
-                    return;
-                }
-                Long currentVersion = illNodeVersions.get(wrapper.getNodeName());
-                if (currentVersion != null && currentVersion.longValue() == failureVersion) {
-                    markHealthy(group, wrapper);
-                }
+                markHealthyIfCurrentVersionMatches(group, wrapper, Long.valueOf(failureVersion));
             }
         }, parseTimePeriod(time), parseTimeTimeUnit(time));
+    }
+
+    private boolean removeIllNodeVersion(String selectorName,
+                                         String nodeName,
+                                         Long expectedVersion,
+                                         ConcurrentMap<String, Long> illNodeVersions) {
+        boolean removed;
+        if (expectedVersion == null) {
+            removed = illNodeVersions.remove(nodeName) != null;
+        } else {
+            removed = illNodeVersions.remove(nodeName, expectedVersion);
+        }
+        if (illNodeVersions.isEmpty()) {
+            illNodeVersionsBySelector.remove(selectorName, illNodeVersions);
+        }
+        return removed;
     }
 
     private List<String> toNodeNames(List<DataSourceWrapper> wrappers) {
