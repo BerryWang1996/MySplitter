@@ -34,8 +34,10 @@ import org.slf4j.LoggerFactory;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class MySplitterDataSourceManager {
@@ -116,10 +118,11 @@ public class MySplitterDataSourceManager {
                     + ". May be databasesRoutingHandler or readAndWriteParser return wrong database or operation.");
         }
 
+        LinkedHashSet<String> attemptedNodeNames = new LinkedHashSet<String>();
         SQLException exceptionHolder = null;
-        while (true) {
-            List<DataSourceWrapper> healthyNodes = dataSourceHealthManager.getHealthyNodes(group);
-            DataSourceWrapper dataSourceWrapper = group.acquire(healthyNodes);
+        List<DataSourceWrapper> healthyNodes = new ArrayList<DataSourceWrapper>(dataSourceHealthManager.getHealthyNodes(group));
+        while (!healthyNodes.isEmpty()) {
+            DataSourceWrapper dataSourceWrapper = selectNextCandidate(group, healthyNodes);
             if (dataSourceWrapper == null) {
                 break;
             }
@@ -139,6 +142,7 @@ public class MySplitterDataSourceManager {
                 pinRouteIfNecessary(connectionContext, routeKey);
                 return new MySplitterRouteSelection(routeKey, connection);
             } catch (Exception e) {
+                attemptedNodeNames.add(dataSourceWrapper.getNodeName());
                 handleDataSourceFailure(group, dataSourceWrapper, e);
                 exceptionHolder = mergeSqlException(exceptionHolder,
                         toSqlException("Failed to open routed connection.", e));
@@ -146,40 +150,49 @@ public class MySplitterDataSourceManager {
         }
 
         return recoverFromIllDataSource(connectionContext, group, targetDatabase, sql.getSql(), username, password,
-                exceptionHolder);
+                exceptionHolder, attemptedNodeNames);
     }
 
     Connection getDefaultConnection() throws SQLException {
         LOGGER.debug("MySplitter is getting default connection.");
         SQLException exceptionHolder = null;
         for (MySplitterDataSourceGroup group : dataSourceRegistry.listGroups()) {
-            for (DataSourceWrapper dataSourceWrapper : dataSourceHealthManager.getHealthyNodes(group)) {
+            Set<String> attemptedNodeNames = new LinkedHashSet<String>();
+            List<DataSourceWrapper> healthyNodes =
+                    new ArrayList<DataSourceWrapper>(dataSourceHealthManager.getHealthyNodes(group));
+            while (!healthyNodes.isEmpty()) {
+                DataSourceWrapper dataSourceWrapper = selectNextCandidate(group, healthyNodes);
+                if (dataSourceWrapper == null) {
+                    break;
+                }
                 try {
                     return dataSourceWrapper.getRealDataSource().getConnection();
                 } catch (SQLException e) {
+                    attemptedNodeNames.add(dataSourceWrapper.getNodeName());
                     exceptionHolder = mergeSqlException(exceptionHolder, e);
                     dataSourceHealthManager.markIll(group, dataSourceWrapper, e);
                 }
             }
-        }
 
-        for (MySplitterDataSourceGroup group : dataSourceRegistry.listGroups()) {
-            List<DataSourceWrapper> illNodes = new ArrayList<DataSourceWrapper>(dataSourceHealthManager.getIllNodes(group));
+            List<DataSourceWrapper> illNodes =
+                    snapshotCandidatesExcluding(dataSourceHealthManager.getIllNodes(group), attemptedNodeNames);
             while (!illNodes.isEmpty()) {
-                DataSourceWrapper dataSourceWrapper = group.acquire(illNodes);
+                DataSourceWrapper dataSourceWrapper = selectNextCandidate(group, illNodes);
                 if (dataSourceWrapper == null) {
                     break;
                 }
                 Long illVersion = dataSourceHealthManager.getIllVersion(group, dataSourceWrapper);
                 try {
                     Connection connection = dataSourceWrapper.getRealDataSource().getConnection();
-                    dataSourceHealthManager.markHealthyIfCurrentVersionMatches(group, dataSourceWrapper, illVersion);
+                    if (!dataSourceHealthManager.markHealthyIfCurrentVersionMatches(group, dataSourceWrapper, illVersion)) {
+                        closeQuietly(connection, dataSourceWrapper);
+                        continue;
+                    }
                     return connection;
                 } catch (SQLException e) {
                     LOGGER.warn("Failed to recover default connection from ill datasource node {} in database {}.",
                             dataSourceWrapper.getNodeName(), dataSourceWrapper.getDataBaseName(), e);
                     exceptionHolder = mergeSqlException(exceptionHolder, e);
-                    illNodes.remove(dataSourceWrapper);
                 }
             }
         }
@@ -337,8 +350,10 @@ public class MySplitterDataSourceManager {
                                                               String sql,
                                                               String username,
                                                               String password,
-                                                              SQLException currentException) throws SQLException {
-        List<DataSourceWrapper> illNodes = new ArrayList<DataSourceWrapper>(dataSourceHealthManager.getIllNodes(group));
+                                                              SQLException currentException,
+                                                              Set<String> attemptedNodeNames) throws SQLException {
+        List<DataSourceWrapper> illNodes =
+                snapshotCandidatesExcluding(dataSourceHealthManager.getIllNodes(group), attemptedNodeNames);
         if (illNodes.size() == 0) {
             if (currentException != null) {
                 throw currentException;
@@ -348,7 +363,7 @@ public class MySplitterDataSourceManager {
 
         SQLException exceptionHolder = currentException;
         while (!illNodes.isEmpty()) {
-            DataSourceWrapper dataSourceWrapper = group.acquire(illNodes);
+            DataSourceWrapper dataSourceWrapper = selectNextCandidate(group, illNodes);
             if (dataSourceWrapper == null) {
                 break;
             }
@@ -366,8 +381,11 @@ public class MySplitterDataSourceManager {
                 doFilters(dataSourceWrapper, sql);
                 Connection connection = openConnection(dataSourceWrapper, username, password);
                 connectionContext.getConnectionState().apply(connection);
+                if (!dataSourceHealthManager.markHealthyIfCurrentVersionMatches(group, dataSourceWrapper, illVersion)) {
+                    closeQuietly(connection, dataSourceWrapper);
+                    continue;
+                }
                 connectionContext.registerConnection(routeKey, connection);
-                dataSourceHealthManager.markHealthyIfCurrentVersionMatches(group, dataSourceWrapper, illVersion);
                 pinRouteIfNecessary(connectionContext, routeKey);
                 return new MySplitterRouteSelection(routeKey, connection);
             } catch (Exception e) {
@@ -375,7 +393,6 @@ public class MySplitterDataSourceManager {
                         dataSourceWrapper.getNodeName(), dataSourceWrapper.getDataBaseName(), e);
                 exceptionHolder = mergeSqlException(exceptionHolder,
                         toSqlException("Failed to recover connection from ill datasource.", e));
-                illNodes.remove(dataSourceWrapper);
             }
         }
 
@@ -422,6 +439,49 @@ public class MySplitterDataSourceManager {
             } catch (Exception e) {
                 throw new SQLException("Execute datasource filter failed.", e);
             }
+        }
+    }
+
+    private DataSourceWrapper selectNextCandidate(MySplitterDataSourceGroup group, List<DataSourceWrapper> candidates) {
+        DataSourceWrapper dataSourceWrapper = group.acquire(candidates);
+        if (dataSourceWrapper == null) {
+            return null;
+        }
+        removeCandidate(candidates, dataSourceWrapper);
+        return dataSourceWrapper;
+    }
+
+    private List<DataSourceWrapper> snapshotCandidatesExcluding(List<DataSourceWrapper> candidates,
+                                                                Set<String> excludedNodeNames) {
+        List<DataSourceWrapper> filtered = new ArrayList<DataSourceWrapper>();
+        for (DataSourceWrapper candidate : candidates) {
+            if (excludedNodeNames != null && excludedNodeNames.contains(candidate.getNodeName())) {
+                continue;
+            }
+            filtered.add(candidate);
+        }
+        return filtered;
+    }
+
+    private void removeCandidate(List<DataSourceWrapper> candidates, DataSourceWrapper target) {
+        for (int i = 0; i < candidates.size(); i++) {
+            DataSourceWrapper candidate = candidates.get(i);
+            if (candidate == target || candidate.getNodeName().equals(target.getNodeName())) {
+                candidates.remove(i);
+                return;
+            }
+        }
+    }
+
+    private void closeQuietly(Connection connection, DataSourceWrapper dataSourceWrapper) {
+        if (connection == null) {
+            return;
+        }
+        try {
+            connection.close();
+        } catch (SQLException e) {
+            LOGGER.warn("Failed to close discarded recovery connection from datasource node {} in database {}.",
+                    dataSourceWrapper.getNodeName(), dataSourceWrapper.getDataBaseName(), e);
         }
     }
 

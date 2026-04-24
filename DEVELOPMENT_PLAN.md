@@ -22,7 +22,9 @@ Current checkpoint:
 - The `v0.12.1` regression cleanup is complete: filter hooks now run per routed SQL, `abort()` is terminal for the logical connection, nullable state resets are replayed correctly, and the permanent `maven.test.skip` bypass is gone.
 - The latest review list contains several stale items that no longer match the current tree, so the focus has shifted from replaying old regressions to hardening the remaining `v0.12` routing and health behavior.
 - Concurrent health-state transitions now have dedicated regression coverage, including stale recovery and version-matched healing scenarios.
-- The main active gap before a release baseline is bounded failover behavior and finishing the `v0.12` design/documentation alignment.
+- Bounded failover now uses per-call candidate snapshots so a node that fails during one route/default-connection attempt is not immediately retried again in the same call as an ill-node fallback.
+- The `v0.12` routing/health design is now documented in `docs/v0.12-routing-health-design.md`.
+- The main active gap before a release baseline is deciding whether any lightweight failover observability hooks should be added before `v1.0.0`, then shifting into release-baseline upgrade work.
 
 The next goal is to close the remaining `v0.12` health and failover risks, then move into release-baseline upgrades.
 
@@ -233,9 +235,11 @@ Exit criteria:
 7. Done: fixed logical connection shutdown semantics for `abort()` and added regression coverage.
 8. Done: removed the permanent `maven.test.skip` shortcut and made `mysplitter` verification honest with module-local tests.
 9. Done: added concurrency and stale-recovery regression coverage for `MySplitterDataSourceHealthManager`.
-10. Next: continue auditing bounded failover behavior in `MySplitterDataSourceManager`.
+10. Done: bounded failover in `MySplitterDataSourceManager` now avoids immediate same-call retries of nodes that already failed earlier in the same acquisition path.
 11. Done: reran and documented the stable verification command set for core, integration, starter, and demo modules in `docs/verification-commands.md`.
-12. Next: update versioned design notes so `v0.12` completion criteria match the code that is already landed.
+12. Done: updated versioned design notes so `v0.12` completion criteria match the code that is already landed.
+13. Next: decide whether failover observability stays deferred to `v1.1.0` or needs a minimal `v1.0.0` hook.
+14. Next: break `v1.0.0` into concrete upgrade slices for Java baseline, Spring Boot starter compatibility, and pool support policy.
 
 ## Suggested Delivery Sequence
 
