@@ -29,6 +29,19 @@ Notes:
 - This command builds `mysplitter` first and then executes the extracted regression suite.
 - The Testcontainers slice skips cleanly when Docker is unavailable.
 
+## Starter Module
+
+Run the starter-module bootstrap checks that lock in configuration resource loading behavior:
+
+```powershell
+.\mvnw.cmd -q -pl mysplitter-spring-boot-starter test
+```
+
+Notes:
+
+- These tests validate classpath resource loading, file resource loading, blank-path normalization, and missing-resource failures in the starter.
+- They are the fastest way to catch regressions in the starter bootstrap path before doing downstream compile checks.
+
 ## Compile-Only Checks
 
 Use these commands to confirm downstream modules still compile against the current reactor:

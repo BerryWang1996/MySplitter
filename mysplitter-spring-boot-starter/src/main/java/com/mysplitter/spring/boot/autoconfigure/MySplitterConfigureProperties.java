@@ -17,17 +17,24 @@
 package com.mysplitter.spring.boot.autoconfigure;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.util.StringUtils;
 
 @ConfigurationProperties(prefix = "spring.datasource.mysplitter", ignoreUnknownFields = true)
 public class MySplitterConfigureProperties {
 
-    private String configurationFile = "classpath:mysplitter.yml";
+    static final String DEFAULT_CONFIGURATION_FILE = "classpath:mysplitter.yml";
+
+    private String configurationFile = DEFAULT_CONFIGURATION_FILE;
 
     public String getConfigurationFile() {
         return configurationFile;
     }
 
     public void setConfigurationFile(String configurationFile) {
-        this.configurationFile = configurationFile;
+        if (StringUtils.hasText(configurationFile)) {
+            this.configurationFile = configurationFile;
+            return;
+        }
+        this.configurationFile = DEFAULT_CONFIGURATION_FILE;
     }
 }

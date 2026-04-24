@@ -28,8 +28,9 @@ Current checkpoint:
 - The `v1.0.0` release-baseline slices are now documented in `docs/v1.0-release-baseline-plan.md`.
 - The Java 8 baseline is now landed in the Maven build and regression dependency stack.
 - Cold-reactor compile smoke checks are now green for both `mysplitter-spring-boot-starter` and `demo` without relying on install-first verification.
+- Starter bootstrap behavior is now isolated behind a dedicated configuration loader and covered by starter-module tests.
 
-The next goal is to finish scoping the starter migration path for later Boot 2.7 support and to document the release-baseline pool support policy.
+The next goal is to finish the release-baseline pool support policy and then move from starter scoping into the Boot 2.7 implementation slice.
 
 ## Review Reconciliation
 
@@ -247,14 +248,16 @@ Exit criteria:
 16. Done: reran the full verification command set after the Java baseline upgrade.
 17. Done: removed the install-first workaround by producing reactor-consumable jars during `compile` for upstream modules needed by downstream smoke checks.
 18. Done: aligned `demo` clean-plugin configuration with the offline toolchain used by the rest of the repo so cold compile checks remain reproducible.
-19. Next: document the current Boot 1.5 core starter assumptions and the Boot 2.0 demo split before starting the Boot 2.7 migration work.
-20. Next: define the Hikari-first pool support policy in docs and examples, while keeping the older pools in compatibility-validation mode.
+19. Done: documented the current Boot 1.5 starter assumptions, the Boot 2.0 demo split, and the future Boot 2.7/3.x migration files in `docs/v1.0-starter-compatibility-scope.md`.
+20. Done: isolated starter resource loading into a dedicated loader and added starter-module tests for classpath, file, and missing-resource bootstrap paths.
+21. Next: define the Hikari-first pool support policy in docs and examples, while keeping the older pools in compatibility-validation mode.
+22. Next: start the Boot 2.7 implementation slice with dual registration planning for `spring.factories` and `AutoConfiguration.imports`.
 
 ## Suggested Delivery Sequence
 
 1. Keep the `v0.11` and `v0.12` baseline green with module and integration tests while `v1.0.0` progresses.
-2. Finish the remaining `v1.0.0` starter compatibility scoping work.
-3. Land the `v1.0.0` pool support policy and compatibility notes.
+2. Land the `v1.0.0` pool support policy and compatibility notes.
+3. Start the Boot 2.7 implementation slice from the now-documented starter boundaries.
 4. Add metrics and operational integration in `v1.1.0`.
 5. Build out the full regression suite in `v1.2.0`.
 
