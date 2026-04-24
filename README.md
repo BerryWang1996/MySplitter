@@ -1,10 +1,90 @@
-# MySplitter 
+# MySplitter
 
-[![license](https://img.shields.io/badge/license-apache%202-green.svg?style=flat-square)](https://www.apache.org/licenses/LICENSE-2.0.html)
+MySplitter is a lightweight JDBC middleware for:
 
-## Document - 文档
+- read/write splitting
+- multi-database routing
+- datasource failover
+- load balancing through `DataSource` / `Connection` / `Statement` proxies
 
-- English https://www.mysplitter.com
+## Modules
 
-- 中文 https://www.mysplitter.com/index_zh
+- `mysplitter`: core library
+- `mysplitter-spring-boot-starter`: Spring Boot integration
+- `demo`: runnable sample application
 
+## Build
+
+This repository now includes Maven Wrapper, so a local Maven installation is not required.
+
+```bash
+./mvnw clean package -DskipTests
+```
+
+On Windows:
+
+```powershell
+.\mvnw.cmd clean package -DskipTests
+```
+
+## Spring Boot Quick Start
+
+`application.yml`
+
+```yaml
+spring:
+  datasource:
+    mysplitter:
+      configuration-file: classpath:mysplitter.yml
+```
+
+`mysplitter.yml`
+
+```yaml
+mysplitter:
+  enablePasswordEncryption: true
+  databasesRoutingHandler: com.example.DatabaseRouter
+  readAndWriteParser: com.example.ReadAndWriteParser
+  illAlertHandler: com.example.DataSourceIllAlertHandler
+  common:
+    dataSourceClass: com.alibaba.druid.pool.DruidDataSource
+    loadBalance:
+      read:
+        enabled: true
+        strategy: polling
+        failTimeout: 30s
+      write:
+        enabled: true
+        strategy: polling
+        failTimeout: 30s
+  databases:
+    database-a:
+      readers:
+        reader-1:
+          configuration:
+            url: jdbc:mysql://localhost:3306/user
+            username: root
+            password: root
+            driverClassName: com.mysql.jdbc.Driver
+      writers:
+        writer-1:
+          configuration:
+            url: jdbc:mysql://localhost:3306/user
+            username: root
+            password: root
+            driverClassName: com.mysql.jdbc.Driver
+```
+
+## Current Configuration Model
+
+- `filters` is supported and executed before opening the target connection.
+- `common.loadBalance.read` and `common.loadBalance.write` define the default load-balance strategy.
+- Each database may define either:
+  - `integrates`
+  - or `readers` plus `writers`
+- `classpath:` and `file:` resource locations are supported by the Spring Boot starter.
+
+## Notes
+
+- The current baseline is still the original `Spring Boot 1.5.x` / `Java 7` compatible core line.
+- The demo module remains a sample application and is not the recommended production baseline.

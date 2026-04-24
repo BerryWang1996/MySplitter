@@ -23,33 +23,34 @@ import com.mysplitter.util.StringUtil;
 import org.slf4j.LoggerFactory;
 
 import javax.sql.DataSource;
+import java.io.FileInputStream;
+import java.io.InputStream;
 import java.io.PrintWriter;
 import java.io.Serializable;
-import java.net.URL;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
+import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
 
-/**
- * MySplitter数据源路由，实现DataSource接口
- */
 public class MySplitterDataSource implements DataSource, Serializable {
 
     private static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(MySplitterDataSource.class);
 
     private static final String DEFAULT_CONFIGURATION_FILE_NAME = "mysplitter.yml";
 
-    private MySplitterDataSourceManager dataSourceManager;
+    private final AtomicBoolean isInitialized = new AtomicBoolean(false);
 
-    private AtomicBoolean isInitialized = new AtomicBoolean(false);
+    private volatile MySplitterDataSourceManager dataSourceManager;
 
-    private MySplitterRootConfig mySplitterConfig;
+    private volatile MySplitterRootConfig mySplitterConfig;
 
-    private String configurationFileName;
+    private volatile String configurationFileName;
+
+    private volatile PrintWriter logWriter;
 
     public MySplitterDataSource() {
     }
@@ -62,83 +63,100 @@ public class MySplitterDataSource implements DataSource, Serializable {
         this.mySplitterConfig = mySplitterConfig;
     }
 
-    /**
-     * 初始化配置文件，以及创建连接池
-     */
     public synchronized void init() {
-        if (isInitialized.compareAndSet(false, true)) {
-            try {
-                // 获取配置文件
-                LOGGER.info("MySplitter is initializing.");
-                if (mySplitterConfig == null) {
-                    if (StringUtil.isBlank(configurationFileName)) {
-                        URL resource =
-                                Thread.currentThread().getContextClassLoader().getResource(DEFAULT_CONFIGURATION_FILE_NAME);
-                        configurationFileName = resource.getPath();
-                    }
+        if (!isInitialized.compareAndSet(false, true)) {
+            return;
+        }
+        try {
+            LOGGER.info("MySplitter is initializing.");
+            if (mySplitterConfig == null) {
+                if (StringUtil.isBlank(configurationFileName)) {
+                    InputStream resource = Thread.currentThread().getContextClassLoader()
+                            .getResourceAsStream(DEFAULT_CONFIGURATION_FILE_NAME);
+                    LOGGER.info("MySplitter is reading configuration resource named {}.",
+                            DEFAULT_CONFIGURATION_FILE_NAME);
+                    mySplitterConfig = ConfigurationUtil.getMySplitterConfig(resource, DEFAULT_CONFIGURATION_FILE_NAME);
+                } else {
                     LOGGER.info("MySplitter is reading configuration file named {}.", configurationFileName);
-                    mySplitterConfig = ConfigurationUtil.getMySplitterConfig(configurationFileName);
+                    try (InputStream resource = new FileInputStream(configurationFileName)) {
+                        mySplitterConfig = ConfigurationUtil.getMySplitterConfig(resource, configurationFileName);
+                    }
                 }
-                // 对配置文件进行检查
-                ConfigurationUtil.checkMySplitterConfig(mySplitterConfig);
-                LOGGER.info("MySplitter configuration passed.");
-                // 创建数据源管理器
-                dataSourceManager = new MySplitterDataSourceManager(this);
-                LOGGER.info("MySplitter has been initialized successful.");
-            } catch (Exception e) {
-                new MySplitterInitException(e).printStackTrace();
-                System.exit(1);
             }
+            ConfigurationUtil.checkMySplitterConfig(mySplitterConfig);
+            dataSourceManager = new MySplitterDataSourceManager(this);
+            LOGGER.info("MySplitter has been initialized successful.");
+        } catch (Exception e) {
+            dataSourceManager = null;
+            isInitialized.set(false);
+            throw new MySplitterInitException(e);
         }
     }
 
-    /**
-     * 关闭所有的连接
-     */
     public synchronized void close() {
+        RuntimeException closeException = null;
         try {
-            if (isInitialized.get()) {
-                this.dataSourceManager.close();
-                isInitialized.set(false);
+            if (isInitialized.get() && dataSourceManager != null) {
+                dataSourceManager.close();
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("MySplitter close failed.", e);
+            closeException = new MySplitterInitException("MySplitter close failed!", e);
+        } finally {
+            dataSourceManager = null;
+            isInitialized.set(false);
+        }
+        if (closeException != null) {
+            throw closeException;
         }
     }
 
+    @Override
     public Connection getConnection() throws SQLException {
         init();
         return dataSourceManager.getConnectionProxy();
     }
 
+    @Override
     public Connection getConnection(String username, String password) throws SQLException {
         init();
         return dataSourceManager.getConnectionProxy(username, password);
     }
 
+    @Override
     public <T> T unwrap(Class<T> iface) throws SQLException {
-        return null;
+        if (iface != null && iface.isInstance(this)) {
+            return iface.cast(this);
+        }
+        throw new SQLException("MySplitterDataSource does not implement " + iface);
     }
 
+    @Override
     public boolean isWrapperFor(Class<?> iface) throws SQLException {
-        return false;
+        return iface != null && iface.isInstance(this);
     }
 
+    @Override
     public PrintWriter getLogWriter() throws SQLException {
-        return null;
+        return logWriter;
     }
 
+    @Override
     public void setLogWriter(PrintWriter out) throws SQLException {
+        this.logWriter = out;
     }
 
+    @Override
     public int getLoginTimeout() throws SQLException {
         return DriverManager.getLoginTimeout();
     }
 
+    @Override
     public void setLoginTimeout(int seconds) throws SQLException {
         DriverManager.setLoginTimeout(seconds);
     }
 
+    @Override
     public Logger getParentLogger() throws SQLFeatureNotSupportedException {
         throw new SQLFeatureNotSupportedException();
     }
@@ -148,7 +166,9 @@ public class MySplitterDataSource implements DataSource, Serializable {
     }
 
     public Map<String, Object> getStatus() {
+        if (!isInitialized.get() || dataSourceManager == null) {
+            return Collections.emptyMap();
+        }
         return dataSourceManager.getStatus();
     }
-
 }

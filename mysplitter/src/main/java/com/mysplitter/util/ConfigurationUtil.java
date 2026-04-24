@@ -64,15 +64,32 @@ public class ConfigurationUtil {
             throw new FileNotFoundException("MySplitter configuration file " + fileName + " not found!");
         }
         // 读取配置文件
-        final InputStream resource = new FileInputStream(new File(fileName));
+        try (InputStream resource = new FileInputStream(new File(fileName))) {
         // 饿汉式加载配置对象
-        Yaml yaml = new Yaml(new Constructor() {
+            return loadMySplitterConfig(resource);
+        }
+    }
+
+    public static MySplitterRootConfig getMySplitterConfig(InputStream resource, String resourceName) throws Exception {
+        if (resource == null) {
+            throw new FileNotFoundException("MySplitter configuration resource " + resourceName + " not found!");
+        }
+        try (InputStream inputStream = resource) {
+            return loadMySplitterConfig(inputStream);
+        }
+    }
+
+    private static MySplitterRootConfig loadMySplitterConfig(InputStream inputStream) {
+        return newYaml().loadAs(inputStream, MySplitterRootConfig.class);
+    }
+
+    private static Yaml newYaml() {
+        return new Yaml(new Constructor() {
             @Override
             public void setAllowDuplicateKeys(boolean allowDuplicateKeys) {
                 super.setAllowDuplicateKeys(false);
             }
         }, new Representer(), new DumperOptions(), new LoaderOptions(), new Resolver());
-        return yaml.loadAs(resource, MySplitterRootConfig.class);
     }
 
     public static void checkMySplitterConfig(MySplitterRootConfig mySplitterRootConfig) throws Exception {

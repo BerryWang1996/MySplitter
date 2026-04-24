@@ -17,19 +17,11 @@
 package com.mysplitter.spring.boot.autoconfigure;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.stereotype.Component;
 
-/**
- * Spring boot 自动配置参数类
- */
-@Component
 @ConfigurationProperties(prefix = "spring.datasource.mysplitter", ignoreUnknownFields = true)
 public class MySplitterConfigureProperties {
 
-    /**
-     * The configuration file name.
-     */
-    private String configurationFile = "mysplitter.yml";
+    private String configurationFile = "classpath:mysplitter.yml";
 
     public String getConfigurationFile() {
         return configurationFile;

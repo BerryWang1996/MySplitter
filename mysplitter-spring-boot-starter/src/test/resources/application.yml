@@ -1,4 +1,4 @@
 spring:
   datasource:
     mysplitter:
-      configuration-file: mysplitter.yml
+      configuration-file: classpath:mysplitter.yml

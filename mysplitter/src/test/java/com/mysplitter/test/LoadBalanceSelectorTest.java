@@ -70,7 +70,8 @@ public class LoadBalanceSelectorTest {
                             isNull.addAndGet(1);
                         }
                     } catch (InterruptedException e1) {
-                        e1.printStackTrace();
+                        Thread.currentThread().interrupt();
+                        throw new AssertionError("Random load balance test was interrupted.", e1);
                     }
                     semaphore.release();
                     countDownLatch.countDown();
@@ -149,7 +150,8 @@ public class LoadBalanceSelectorTest {
                             isNull.addAndGet(1);
                         }
                     } catch (InterruptedException e1) {
-                        e1.printStackTrace();
+                        Thread.currentThread().interrupt();
+                        throw new AssertionError("Round robin load balance test was interrupted.", e1);
                     }
                     semaphore.release();
                     countDownLatch.countDown();

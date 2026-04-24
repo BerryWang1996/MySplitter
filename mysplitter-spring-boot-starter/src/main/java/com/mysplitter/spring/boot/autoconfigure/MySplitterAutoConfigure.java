@@ -17,19 +17,18 @@
 package com.mysplitter.spring.boot.autoconfigure;
 
 import com.mysplitter.MySplitterDataSource;
+import com.mysplitter.util.ConfigurationUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 
 import java.io.IOException;
 
-/**
- * Spring boot 自动配置类
- */
 @Configuration
 @ConditionalOnClass(MySplitterDataSource.class)
 @EnableConfigurationProperties(MySplitterConfigureProperties.class)
@@ -38,14 +37,19 @@ public class MySplitterAutoConfigure {
     @Autowired
     private MySplitterConfigureProperties properties;
 
-    @Bean(initMethod = "init")
+    @Bean(initMethod = "init", destroyMethod = "close")
     @ConditionalOnMissingBean
     public MySplitterDataSource mySplitterDataSource() throws IOException {
-        return new MySplitterDataSource(
-                new PathMatchingResourcePatternResolver()
-                        .getResource(properties.getConfigurationFile())
-                        .getFile()
-                        .getPath());
+        Resource resource = new PathMatchingResourcePatternResolver()
+                .getResource(properties.getConfigurationFile());
+        try {
+            return new MySplitterDataSource(
+                    ConfigurationUtil.getMySplitterConfig(resource.getInputStream(), resource.getDescription()));
+        } catch (Exception e) {
+            if (e instanceof IOException) {
+                throw (IOException) e;
+            }
+            throw new IOException("Failed to load MySplitter configuration from " + resource.getDescription(), e);
+        }
     }
-
 }

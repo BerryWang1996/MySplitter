@@ -16,9 +16,13 @@
 
 package com.mysplitter.exceptions;
 
-public class MySplitterInitException extends Exception {
+public class MySplitterInitException extends RuntimeException {
 
     public MySplitterInitException(Exception e) {
         super("MySplitter initialized failed!", e);
+    }
+
+    public MySplitterInitException(String message, Exception e) {
+        super(message, e);
     }
 }
