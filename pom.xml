@@ -14,7 +14,7 @@
 
     <groupId>com.mysplitter</groupId>
     <artifactId>mysplitter-parent</artifactId>
-    <version>0.9.1</version>
+    <version>1.0.0</version>
 
     <modules>
         <module>mysplitter</module>
@@ -115,12 +115,13 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <maven.compiler.encoding>UTF-8</maven.compiler.encoding>
         <maven.compiler.plugin.version>3.11.0</maven.compiler.plugin.version>
-        <spring-boot.version>1.5.15.RELEASE</spring-boot.version>
+        <spring-boot.version>2.7.18</spring-boot.version>
         <snakeyaml.version>1.23</snakeyaml.version>
         <slf4j.version>1.7.25</slf4j.version>
         <test.junit.version>4.12</test.junit.version>
         <test.fastjson.version>1.2.51</test.fastjson.version>
         <test.druid.version>1.1.12</test.druid.version>
+        <test.h2.version>2.1.214</test.h2.version>
         <test.mysql-connector.version>5.1.46</test.mysql-connector.version>
         <test.commons-dbcp2.version>2.5.0</test.commons-dbcp2.version>
         <test.c3p0.version>0.9.5.2</test.c3p0.version>
@@ -157,6 +158,12 @@
                 <groupId>com.alibaba</groupId>
                 <artifactId>druid</artifactId>
                 <version>${test.druid.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.h2database</groupId>
+                <artifactId>h2</artifactId>
+                <version>${test.h2.version}</version>
                 <scope>test</scope>
             </dependency>
             <dependency>

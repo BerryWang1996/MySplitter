@@ -27,20 +27,31 @@ Run the dedicated regression module for routing, selector, transaction, and heal
 Notes:
 
 - This command builds `mysplitter` first and then executes the extracted regression suite.
-- The Testcontainers slice skips cleanly when Docker is unavailable.
+- The suite now includes an always-on H2 routing integration path, so reader routing and transactional writer pinning are validated even when Docker is unavailable.
+- The Docker-backed MySQL Testcontainers slice remains a supplemental path and still skips cleanly when Docker is unavailable.
 
 ## Starter Module
 
 Run the starter-module bootstrap checks that lock in configuration resource loading behavior:
 
 ```powershell
-.\mvnw.cmd -q -pl mysplitter-spring-boot-starter test
+.\mvnw.cmd -q -pl mysplitter-spring-boot-starter -am test
 ```
 
 Notes:
 
+- Use `-am` from the repo root so Maven also builds the local `mysplitter` dependency for the starter module.
 - These tests validate classpath resource loading, file resource loading, blank-path normalization, and missing-resource failures in the starter.
+- They also verify the Boot `2.7.x` dual-registration metadata (`spring.factories` plus `AutoConfiguration.imports`).
 - They are the fastest way to catch regressions in the starter bootstrap path before doing downstream compile checks.
+
+## Release Packaging
+
+Use this command to confirm the core library and starter still package cleanly for release:
+
+```powershell
+.\mvnw.cmd -q -pl mysplitter,mysplitter-spring-boot-starter -am "-Dmaven.test.skip=true" package
+```
 
 ## Compile-Only Checks
 

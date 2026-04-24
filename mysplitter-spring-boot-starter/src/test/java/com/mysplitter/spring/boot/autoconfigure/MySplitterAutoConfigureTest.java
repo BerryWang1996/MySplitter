@@ -19,6 +19,8 @@ package com.mysplitter.spring.boot.autoconfigure;
 import org.junit.Test;
 import org.springframework.core.io.DefaultResourceLoader;
 
+import java.io.InputStream;
+import java.lang.annotation.Annotation;
 import java.io.FileNotFoundException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
@@ -41,6 +43,11 @@ public class MySplitterAutoConfigureTest {
 
     private static final String AUTO_CONFIGURE_CLASS_NAME =
             "com.mysplitter.spring.boot.autoconfigure.MySplitterAutoConfigure";
+
+    private static final String SPRING_FACTORIES_RESOURCE = "META-INF/spring.factories";
+
+    private static final String AUTO_CONFIGURATION_IMPORTS_RESOURCE =
+            "META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports";
 
     @Test
     public void shouldNormalizeBlankConfigurationFileToDefaultLocation() {
@@ -112,6 +119,31 @@ public class MySplitterAutoConfigureTest {
         }
     }
 
+    @Test
+    public void shouldPublishAutoConfigurationInLegacyAndBoot27Metadata() {
+        String springFactories = readResource(SPRING_FACTORIES_RESOURCE);
+        String autoConfigurationImports = readResource(AUTO_CONFIGURATION_IMPORTS_RESOURCE);
+
+        assertTrue(springFactories.contains(AUTO_CONFIGURE_CLASS_NAME));
+        assertTrue(autoConfigurationImports.contains(AUTO_CONFIGURE_CLASS_NAME));
+    }
+
+    @Test
+    public void shouldUseBootAutoConfigurationAnnotation() throws Exception {
+        Class<?> autoConfigureClass = Class.forName(AUTO_CONFIGURE_CLASS_NAME);
+        boolean present = false;
+
+        for (Annotation annotation : autoConfigureClass.getAnnotations()) {
+            if ("org.springframework.boot.autoconfigure.AutoConfiguration"
+                    .equals(annotation.annotationType().getName())) {
+                present = true;
+                break;
+            }
+        }
+
+        assertTrue(present);
+    }
+
     private Object newProperties() {
         try {
             return Class.forName(PROPERTIES_CLASS_NAME).getDeclaredConstructor().newInstance();
@@ -157,5 +189,31 @@ public class MySplitterAutoConfigureTest {
             current = current.getCause();
         }
         return current;
+    }
+
+    private String readResource(String resourcePath) {
+        try {
+            InputStream inputStream = getClass().getClassLoader().getResourceAsStream(resourcePath);
+            assertNotNull("Expected resource " + resourcePath, inputStream);
+            byte[] content;
+            try {
+                content = readAllBytes(inputStream);
+            } finally {
+                inputStream.close();
+            }
+            return new String(content, StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private byte[] readAllBytes(InputStream inputStream) throws Exception {
+        byte[] buffer = new byte[1024];
+        int bytesRead;
+        java.io.ByteArrayOutputStream outputStream = new java.io.ByteArrayOutputStream();
+        while ((bytesRead = inputStream.read(buffer)) != -1) {
+            outputStream.write(buffer, 0, bytesRead);
+        }
+        return outputStream.toByteArray();
     }
 }

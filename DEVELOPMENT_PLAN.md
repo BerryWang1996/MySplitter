@@ -15,6 +15,10 @@ Completed baseline work:
 - Added the first Testcontainers-based routing regression slice for the core transaction model.
 - Split regression tests into the dedicated `mysplitter-tests` module.
 - Added in-module reflection-based regression tests so `mvn -pl mysplitter test` and `verify` are no longer empty or false-green.
+- Landed the Spring Boot `2.7.x` starter baseline with dual registration metadata.
+- Upgraded the demo consumer to the same Spring Boot `2.7.x` generation as the starter baseline.
+- Added an always-on H2 routing integration slice so release checks no longer depend solely on Docker-backed MySQL coverage.
+- Documented the `v1.0.0` compatibility matrix.
 
 Current checkpoint:
 
@@ -30,8 +34,12 @@ Current checkpoint:
 - Cold-reactor compile smoke checks are now green for both `mysplitter-spring-boot-starter` and `demo` without relying on install-first verification.
 - Starter bootstrap behavior is now isolated behind a dedicated configuration loader and covered by starter-module tests.
 - HikariCP is now the documented and regression-validated primary pool for the `v1.0.0` release baseline.
+- The Boot `2.7.x` starter implementation slice is now landed with both `spring.factories` and `AutoConfiguration.imports`.
+- The demo consumer now compiles on Spring Boot `2.7.18` with the matching MyBatis baseline.
+- The `v1.0.0` compatibility matrix is now documented in `docs/v1.0-compatibility-matrix.md`.
+- End-to-end routing release checks now include an always-on H2 path, while the Docker-backed MySQL slice remains supplemental.
 
-The next goal is to start the Boot 2.7 implementation slice from the now-documented starter and pool boundaries.
+The next goal is to start the `v1.1.0` observability slice from the now-landed release baseline.
 
 ## Review Reconciliation
 
@@ -164,6 +172,8 @@ Exit criteria:
 
 ### v1.0.0 - Release Baseline
 
+Status: complete.
+
 Goal: reach a publishable baseline for the core library and starter.
 
 Scope:
@@ -249,23 +259,23 @@ Exit criteria:
 16. Done: reran the full verification command set after the Java baseline upgrade.
 17. Done: removed the install-first workaround by producing reactor-consumable jars during `compile` for upstream modules needed by downstream smoke checks.
 18. Done: aligned `demo` clean-plugin configuration with the offline toolchain used by the rest of the repo so cold compile checks remain reproducible.
-19. Done: documented the current Boot 1.5 starter assumptions, the Boot 2.0 demo split, and the future Boot 2.7/3.x migration files in `docs/v1.0-starter-compatibility-scope.md`.
+19. Done: documented the starter compatibility scope and remaining Boot 3.x limits in `docs/v1.0-starter-compatibility-scope.md`.
 20. Done: isolated starter resource loading into a dedicated loader and added starter-module tests for classpath, file, and missing-resource bootstrap paths.
 21. Done: landed the Hikari-first pool support policy in docs, demo configuration, and the main regression path, while keeping older pools in compatibility-validation mode.
-22. Next: start the Boot 2.7 implementation slice with dual registration planning for `spring.factories` and `AutoConfiguration.imports`.
-23. Next: decide whether the Boot 2.7 slice lands as dual-registration only or also upgrades the demo consumer in the same pass.
+22. Done: landed the Boot `2.7.x` starter slice with dual registration through `spring.factories` and `AutoConfiguration.imports`.
+23. Done: upgraded the demo consumer in the same pass so the sample app matches the release starter baseline.
+24. Done: documented the `v1.0.0` compatibility matrix covering Java, Spring Boot, demo, and pool support tiers.
+25. Done: added an always-on H2 routing integration slice so release validation no longer relies entirely on Docker availability.
 
 ## Suggested Delivery Sequence
 
-1. Keep the `v0.11` and `v0.12` baseline green with module and integration tests while `v1.0.0` progresses.
-2. Start the Boot 2.7 implementation slice from the now-documented starter and pool boundaries.
-3. Re-evaluate the demo upgrade once dual registration support is in place.
-4. Add metrics and operational integration in `v1.1.0`.
-5. Build out the full regression suite in `v1.2.0`.
+1. Keep the landed `v1.0.0` baseline green with module, regression, starter, and demo verification commands.
+2. Start metrics and operational integration in `v1.1.0`.
+3. Build out the full regression suite and CI in `v1.2.0`.
 
 ## Risks To Watch
 
 - Transaction semantics may change observable behavior for current users.
 - Health recovery code can look correct in static review but still break under concurrent routing pressure, so it needs proof by test rather than inspection alone.
 - Java and Spring upgrades may surface compatibility gaps in the starter.
-- Docker is required to execute the Testcontainers regression slice; the test class now skips cleanly when Docker is unavailable.
+- Docker is no longer required for baseline release validation because the H2 routing slice is always-on, but it is still required for the supplemental MySQL Testcontainers path.

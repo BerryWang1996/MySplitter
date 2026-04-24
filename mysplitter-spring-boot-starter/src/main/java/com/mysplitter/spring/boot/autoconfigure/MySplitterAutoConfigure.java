@@ -17,17 +17,17 @@
 package com.mysplitter.spring.boot.autoconfigure;
 
 import com.mysplitter.MySplitterDataSource;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ResourceLoader;
 
 import java.io.IOException;
 import java.util.Objects;
 
-@Configuration
+@AutoConfiguration
 @ConditionalOnClass(MySplitterDataSource.class)
 @EnableConfigurationProperties(MySplitterConfigureProperties.class)
 public class MySplitterAutoConfigure {

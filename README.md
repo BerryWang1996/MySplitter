@@ -65,7 +65,7 @@ mysplitter:
             jdbcUrl: jdbc:mysql://localhost:3306/user
             username: root
             password: root
-            driverClassName: com.mysql.jdbc.Driver
+            driverClassName: com.mysql.cj.jdbc.Driver
             connectionTimeout: 1000
       writers:
         writer-1:
@@ -73,13 +73,13 @@ mysplitter:
             jdbcUrl: jdbc:mysql://localhost:3306/user
             username: root
             password: root
-            driverClassName: com.mysql.jdbc.Driver
+            driverClassName: com.mysql.cj.jdbc.Driver
             connectionTimeout: 1000
 ```
 
 ## Current Configuration Model
 
-- `filters` is supported and executed before opening the target connection.
+- `filters` is supported and executed for every routed SQL, including reused and transaction-pinned routes.
 - `common.loadBalance.read` and `common.loadBalance.write` define the default load-balance strategy.
 - Each database may define either:
   - `integrates`
@@ -96,5 +96,7 @@ mysplitter:
 ## Notes
 
 - The current release baseline is `Java 8`.
-- The starter still targets the legacy `Spring Boot 1.5.x` registration model, while the demo remains on `Spring Boot 2.0.x` until the next migration slice.
+- The starter release baseline now targets `Spring Boot 2.7.x` and publishes both `spring.factories` and `AutoConfiguration.imports`.
+- The demo module now compiles against `Spring Boot 2.7.x`.
+- See `docs/v1.0-compatibility-matrix.md` for the current runtime, starter, pool, and demo support matrix.
 - The demo module remains a sample application and is not the recommended production baseline.
