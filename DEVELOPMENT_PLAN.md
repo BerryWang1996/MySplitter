@@ -8,8 +8,8 @@ The `1.0.0`, `1.0.1`, and `1.0.2` release tags are cut. The `1.0.2` release is t
 
 ## Version Strategy
 
-- `1.0.x`: post-release hardening only. Focus on verification honesty, packaging, documentation closure, and low-risk compatibility fixes.
-- `1.1.x`: additive observability and runtime operations. No intentional breaking changes to the `1.0.x` public baseline.
+- `1.0.x`: post-release hardening and production-readiness fixes. Focus on verification honesty, packaging, documentation closure, security posture, and semantic correctness.
+- `1.1.x`: additive observability and runtime operations. No intentional breaking changes after the `1.0.3` production-readiness gate is closed.
 - `1.2.x`: quality-system expansion, especially CI and broader integration coverage.
 - `2.0.0`: reserved for breaking platform shifts such as a Java 17 baseline, Spring Boot 3.x, and Jakarta migration.
 
@@ -28,7 +28,7 @@ Completed baseline work:
 - Upgraded the demo consumer to the same Spring Boot `2.7.x` generation as the starter baseline.
 - Added an always-on H2 routing integration slice so release checks no longer depend solely on Docker-backed MySQL coverage.
 - Documented the `v1.0.0` compatibility matrix.
-- Cut and pushed the `1.0.1` maintenance release after the full release gate passed.
+- Cut and pushed the `1.0.1` and `1.0.2` maintenance releases after the full release gate passed.
 
 Current checkpoint:
 
@@ -38,7 +38,7 @@ Current checkpoint:
 - Concurrent health-state transitions now have dedicated regression coverage, including stale recovery and version-matched healing scenarios.
 - Bounded failover now uses per-call candidate snapshots so a node that fails during one route/default-connection attempt is not immediately retried again in the same call as an ill-node fallback.
 - The `v0.12` routing/health design is now documented in `docs/v0.12-routing-health-design.md`.
-- Failover observability is now explicitly deferred to `v1.1.0` so `v1.0.0` can stay focused on release-baseline compatibility work.
+- Failover observability remains deferred to `v1.1.0`; `v1.0.3` is now prioritized first to close production-readiness blockers found during review.
 - The `v1.0.0` release-baseline slices are now documented in `docs/v1.0-release-baseline-plan.md`.
 - The Java 8 baseline is now landed in the Maven build and regression dependency stack.
 - Cold-reactor compile smoke checks are now green for both `mysplitter-spring-boot-starter` and `demo` without relying on install-first verification.
@@ -50,12 +50,12 @@ Current checkpoint:
 - End-to-end routing release checks now include an always-on H2 path, while the Docker-backed MySQL slice remains supplemental.
 - The `1.0.1` maintenance line now includes the release-gate hardening slice.
 - A repo-root release-gate script now drives the canonical release verification flow for the `1.0.x` maintenance line.
-- The current tree is a formal `1.0.1` release version, not a `-SNAPSHOT` development version.
 - The `1.0.1` release commit and tag have been pushed to the remote `vibe-coding` branch.
 - GitHub Actions now runs the canonical release gate on PRs, manual dispatch, and pushes to `master` / `vibe-coding`.
-- The current tree is versioned as `1.0.2` for the compatibility/documentation maintenance release.
+- The `1.0.2` release commit and tag have been pushed to the remote `vibe-coding` branch.
+- The current tree is a formal `1.0.2` release version, not a `-SNAPSHOT` development version.
 
-The next goal is to move on to broader `1.1.0` observability and runtime operations work.
+The next goal is to close the `1.0.3` production-readiness blockers before broader `1.1.0` observability and runtime operations work.
 
 ## Review Reconciliation
 
@@ -68,6 +68,11 @@ The next goal is to move on to broader `1.1.0` observability and runtime operati
 - Closed: the Spring Boot baseline finding is stale; the parent build now uses Spring Boot `2.7.18`, and the starter ships both `spring.factories` and `AutoConfiguration.imports`.
 - Closed: the snapshot release blocker is stale; the current tree is versioned as `1.0.2`, and release tags point at formal release commits.
 - Mitigated: Docker-backed MySQL validation can still skip when Docker is unavailable, but the release gate now includes an always-on H2 routing integration path for baseline routing and transaction coverage.
+- Open for `1.0.3`: configuration password protection needs a clearer mode model. Development users may choose plain YAML values for convenience, but production users need documented external secret injection; the current RSA helper must not be presented as production-grade protection.
+- Open for `1.0.3`: YAML parsing still uses SnakeYAML `Constructor` on SnakeYAML `1.23`; this needs a safe parser model and dependency upgrade.
+- Open for `1.0.3`: cross-physical-connection transactions can partially commit because commits and rollbacks are executed connection-by-connection without XA, compensation, or an explicit guardrail.
+- Open for `1.0.3`: `Statement` batch execution is unsafe across multiple routed statements because `executeBatch()` only delegates to the current physical statement.
+- Open for `1.0.3`: the default read/write parser is too naive for production SQL semantics such as comments, `WITH`, `SELECT FOR UPDATE`, vendor hints, and administrative statements.
 
 ## Planning Principles
 
@@ -269,8 +274,51 @@ Exit criteria:
 
 - A new user can understand the supported baseline and verification path from the repo docs alone.
 - The `1.0.x` maintenance line has explicit compatibility and upgrade notes.
+- The release commit and `1.0.2` tag are published to the remote repository.
+
+### v1.0.3 - Production Readiness Hardening
+
+Status: next.
+
+Goal: close the P1 review findings that block enterprise production deployment.
+
+Scope:
+
+- Define explicit password source modes: plain configuration for local development, Spring/environment placeholders for normal deployment, and external secret systems for production.
+- Preserve plain YAML password support as an intentional developer-convenience mode chosen by the user.
+- Deprecate the current RSA helper for production use, remove default embedded key material, and stop presenting config encryption as equivalent to secret management.
+- Keep backward compatibility for existing encrypted sample configs during a transition period, but add warnings and migration guidance.
+- Upgrade and harden YAML parsing so configuration loading does not use unsafe SnakeYAML construction.
+- Define and enforce transaction guardrails for logical transactions that touch multiple physical connections.
+- Correct `Statement` batch behavior across routes, or explicitly reject multi-route batches with a clear exception.
+- Improve the default read/write parser enough to avoid dangerous reader routing for lock-sensitive or ambiguous SQL.
+- Add regression tests for each production-readiness finding.
+- Document remaining supported and unsupported production semantics.
+
+Primary areas:
+
+- `mysplitter/src/main/java/com/mysplitter/util/SecurityUtil.java`
+- `mysplitter/src/main/java/com/mysplitter/util/ConfigurationUtil.java`
+- `mysplitter/src/main/java/com/mysplitter/MySplitterConnectionProxy.java`
+- `mysplitter/src/main/java/com/mysplitter/MySplitterStatementProxy.java`
+- `mysplitter/src/main/java/com/mysplitter/DefaultReadAndWriteParser.java`
+- `mysplitter/src/test/java/com/mysplitter/`
+- `mysplitter-tests/src/test/java/com/mysplitter/test/`
+- `docs/`
+
+Exit criteria:
+
+- SCA no longer flags the baseline YAML parser dependency for the reviewed SnakeYAML issue.
+- Password handling documentation clearly separates local-development plain values from production external secret injection.
+- Existing users have a migration path from RSA config encryption to environment/secret placeholders.
+- Multi-route local transactions cannot be mistaken for atomic distributed transactions.
+- Batch execution either runs all routed batches with deterministic result ordering or fails fast when a batch spans multiple routes.
+- Default SQL classification routes ambiguous and lock-sensitive SQL conservatively to writers.
+- The release gate includes regression coverage for the fixed semantics.
 
 ### v1.1.0 - Observability and Runtime Operations
+
+Status: deferred until `v1.0.3` production-readiness hardening is complete.
 
 Goal: make routing and failover visible in production environments.
 
@@ -347,17 +395,24 @@ Exit criteria:
 30. Done: added release notes and a `v1.0.x` upgrade guide for users adopting the baseline.
 31. Done: wired GitHub Actions to run the canonical release gate directly.
 32. Done: added demo startup guidance for the `1.0.x` baseline.
-33. Next: start metrics and operational integration in `v1.1.0`.
+33. Done: cut and pushed the `1.0.2` release tag after validating the release gate.
+34. Done: recorded the `1.0.2` release state and cleaned up stale plan wording.
+35. Next: close `1.0.3` production-readiness blockers from the latest review.
+36. Later: start metrics and operational integration in `v1.1.0`.
 
 ## Suggested Delivery Sequence
 
-1. Start metrics and operational integration in `v1.1.0`.
-2. Build out the broader integration matrix in `v1.2.0`.
-3. Plan the eventual Java 17 / Boot 3.x break in `2.0.0` rather than leaking it into the `1.x` line.
+1. Finish `v1.0.3` production-readiness hardening.
+2. Start metrics and operational integration in `v1.1.0`.
+3. Build out the broader integration matrix in `v1.2.0`.
+4. Plan the eventual Java 17 / Boot 3.x break in `2.0.0` rather than leaking it into the `1.x` line.
 
 ## Risks To Watch
 
 - Transaction semantics may change observable behavior for current users.
+- Fixing cross-route transactions may require failing fast in scenarios that previously attempted best-effort local commits.
+- Hardening password handling may require deprecating the current config-encryption helper rather than preserving its exact behavior.
+- A conservative default SQL parser may route more statements to writers until a stronger parser is introduced.
 - Health recovery code can look correct in static review but still break under concurrent routing pressure, so it needs proof by test rather than inspection alone.
 - Java and Spring upgrades may surface compatibility gaps in the starter.
 - Docker is no longer required for baseline release validation because the H2 routing slice is always-on, but it is still required for the supplemental MySQL Testcontainers path.
