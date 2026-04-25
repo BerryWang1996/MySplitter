@@ -27,6 +27,8 @@ import com.mysplitter.selector.LoadBalanceSelector;
 import com.mysplitter.selector.NoLoadBalanceSelector;
 import com.mysplitter.selector.RandomLoadBalanceSelector;
 import com.mysplitter.selector.RoundRobinLoadBalanceSelector;
+import com.mysplitter.transaction.GlobalTransactionManager;
+import com.mysplitter.transaction.TransactionManagers;
 import com.mysplitter.util.ClassLoaderUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,6 +61,8 @@ public class MySplitterDataSourceManager {
     private DataSourceIllAlerterAdvise dataSourceIllAlerter;
 
     private MySplitterDataSourceHealthManager dataSourceHealthManager;
+
+    private GlobalTransactionManager transactionManager;
 
     MySplitterDataSourceManager(MySplitterDataSource router) throws Exception {
         this.router = router;
@@ -134,7 +138,7 @@ public class MySplitterDataSourceManager {
                 pinRouteIfNecessary(connectionContext, routeKey);
                 return new MySplitterRouteSelection(routeKey, existing);
             }
-            connectionContext.assertCanOpenRouteInTransaction(routeKey);
+            transactionManager.beforeOpenRoute(connectionContext, routeKey);
             try {
                 doFilters(dataSourceWrapper, sql.getSql());
                 Connection connection = openConnection(dataSourceWrapper, username, password);
@@ -210,6 +214,7 @@ public class MySplitterDataSourceManager {
         }
         LOGGER.debug("MySplitterDataSourceManager is initializing.");
         this.databaseManager = new MySplitterDatabaseManager(this.router);
+        createTransactionManager();
         createReadAndWriteParser();
         createDataSourceIllAlerter();
         createHealthManager();
@@ -236,10 +241,20 @@ public class MySplitterDataSourceManager {
         dataSourceRegistry.clear();
         dataSourceFilters.clear();
         dataSourceHealthManager = null;
+        transactionManager = null;
         isInitialized.set(false);
         if (closeException != null) {
             throw closeException;
         }
+    }
+
+    GlobalTransactionManager getTransactionManager() {
+        return transactionManager;
+    }
+
+    private void createTransactionManager() {
+        transactionManager = TransactionManagers.create(this.router.getMySplitterConfig().getMysplitter()
+                .getTransaction());
     }
 
     private void createReadAndWriteParser() throws Exception {

@@ -16,6 +16,8 @@
 
 package com.mysplitter;
 
+import com.mysplitter.transaction.GlobalTransactionManager;
+
 import java.beans.BeanInfo;
 import java.beans.Introspector;
 import java.beans.MethodDescriptor;
@@ -58,6 +60,8 @@ public class MySplitterConnectionProxy implements Connection {
 
     private final MySplitterConnectionContext connectionContext = new MySplitterConnectionContext();
 
+    private final GlobalTransactionManager transactionManager;
+
     private volatile boolean closed;
 
     public MySplitterConnectionProxy(MySplitterDataSourceManager mySplitterDataSourceManager) {
@@ -70,6 +74,7 @@ public class MySplitterConnectionProxy implements Connection {
         this.mySplitterDataSourceManager = mySplitterDataSourceManager;
         this.username = username;
         this.password = password;
+        this.transactionManager = mySplitterDataSourceManager.getTransactionManager();
     }
 
     private void assertOpen() throws SQLException {
@@ -95,7 +100,7 @@ public class MySplitterConnectionProxy implements Connection {
         if (connection != null) {
             return connection;
         }
-        connectionContext.assertCanOpenAdministrativeConnectionInTransaction();
+        transactionManager.beforeOpenAdministrativeConnection(connectionContext);
         connection = this.mySplitterDataSourceManager.getDefaultConnection();
         getConnectionState().apply(connection);
         connectionContext.registerAdministrativeConnection(connection);
@@ -208,6 +213,10 @@ public class MySplitterConnectionProxy implements Connection {
 
     @Override
     public void setAutoCommit(final boolean autoCommit) throws SQLException {
+        boolean wasAutoCommit = getConnectionState().isAutoCommit();
+        if (wasAutoCommit && !autoCommit) {
+            transactionManager.begin(connectionContext);
+        }
         getConnectionState().setAutoCommit(autoCommit);
         if (autoCommit) {
             connectionContext.clearPinnedRoutes();
@@ -228,33 +237,13 @@ public class MySplitterConnectionProxy implements Connection {
     @Override
     public void commit() throws SQLException {
         assertOpen();
-        SQLException exceptionHolder = null;
-        for (Connection connection : connectionContext.listAllConnections()) {
-            try {
-                connection.commit();
-            } catch (SQLException e) {
-                exceptionHolder = mergeSQLException(exceptionHolder, e);
-            }
-        }
-        if (exceptionHolder != null) {
-            throw exceptionHolder;
-        }
+        transactionManager.commit(connectionContext);
     }
 
     @Override
     public void rollback() throws SQLException {
         assertOpen();
-        SQLException exceptionHolder = null;
-        for (Connection connection : connectionContext.listAllConnections()) {
-            try {
-                connection.rollback();
-            } catch (SQLException e) {
-                exceptionHolder = mergeSQLException(exceptionHolder, e);
-            }
-        }
-        if (exceptionHolder != null) {
-            throw exceptionHolder;
-        }
+        transactionManager.rollback(connectionContext);
     }
 
     @Override

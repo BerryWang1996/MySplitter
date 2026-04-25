@@ -64,6 +64,7 @@ Goal: make multi-datasource transactions a first-class MySplitter subsystem.
 - Add `transaction.coordinator` and `transaction.recovery` configuration so the public YAML shape is stable before the XA runtime lands.
 - Keep `local` as the default mode and fail clearly for `xa` until the transaction manager can provide real two-phase semantics.
 - Add `GlobalTransactionManager`, `BranchTransaction`, `TransactionCoordinator`, and `TransactionLogStore` interfaces.
+- Route existing local commit, rollback, and single-physical-connection guardrails through the transaction manager abstraction.
 - Add JDBC `XADataSource` adapter support.
 - Enlist each routed physical datasource as a branch.
 - Implement two-phase commit and rollback.
