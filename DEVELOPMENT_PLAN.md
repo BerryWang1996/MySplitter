@@ -4,7 +4,7 @@
 
 Stage one stabilization is complete.
 
-The `1.0.0`, `1.0.1`, and `1.0.2` release tags are cut. The current tree is the `1.0.3` release candidate for production-readiness hardening on `vibe-coding`.
+The `1.0.0`, `1.0.1`, `1.0.2`, and `1.0.3` release tags are cut. The current tree is now in `1.1.0-SNAPSHOT` development for the distributed transaction foundation on `vibe-coding`.
 
 ## Version Strategy
 
@@ -54,11 +54,18 @@ Current checkpoint:
 - A repo-root release-gate script now drives the canonical release verification flow for the `1.0.x` maintenance line.
 - The `1.0.1` release commit and tag have been pushed to the remote `vibe-coding` branch.
 - GitHub Actions now runs the canonical release gate on PRs, manual dispatch, and pushes to `master` / `vibe-coding`.
-- The `1.0.2` release commit and tag have been pushed to the remote `vibe-coding` branch.
-- The current tree is a formal `1.0.3` release version, not a `-SNAPSHOT` development version.
+- The `1.0.2` and `1.0.3` release commits and tags have been pushed to the remote `vibe-coding` branch.
+- The current tree is a `1.1.0-SNAPSHOT` development version after the formal `1.0.3` release.
 - The `1.0.3` hardening slices are complete: YAML loading now uses SafeConstructor-based primitive mapping, password handling now has explicit `plain`, `environment`, and `legacy-rsa` source modes, local transactions now fail fast before spanning multiple physical connections, routed statement batches execute deterministically, and the default SQL parser routes ambiguous SQL to writers.
 
-The next goal is to validate and publish the `1.0.3` production-readiness release before starting the `1.1.0` distributed transaction foundation.
+The next goal is to land the `1.1.0` distributed transaction foundation.
+
+Current `1.1.0` implementation checkpoint:
+
+- In progress: add the public `mysplitter.transaction` configuration contract.
+- In progress: keep `transaction.mode: local` as the safe default.
+- In progress: recognize `transaction.mode: xa` as the planned distributed transaction mode while failing clearly until the XA transaction manager is implemented.
+- Next: introduce the transaction manager SPI, branch transaction model, and durable transaction log abstraction.
 
 ## Review Reconciliation
 
@@ -282,7 +289,7 @@ Exit criteria:
 
 ### v1.0.3 - Production Readiness Hardening
 
-Status: release candidate.
+Status: complete.
 
 Goal: close the P1 review findings that block enterprise production deployment.
 
@@ -322,7 +329,7 @@ Exit criteria:
 
 ### v1.1.0 - Distributed Transaction SPI And XA MVP
 
-Status: planned after `v1.0.3` production-readiness hardening is complete.
+Status: in progress.
 
 Goal: make multi-datasource transactions a first-class MySplitter subsystem, with XA as the first production-grade atomic transaction mode for different database brands.
 
@@ -333,6 +340,7 @@ Design reference:
 Scope:
 
 - Add `transaction.mode`: `local`, `xa`.
+- Add `transaction.coordinator` and `transaction.recovery` configuration placeholders for the XA coordinator and recovery loop.
 - Add transaction manager, branch transaction, coordinator, and transaction log SPI.
 - Add JDBC `XADataSource` adapter support.
 - Enlist each routed physical datasource as a branch in one global transaction.
@@ -488,8 +496,8 @@ Exit criteria:
 37. Done: defined and enforced transaction guardrails for logical transactions that touch multiple physical connections.
 38. Done: corrected multi-route `Statement` batch execution with deterministic result ordering.
 39. Done: improved the default read/write parser so ambiguous and lock-sensitive SQL routes conservatively.
-40. Next: run the full release gate for the `1.0.3` production-readiness line, tag the release, and push it.
-41. Later: start distributed transaction SPI and XA MVP in `v1.1.0`.
+40. Done: ran the full release gate for the `1.0.3` production-readiness line, tagged the release, and pushed it.
+41. In progress: start distributed transaction SPI and XA MVP in `v1.1.0` by landing the transaction configuration contract first.
 42. Later: add heterogeneous XA compatibility coverage in `v1.2.0`.
 43. Later: add AT-style automatic compensation in `v1.3.0`.
 44. Later: add TCC/Saga extension modes in `v1.4.0`.

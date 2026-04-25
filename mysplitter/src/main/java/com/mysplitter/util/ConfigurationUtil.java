@@ -64,6 +64,9 @@ public class ConfigurationUtil {
     private static final List<String> SUPPORT_LB_NODE_MODE_LIST =
             Arrays.asList("read", "write");
 
+    private static final List<String> SUPPORT_TRANSACTION_MODE_LIST =
+            Arrays.asList(MySplitterTransactionConfig.MODE_LOCAL, MySplitterTransactionConfig.MODE_XA);
+
     private static final Pattern SECRET_PLACEHOLDER_PATTERN =
             Pattern.compile("\\$\\{([^}:]+)(?::([^}]*))?\\}");
 
@@ -131,8 +134,42 @@ public class ConfigurationUtil {
         config.setIllAlertHandler(asString(configMap.get("illAlertHandler")));
         config.setFilters(asStringList(configMap.get("filters"), "mysplitter.filters"));
         config.setCommon(toCommonConfig(optionalMap(configMap.get("common"), "mysplitter.common")));
+        config.setTransaction(toTransactionConfig(optionalMap(configMap.get("transaction"), "mysplitter.transaction")));
         config.setDatabases(toDatabaseMap(configMap.get("databases"), "mysplitter.databases"));
         return config;
+    }
+
+    private static MySplitterTransactionConfig toTransactionConfig(Map<?, ?> transactionMap) {
+        if (transactionMap == null) {
+            return null;
+        }
+        MySplitterTransactionConfig transactionConfig = new MySplitterTransactionConfig();
+        transactionConfig.setMode(asString(transactionMap.get("mode")));
+        transactionConfig.setCoordinator(toTransactionCoordinatorConfig(
+                optionalMap(transactionMap.get("coordinator"), "mysplitter.transaction.coordinator")));
+        transactionConfig.setRecovery(toTransactionRecoveryConfig(
+                optionalMap(transactionMap.get("recovery"), "mysplitter.transaction.recovery")));
+        return transactionConfig;
+    }
+
+    private static MySplitterTransactionCoordinatorConfig toTransactionCoordinatorConfig(Map<?, ?> coordinatorMap) {
+        if (coordinatorMap == null) {
+            return null;
+        }
+        MySplitterTransactionCoordinatorConfig coordinatorConfig = new MySplitterTransactionCoordinatorConfig();
+        coordinatorConfig.setType(asString(coordinatorMap.get("type")));
+        coordinatorConfig.setLogStore(asString(coordinatorMap.get("logStore")));
+        return coordinatorConfig;
+    }
+
+    private static MySplitterTransactionRecoveryConfig toTransactionRecoveryConfig(Map<?, ?> recoveryMap) {
+        if (recoveryMap == null) {
+            return null;
+        }
+        MySplitterTransactionRecoveryConfig recoveryConfig = new MySplitterTransactionRecoveryConfig();
+        recoveryConfig.setEnabled(asBoolean(recoveryMap.get("enabled"), false));
+        recoveryConfig.setInterval(asString(recoveryMap.get("interval")));
+        return recoveryConfig;
     }
 
     private static MySplitterCommonConfig toCommonConfig(Map<?, ?> commonMap) {
@@ -309,6 +346,7 @@ public class ConfigurationUtil {
     public static void checkMySplitterConfig(MySplitterRootConfig mySplitterRootConfig) throws Exception {
         MySplitterConfig mySplitterConfig = mySplitterRootConfig.getMysplitter();
         Map<String, MySplitterDataBaseConfig> databases = mySplitterConfig.getDatabases();
+        checkAndImproveTransactionConfig(mySplitterConfig);
         // 检查filters
         List<String> filters = mySplitterConfig.getFilters();
         if (filters != null && filters.size() > 0) {
@@ -441,6 +479,29 @@ public class ConfigurationUtil {
             ConfigurationUtil.isReadAndWriteParserLegal(mySplitterConfig.getReadAndWriteParser());
         }
         applyPasswordSource(databases, resolvePasswordSourceMode(mySplitterConfig));
+    }
+
+    private static void checkAndImproveTransactionConfig(MySplitterConfig mySplitterConfig) {
+        MySplitterTransactionConfig transactionConfig = mySplitterConfig.getTransaction();
+        if (transactionConfig == null) {
+            transactionConfig = new MySplitterTransactionConfig();
+            mySplitterConfig.setTransaction(transactionConfig);
+        }
+        String mode = transactionConfig.getMode();
+        if (StringUtil.isBlank(mode)) {
+            transactionConfig.setMode(MySplitterTransactionConfig.MODE_LOCAL);
+            return;
+        }
+        String normalizedMode = mode.trim().toLowerCase(Locale.ENGLISH);
+        if (!SUPPORT_TRANSACTION_MODE_LIST.contains(normalizedMode)) {
+            throw new IllegalArgumentException("MySplitter transaction.mode not support " + mode +
+                    ". Only supported one of " + SUPPORT_TRANSACTION_MODE_LIST + ".");
+        }
+        transactionConfig.setMode(normalizedMode);
+        if (MySplitterTransactionConfig.MODE_XA.equals(normalizedMode)) {
+            throw new IllegalArgumentException("MySplitter transaction.mode xa is planned but not implemented yet. " +
+                    "Keep transaction.mode local until the XA transaction manager lands in v1.1.0.");
+        }
     }
 
     private static PasswordSourceMode resolvePasswordSourceMode(MySplitterConfig config) {

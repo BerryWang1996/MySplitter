@@ -39,6 +39,8 @@ public class MySplitterConfig implements Serializable {
 
     private MySplitterCommonConfig common;
 
+    private MySplitterTransactionConfig transaction;
+
     private Map<String, MySplitterDataBaseConfig> databases;
 
     public String getDatabasesRoutingHandler() {
@@ -97,6 +99,14 @@ public class MySplitterConfig implements Serializable {
         this.common = common;
     }
 
+    public MySplitterTransactionConfig getTransaction() {
+        return transaction;
+    }
+
+    public void setTransaction(MySplitterTransactionConfig transaction) {
+        this.transaction = transaction;
+    }
+
     public Map<String, MySplitterDataBaseConfig> getDatabases() {
         return databases;
     }
@@ -115,6 +125,7 @@ public class MySplitterConfig implements Serializable {
                 ", illAlertHandler='" + illAlertHandler + '\'' +
                 ", filters=" + filters +
                 ", common=" + common +
+                ", transaction=" + transaction +
                 ", databases=" + databases +
                 '}';
     }

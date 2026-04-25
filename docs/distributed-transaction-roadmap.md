@@ -61,6 +61,8 @@ Goal: prevent unsafe semantics before distributed transaction support lands.
 Goal: make multi-datasource transactions a first-class MySplitter subsystem.
 
 - Add `transaction.mode`: `local`, `xa`.
+- Add `transaction.coordinator` and `transaction.recovery` configuration so the public YAML shape is stable before the XA runtime lands.
+- Keep `local` as the default mode and fail clearly for `xa` until the transaction manager can provide real two-phase semantics.
 - Add `GlobalTransactionManager`, `BranchTransaction`, `TransactionCoordinator`, and `TransactionLogStore` interfaces.
 - Add JDBC `XADataSource` adapter support.
 - Enlist each routed physical datasource as a branch.
@@ -152,4 +154,3 @@ mysplitter:
 - Do not claim cross-database atomicity for non-XA datasources.
 - Do not silently downgrade distributed transactions to local transactions.
 - Do not support every SQL dialect at once.
-

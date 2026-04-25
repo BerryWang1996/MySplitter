@@ -86,6 +86,60 @@ public class ConfigurationUtilSafeYamlTest {
     }
 
     @Test
+    public void shouldDefaultTransactionModeToLocalWhenMissing() throws Exception {
+        MySplitterRootConfig rootConfig = loadChecked(singleNodeYaml("", ""));
+
+        assertNotNull(rootConfig.getMysplitter().getTransaction());
+        assertEquals("local", rootConfig.getMysplitter().getTransaction().getMode());
+    }
+
+    @Test
+    public void shouldLoadLocalTransactionConfiguration() throws Exception {
+        MySplitterRootConfig rootConfig = loadChecked(singleNodeYaml(
+                "  transaction:\n" +
+                        "    mode: LOCAL\n" +
+                        "    coordinator:\n" +
+                        "      type: embedded\n" +
+                        "      logStore: jdbc\n" +
+                        "    recovery:\n" +
+                        "      enabled: true\n" +
+                        "      interval: 10s\n",
+                ""));
+
+        assertEquals("local", rootConfig.getMysplitter().getTransaction().getMode());
+        assertEquals("embedded", rootConfig.getMysplitter().getTransaction().getCoordinator().getType());
+        assertEquals("jdbc", rootConfig.getMysplitter().getTransaction().getCoordinator().getLogStore());
+        assertTrue(rootConfig.getMysplitter().getTransaction().getRecovery().isEnabled());
+        assertEquals("10s", rootConfig.getMysplitter().getTransaction().getRecovery().getInterval());
+    }
+
+    @Test
+    public void shouldRejectUnknownTransactionMode() throws Exception {
+        try {
+            loadChecked(singleNodeYaml(
+                    "  transaction:\n" +
+                            "    mode: best-effort\n",
+                    ""));
+            fail("Expected unknown transaction mode to be rejected.");
+        } catch (IllegalArgumentException e) {
+            assertTrue(e.getMessage().contains("transaction.mode not support"));
+        }
+    }
+
+    @Test
+    public void shouldRecognizeXaTransactionModeButFailUntilImplemented() throws Exception {
+        try {
+            loadChecked(singleNodeYaml(
+                    "  transaction:\n" +
+                            "    mode: xa\n",
+                    ""));
+            fail("Expected XA mode to fail clearly until the transaction manager is implemented.");
+        } catch (IllegalArgumentException e) {
+            assertTrue(e.getMessage().contains("xa is planned but not implemented yet"));
+        }
+    }
+
+    @Test
     public void shouldKeepPlainYamlPasswordWhenConfigured() throws Exception {
         MySplitterRootConfig rootConfig = loadChecked(singleNodeYaml(
                 "  passwordSource: plain\n",
