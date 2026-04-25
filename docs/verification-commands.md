@@ -20,6 +20,7 @@ Notes:
 
 - This is the canonical command for release validation because it executes the core-module verify path, starter tests, the dedicated `mysplitter-tests` regression module, demo compile smoke checks, and release packaging in one fail-fast sequence.
 - Module-level commands below are still useful for fast feedback, but they are no longer presented as a substitute for the full release gate.
+- GitHub Actions runs the Unix shell release gate on pull requests, manual dispatch, and pushes to `master` / `vibe-coding`.
 
 ## Core Module
 

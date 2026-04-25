@@ -27,6 +27,22 @@ On Windows:
 .\mvnw.cmd clean package -DskipTests
 ```
 
+## Release Validation
+
+Use the release gate before cutting or promoting a release:
+
+```powershell
+.\scripts\release-gate.ps1
+```
+
+On Unix-like shells:
+
+```bash
+./scripts/release-gate.sh
+```
+
+The release gate runs core verification, starter tests, the dedicated regression module, demo compile checks, and release packaging.
+
 ## Spring Boot Quick Start
 
 `application.yml`
@@ -98,5 +114,8 @@ mysplitter:
 - The current release baseline is `Java 8`.
 - The starter release baseline now targets `Spring Boot 2.7.x` and publishes both `spring.factories` and `AutoConfiguration.imports`.
 - The demo module now compiles against `Spring Boot 2.7.x`.
+- See `docs/release-notes.md` for release highlights.
+- See `docs/v1.0-upgrade-guide.md` for migration guidance from `0.9.x` to `1.0.x`.
 - See `docs/v1.0-compatibility-matrix.md` for the current runtime, starter, pool, and demo support matrix.
+- See `demo/README.md` for local demo startup guidance.
 - The demo module remains a sample application and is not the recommended production baseline.

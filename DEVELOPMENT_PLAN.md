@@ -4,7 +4,7 @@
 
 Stage one stabilization is complete.
 
-The `1.0.0` release tag is cut, and the `1.0.1` maintenance release is the current release target.
+The `1.0.0`, `1.0.1`, and `1.0.2` release tags are cut. The `1.0.2` release is the current documentation and CI closure point on `vibe-coding`.
 
 ## Version Strategy
 
@@ -28,6 +28,7 @@ Completed baseline work:
 - Upgraded the demo consumer to the same Spring Boot `2.7.x` generation as the starter baseline.
 - Added an always-on H2 routing integration slice so release checks no longer depend solely on Docker-backed MySQL coverage.
 - Documented the `v1.0.0` compatibility matrix.
+- Cut and pushed the `1.0.1` maintenance release after the full release gate passed.
 
 Current checkpoint:
 
@@ -49,8 +50,12 @@ Current checkpoint:
 - End-to-end routing release checks now include an always-on H2 path, while the Docker-backed MySQL slice remains supplemental.
 - The `1.0.1` maintenance line now includes the release-gate hardening slice.
 - A repo-root release-gate script now drives the canonical release verification flow for the `1.0.x` maintenance line.
+- The current tree is a formal `1.0.1` release version, not a `-SNAPSHOT` development version.
+- The `1.0.1` release commit and tag have been pushed to the remote `vibe-coding` branch.
+- GitHub Actions now runs the canonical release gate on PRs, manual dispatch, and pushes to `master` / `vibe-coding`.
+- The current tree is versioned as `1.0.2` for the compatibility/documentation maintenance release.
 
-The next goal is to decide whether the new `1.0.1` release gate should also be wired into CI before moving on to broader `1.1.0` feature work.
+The next goal is to move on to broader `1.1.0` observability and runtime operations work.
 
 ## Review Reconciliation
 
@@ -59,7 +64,10 @@ The next goal is to decide whether the new `1.0.1` release gate should also be w
 - Closed: `DataSourceFilterAdvise` runs for reused and transaction-pinned routes as well as newly opened routes.
 - Closed: `mysplitter` module verification no longer relies on permanently skipped tests.
 - Not present in the current tree: the previous `systemPath` self-dependency issue is no longer in `mysplitter/pom.xml`.
-- Needs revalidation rather than assumption: the health-manager race finding referenced an older `LinkedHashSet` design; the current implementation uses concurrent maps, so the remaining work is to prove its semantics under contention with dedicated tests.
+- Closed: the health-manager race finding referenced an older `LinkedHashSet` design; the current implementation uses concurrent maps and has dedicated concurrent transition coverage.
+- Closed: the Spring Boot baseline finding is stale; the parent build now uses Spring Boot `2.7.18`, and the starter ships both `spring.factories` and `AutoConfiguration.imports`.
+- Closed: the snapshot release blocker is stale; the current tree is versioned as `1.0.2`, and release tags point at formal release commits.
+- Mitigated: Docker-backed MySQL validation can still skip when Docker is unavailable, but the release gate now includes an always-on H2 routing integration path for baseline routing and transaction coverage.
 
 ## Planning Principles
 
@@ -233,8 +241,11 @@ Exit criteria:
 - There is one documented release-gate command that validates the full supported regression surface.
 - Core-module validation and cross-module validation are clearly separated and intentionally named.
 - A broken `mysplitter-tests` suite can no longer be mistaken for a green release candidate.
+- The release commit and `1.0.1` tag are published to the remote repository.
 
 ### v1.0.2 - Compatibility And Documentation Closure
+
+Status: complete.
 
 Goal: tighten the release story around the `1.0.x` baseline without expanding the feature surface.
 
@@ -244,12 +255,14 @@ Scope:
 - Improve README and demo startup guidance.
 - Add release notes / upgrade notes for users coming from the `0.9.x` line.
 - Clean up any remaining low-risk dependency or packaging inconsistencies found during `1.0.1`.
+- Keep the README linked to the release notes, upgrade guide, compatibility matrix, and verification commands.
 
 Primary areas:
 
 - `README.md`
 - `docs/`
 - `demo/`
+- `.github/workflows/release-gate.yml`
 - release metadata files
 
 Exit criteria:
@@ -330,16 +343,17 @@ Exit criteria:
 26. Done: cut the `1.0.0` release tag.
 27. Done: added a root-level release-gate verification path for the `1.0.1` maintenance line.
 28. Done: added repo-root `release-gate` scripts for Windows and Unix-like shells so the full release verification path is executable as one command.
-29. Next: write release / upgrade notes for users adopting the `1.0.x` baseline.
-30. Next: decide whether the release-gate script is wrapped by CI directly or mirrored as native CI steps.
+29. Done: cut and pushed the `1.0.1` release tag after validating the release gate.
+30. Done: added release notes and a `v1.0.x` upgrade guide for users adopting the baseline.
+31. Done: wired GitHub Actions to run the canonical release gate directly.
+32. Done: added demo startup guidance for the `1.0.x` baseline.
+33. Next: start metrics and operational integration in `v1.1.0`.
 
 ## Suggested Delivery Sequence
 
-1. Finish `1.0.2` compatibility and documentation cleanup for the maintenance line.
-2. Decide how the new release-gate command is enforced in CI.
-3. Start metrics and operational integration in `v1.1.0`.
-4. Build out the full regression suite and CI in `v1.2.0`.
-5. Plan the eventual Java 17 / Boot 3.x break in `2.0.0` rather than leaking it into the `1.x` line.
+1. Start metrics and operational integration in `v1.1.0`.
+2. Build out the broader integration matrix in `v1.2.0`.
+3. Plan the eventual Java 17 / Boot 3.x break in `2.0.0` rather than leaking it into the `1.x` line.
 
 ## Risks To Watch
 
