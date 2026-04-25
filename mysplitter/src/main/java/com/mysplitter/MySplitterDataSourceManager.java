@@ -134,6 +134,7 @@ public class MySplitterDataSourceManager {
                 pinRouteIfNecessary(connectionContext, routeKey);
                 return new MySplitterRouteSelection(routeKey, existing);
             }
+            connectionContext.assertCanOpenRouteInTransaction(routeKey);
             try {
                 doFilters(dataSourceWrapper, sql.getSql());
                 Connection connection = openConnection(dataSourceWrapper, username, password);
@@ -377,6 +378,7 @@ public class MySplitterDataSourceManager {
                 pinRouteIfNecessary(connectionContext, routeKey);
                 return new MySplitterRouteSelection(routeKey, existing);
             }
+            connectionContext.assertCanOpenRouteInTransaction(routeKey);
             try {
                 doFilters(dataSourceWrapper, sql);
                 Connection connection = openConnection(dataSourceWrapper, username, password);

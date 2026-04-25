@@ -17,6 +17,7 @@
 package com.mysplitter;
 
 import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -58,6 +59,18 @@ public class MySplitterConnectionContext {
         currentConnectionKey = routeKey;
     }
 
+    public synchronized void assertCanOpenRouteInTransaction(MySplitterRouteKey routeKey) throws SQLException {
+        if (!isTransactionActive()) {
+            return;
+        }
+        for (Object connectionKey : connections.keySet()) {
+            if (!routeKey.equals(connectionKey)) {
+                throw multipleConnectionTransactionException(describeConnectionKey(connectionKey),
+                        describeConnectionKey(routeKey));
+            }
+        }
+    }
+
     public synchronized void removeConnection(MySplitterRouteKey routeKey) {
         connections.remove(routeKey);
         if (routeKey.equals(currentConnectionKey)) {
@@ -78,6 +91,18 @@ public class MySplitterConnectionContext {
             connections.put(ADMINISTRATIVE_CONNECTION_KEY, connection);
         }
         currentConnectionKey = ADMINISTRATIVE_CONNECTION_KEY;
+    }
+
+    public synchronized void assertCanOpenAdministrativeConnectionInTransaction() throws SQLException {
+        if (!isTransactionActive()) {
+            return;
+        }
+        for (Object connectionKey : connections.keySet()) {
+            if (!ADMINISTRATIVE_CONNECTION_KEY.equals(connectionKey)) {
+                throw multipleConnectionTransactionException(describeConnectionKey(connectionKey),
+                        describeConnectionKey(ADMINISTRATIVE_CONNECTION_KEY));
+            }
+        }
     }
 
     public synchronized Connection getCurrentConnection() {
@@ -115,5 +140,20 @@ public class MySplitterConnectionContext {
         connections.clear();
         pinnedRouteKeys.clear();
         currentConnectionKey = null;
+    }
+
+    private SQLException multipleConnectionTransactionException(String existingConnectionKey,
+                                                                String requestedConnectionKey) {
+        return new SQLException("MySplitter local transactions do not support multiple physical connections. " +
+                "Existing connection is " + existingConnectionKey + ", requested connection is " +
+                requestedConnectionKey + ". Split the work into separate transactions or use XA/Saga/compensation " +
+                "for distributed transaction semantics.");
+    }
+
+    private String describeConnectionKey(Object connectionKey) {
+        if (ADMINISTRATIVE_CONNECTION_KEY.equals(connectionKey)) {
+            return "administrative";
+        }
+        return String.valueOf(connectionKey);
     }
 }

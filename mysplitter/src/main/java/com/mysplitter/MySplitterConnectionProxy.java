@@ -95,6 +95,7 @@ public class MySplitterConnectionProxy implements Connection {
         if (connection != null) {
             return connection;
         }
+        connectionContext.assertCanOpenAdministrativeConnectionInTransaction();
         connection = this.mySplitterDataSourceManager.getDefaultConnection();
         getConnectionState().apply(connection);
         connectionContext.registerAdministrativeConnection(connection);

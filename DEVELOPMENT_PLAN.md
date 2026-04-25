@@ -9,8 +9,10 @@ The `1.0.0`, `1.0.1`, and `1.0.2` release tags are cut. The `1.0.2` release is t
 ## Version Strategy
 
 - `1.0.x`: post-release hardening and production-readiness fixes. Focus on verification honesty, packaging, documentation closure, security posture, and semantic correctness.
-- `1.1.x`: additive observability and runtime operations. No intentional breaking changes after the `1.0.3` production-readiness gate is closed.
-- `1.2.x`: quality-system expansion, especially CI and broader integration coverage.
+- `1.1.x`: distributed transaction SPI and XA MVP. Multi-datasource transactions are a core project capability, not an optional observability add-on.
+- `1.2.x`: heterogeneous XA compatibility and failure-recovery matrix across database brands.
+- `1.3.x`: AT-style automatic compensation for selected relational database dialects.
+- `1.4.x`: TCC and Saga extension points for heterogeneous resources that cannot safely use XA or AT.
 - `2.0.0`: reserved for breaking platform shifts such as a Java 17 baseline, Spring Boot 3.x, and Jakarta migration.
 
 Completed baseline work:
@@ -54,9 +56,9 @@ Current checkpoint:
 - GitHub Actions now runs the canonical release gate on PRs, manual dispatch, and pushes to `master` / `vibe-coding`.
 - The `1.0.2` release commit and tag have been pushed to the remote `vibe-coding` branch.
 - The current tree is a formal `1.0.2` release version, not a `-SNAPSHOT` development version.
-- The first `1.0.3` hardening slices are underway: YAML loading now uses SafeConstructor-based primitive mapping, and password handling now has explicit `plain`, `environment`, and `legacy-rsa` source modes.
+- The first `1.0.3` hardening slices are underway: YAML loading now uses SafeConstructor-based primitive mapping, password handling now has explicit `plain`, `environment`, and `legacy-rsa` source modes, and local transactions now fail fast before spanning multiple physical connections.
 
-The next goal is to close the `1.0.3` production-readiness blockers before broader `1.1.0` observability and runtime operations work.
+The next goal is to close the `1.0.3` production-readiness blockers before starting the `1.1.0` distributed transaction foundation.
 
 ## Review Reconciliation
 
@@ -71,7 +73,8 @@ The next goal is to close the `1.0.3` production-readiness blockers before broad
 - Mitigated: Docker-backed MySQL validation can still skip when Docker is unavailable, but the release gate now includes an always-on H2 routing integration path for baseline routing and transaction coverage.
 - Closed for `1.0.3`: configuration password protection now has a clearer mode model. Development users may choose plain YAML values for convenience, while production users can resolve passwords from system properties or environment variables; the legacy RSA helper is documented as compatibility-only.
 - Closed for `1.0.3`: YAML parsing now uses SnakeYAML safe construction and manual primitive mapping instead of unsafe type construction.
-- Open for `1.0.3`: cross-physical-connection transactions can partially commit because commits and rollbacks are executed connection-by-connection without XA, compensation, or an explicit guardrail.
+- Closed for `1.0.3`: cross-physical-connection local transactions now fail fast instead of attempting non-atomic best-effort commit/rollback across multiple physical connections.
+- Re-scoped: distributed multi-datasource transactions are now a core roadmap item. `1.0.3` keeps unsafe local multi-connection transactions blocked, while `1.1.0+` introduces a real transaction coordinator instead of pretending local JDBC commits are atomic.
 - Open for `1.0.3`: `Statement` batch execution is unsafe across multiple routed statements because `executeBatch()` only delegates to the current physical statement.
 - Open for `1.0.3`: the default read/write parser is too naive for production SQL semantics such as comments, `WITH`, `SELECT FOR UPDATE`, vendor hints, and administrative statements.
 
@@ -317,18 +320,121 @@ Exit criteria:
 - Default SQL classification routes ambiguous and lock-sensitive SQL conservatively to writers.
 - The release gate includes regression coverage for the fixed semantics.
 
-### v1.1.0 - Observability and Runtime Operations
+### v1.1.0 - Distributed Transaction SPI And XA MVP
 
-Status: deferred until `v1.0.3` production-readiness hardening is complete.
+Status: planned after `v1.0.3` production-readiness hardening is complete.
 
-Goal: make routing and failover visible in production environments.
+Goal: make multi-datasource transactions a first-class MySplitter subsystem, with XA as the first production-grade atomic transaction mode for different database brands.
+
+Design reference:
+
+- `docs/distributed-transaction-roadmap.md`
+
+Scope:
+
+- Add `transaction.mode`: `local`, `xa`.
+- Add transaction manager, branch transaction, coordinator, and transaction log SPI.
+- Add JDBC `XADataSource` adapter support.
+- Enlist each routed physical datasource as a branch in one global transaction.
+- Implement two-phase prepare, commit, rollback, and durable recovery.
+- Integrate with Spring transactions in the starter.
+- Fail clearly when a datasource or driver cannot support the selected distributed transaction mode.
+
+Primary areas:
+
+- `mysplitter/`
+- `mysplitter-spring-boot-starter/`
+- `mysplitter-tests/`
+- `README.md`
+- `docs/`
+
+Exit criteria:
+
+- One transaction can update two different routed XA datasources atomically.
+- Crash/restart recovery can finish prepared branches.
+- Unsupported datasources fail before transaction work starts.
+- The compatibility and operational limits are documented.
+
+### v1.2.0 - Heterogeneous XA Compatibility Matrix
+
+Goal: prove XA behavior across multiple database brands and failure modes.
+
+Scope:
+
+- Add Testcontainers suites for MySQL, PostgreSQL, and at least one additional database target if licensing/tooling allows.
+- Document driver and datasource requirements per database brand.
+- Add failure-injection coverage for prepare failure, commit failure, rollback failure, and recovery.
+- Add metrics and logs for global transaction state.
+
+Primary areas:
+
+- `mysplitter/`
+- `mysplitter-tests/src/test/`
+- `mysplitter-spring-boot-starter/src/test/`
+- `docs/`
+- CI configuration files
+
+Exit criteria:
+
+- Supported database brands have verified XA examples.
+- Unsupported or partially supported brands are documented honestly.
+- CI can block regressions in distributed transaction recovery behavior.
+
+### v1.3.0 - AT Mode Foundation
+
+Goal: provide non-intrusive compensation transactions for selected relational databases.
+
+Scope:
+
+- Add `transaction.mode: at`.
+- Add SQL parser and dialect SPI.
+- Add undo log model and DDL generator.
+- Implement before image / after image capture for simple DML.
+- Add global lock table and conflict handling.
+- Start with MySQL and H2 coverage, then expand.
+
+Primary areas:
+
+- `mysplitter/`
+- `mysplitter-tests/src/test/`
+- `docs/`
+
+Exit criteria:
+
+- Simple `INSERT`, `UPDATE`, and `DELETE` can rollback through undo logs on supported dialects.
+- Unsupported SQL fails fast with a clear message.
+
+### v1.4.0 - TCC And Saga SPI
+
+Goal: support heterogeneous resources that cannot participate in XA or AT.
+
+Scope:
+
+- Add TCC branch SPI for try/confirm/cancel.
+- Add Saga compensation SPI for long-running workflows.
+- Add idempotency, empty rollback, and hanging-prevention contracts.
+- Keep these modes explicit and opt-in.
+
+Primary areas:
+
+- `mysplitter/`
+- `mysplitter-spring-boot-starter/`
+- `docs/`
+
+Exit criteria:
+
+- Users can mix JDBC branches with explicit business compensation branches under one global transaction model.
+
+### v1.5.0 - Observability and Runtime Operations
+
+Goal: make routing, failover, and distributed transaction state visible in production environments.
 
 Scope:
 
 - Add Micrometer metrics.
-- Expose route hits, retries, failovers, and unhealthy node counts.
+- Expose route hits, retries, failovers, unhealthy node counts, global transaction counts, branch states, and recovery queues.
 - Add starter hooks for Actuator integration.
-- Document extension points for parser, router, filter, and alert handler implementations.
+- Document extension points for parser, router, filter, alert handler, and transaction coordinator implementations.
 
 Primary areas:
 
@@ -338,29 +444,8 @@ Primary areas:
 
 Exit criteria:
 
-- Core metrics can be exported.
+- Core routing and transaction metrics can be exported.
 - Operational behavior is inspectable without debugging the source code.
-
-### v1.2.0 - Quality System
-
-Goal: make regression prevention part of normal development.
-
-Scope:
-
-- Add Testcontainers-based integration tests.
-- Cover multi-database routing, read/write separation, failover, and transactional consistency.
-- Add CI for build, unit tests, integration tests, and release validation.
-
-Primary areas:
-
-- `mysplitter/src/test/`
-- `mysplitter-spring-boot-starter/src/test/`
-- CI configuration files
-
-Exit criteria:
-
-- Critical routing and transaction scenarios are covered by automated tests.
-- CI is sufficient to block unsafe releases.
 
 ## Immediate Backlog
 
@@ -400,20 +485,28 @@ Exit criteria:
 34. Done: recorded the `1.0.2` release state and cleaned up stale plan wording.
 35. Done: hardened YAML loading with SnakeYAML safe construction and regression coverage.
 36. Done: added explicit password source modes for plain local config, environment-backed deployment config, and legacy RSA compatibility.
-37. Next: define and enforce transaction guardrails for logical transactions that touch multiple physical connections.
-38. Later: start metrics and operational integration in `v1.1.0`.
+37. Done: defined and enforced transaction guardrails for logical transactions that touch multiple physical connections.
+38. Next: correct or reject multi-route `Statement` batch execution.
+39. Later: start distributed transaction SPI and XA MVP in `v1.1.0`.
+40. Later: add heterogeneous XA compatibility coverage in `v1.2.0`.
+41. Later: add AT-style automatic compensation in `v1.3.0`.
+42. Later: add TCC/Saga extension modes in `v1.4.0`.
 
 ## Suggested Delivery Sequence
 
 1. Finish `v1.0.3` production-readiness hardening.
-2. Start metrics and operational integration in `v1.1.0`.
-3. Build out the broader integration matrix in `v1.2.0`.
-4. Plan the eventual Java 17 / Boot 3.x break in `2.0.0` rather than leaking it into the `1.x` line.
+2. Start distributed transaction SPI and XA MVP in `v1.1.0`.
+3. Build out the heterogeneous database transaction matrix in `v1.2.0`.
+4. Add AT compensation after XA state, logging, and recovery are reliable.
+5. Plan the eventual Java 17 / Boot 3.x break in `2.0.0` rather than leaking it into the `1.x` line.
 
 ## Risks To Watch
 
 - Transaction semantics may change observable behavior for current users.
 - Fixing cross-route transactions may require failing fast in scenarios that previously attempted best-effort local commits.
+- XA support depends on real driver and database behavior, so compatibility must be proven by database brand rather than assumed from JDBC interfaces.
+- AT mode is SQL dialect sensitive and must not claim broad database support before dialect-specific undo-log coverage exists.
+- TCC and Saga shift correctness into user-defined business compensation, so APIs must make idempotency and retry contracts explicit.
 - Hardening password handling may require deprecating the current config-encryption helper rather than preserving its exact behavior.
 - A conservative default SQL parser may route more statements to writers until a stronger parser is introduced.
 - Health recovery code can look correct in static review but still break under concurrent routing pressure, so it needs proof by test rather than inspection alone.
