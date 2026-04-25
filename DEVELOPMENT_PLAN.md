@@ -4,7 +4,7 @@
 
 Stage one stabilization is complete.
 
-The `1.0.0`, `1.0.1`, and `1.0.2` release tags are cut. The `1.0.2` release is the current documentation and CI closure point on `vibe-coding`.
+The `1.0.0`, `1.0.1`, and `1.0.2` release tags are cut. The current tree is the `1.0.3` release candidate for production-readiness hardening on `vibe-coding`.
 
 ## Version Strategy
 
@@ -55,10 +55,10 @@ Current checkpoint:
 - The `1.0.1` release commit and tag have been pushed to the remote `vibe-coding` branch.
 - GitHub Actions now runs the canonical release gate on PRs, manual dispatch, and pushes to `master` / `vibe-coding`.
 - The `1.0.2` release commit and tag have been pushed to the remote `vibe-coding` branch.
-- The current tree is a formal `1.0.2` release version, not a `-SNAPSHOT` development version.
-- The first `1.0.3` hardening slices are underway: YAML loading now uses SafeConstructor-based primitive mapping, password handling now has explicit `plain`, `environment`, and `legacy-rsa` source modes, and local transactions now fail fast before spanning multiple physical connections.
+- The current tree is a formal `1.0.3` release version, not a `-SNAPSHOT` development version.
+- The `1.0.3` hardening slices are complete: YAML loading now uses SafeConstructor-based primitive mapping, password handling now has explicit `plain`, `environment`, and `legacy-rsa` source modes, local transactions now fail fast before spanning multiple physical connections, routed statement batches execute deterministically, and the default SQL parser routes ambiguous SQL to writers.
 
-The next goal is to close the `1.0.3` production-readiness blockers before starting the `1.1.0` distributed transaction foundation.
+The next goal is to validate and publish the `1.0.3` production-readiness release before starting the `1.1.0` distributed transaction foundation.
 
 ## Review Reconciliation
 
@@ -69,7 +69,7 @@ The next goal is to close the `1.0.3` production-readiness blockers before start
 - Not present in the current tree: the previous `systemPath` self-dependency issue is no longer in `mysplitter/pom.xml`.
 - Closed: the health-manager race finding referenced an older `LinkedHashSet` design; the current implementation uses concurrent maps and has dedicated concurrent transition coverage.
 - Closed: the Spring Boot baseline finding is stale; the parent build now uses Spring Boot `2.7.18`, and the starter ships both `spring.factories` and `AutoConfiguration.imports`.
-- Closed: the snapshot release blocker is stale; the current tree is versioned as `1.0.2`, and release tags point at formal release commits.
+- Closed: the snapshot release blocker is stale; the current tree is versioned as `1.0.3`, and release tags point at formal release commits.
 - Mitigated: Docker-backed MySQL validation can still skip when Docker is unavailable, but the release gate now includes an always-on H2 routing integration path for baseline routing and transaction coverage.
 - Closed for `1.0.3`: configuration password protection now has a clearer mode model. Development users may choose plain YAML values for convenience, while production users can resolve passwords from system properties or environment variables; the legacy RSA helper is documented as compatibility-only.
 - Closed for `1.0.3`: YAML parsing now uses SnakeYAML safe construction and manual primitive mapping instead of unsafe type construction.
@@ -282,7 +282,7 @@ Exit criteria:
 
 ### v1.0.3 - Production Readiness Hardening
 
-Status: next.
+Status: release candidate.
 
 Goal: close the P1 review findings that block enterprise production deployment.
 
@@ -488,7 +488,7 @@ Exit criteria:
 37. Done: defined and enforced transaction guardrails for logical transactions that touch multiple physical connections.
 38. Done: corrected multi-route `Statement` batch execution with deterministic result ordering.
 39. Done: improved the default read/write parser so ambiguous and lock-sensitive SQL routes conservatively.
-40. Next: run the full release gate for the `1.0.3` production-readiness line and review release readiness.
+40. Next: run the full release gate for the `1.0.3` production-readiness line, tag the release, and push it.
 41. Later: start distributed transaction SPI and XA MVP in `v1.1.0`.
 42. Later: add heterogeneous XA compatibility coverage in `v1.2.0`.
 43. Later: add AT-style automatic compensation in `v1.3.0`.

@@ -1,5 +1,25 @@
 # Release Notes
 
+## 1.0.3
+
+`1.0.3` is a production-readiness hardening release focused on closing P1 review findings before the distributed transaction roadmap begins.
+
+Highlights:
+
+- Upgraded SnakeYAML and replaced unsafe typed YAML construction with safe primitive mapping.
+- Added explicit password source modes for local plain configuration, environment/system-property backed deployment configuration, and legacy RSA compatibility.
+- Removed default embedded RSA key material and made legacy RSA config encryption compatibility-only.
+- Added local transaction guardrails so cross-route local transactions fail fast instead of pretending best-effort JDBC commits are atomic.
+- Fixed `Statement` batch execution so routed physical batches all run and update counts are merged in original `addBatch(...)` order.
+- Made the default SQL parser conservative so lock-sensitive or ambiguous SQL routes to writers.
+- Added a distributed transaction roadmap that makes XA, AT, TCC, and Saga first-class future transaction modes.
+
+Validation command:
+
+```powershell
+.\scripts\release-gate.ps1
+```
+
 ## 1.0.2
 
 `1.0.2` is a maintenance release focused on documentation closure and CI release-gate enforcement.
