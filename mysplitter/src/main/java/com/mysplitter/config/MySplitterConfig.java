@@ -31,6 +31,8 @@ public class MySplitterConfig implements Serializable {
 
     private boolean enablePasswordEncryption;
 
+    private String passwordSource;
+
     private String illAlertHandler;
 
     private List<String> filters;
@@ -61,6 +63,14 @@ public class MySplitterConfig implements Serializable {
 
     public void setEnablePasswordEncryption(boolean enablePasswordEncryption) {
         this.enablePasswordEncryption = enablePasswordEncryption;
+    }
+
+    public String getPasswordSource() {
+        return passwordSource;
+    }
+
+    public void setPasswordSource(String passwordSource) {
+        this.passwordSource = passwordSource;
     }
 
     public String getIllAlertHandler() {
@@ -101,6 +111,7 @@ public class MySplitterConfig implements Serializable {
                 "databasesRoutingHandler='" + databasesRoutingHandler + '\'' +
                 ", readAndWriteParser='" + readAndWriteParser + '\'' +
                 ", enablePasswordEncryption=" + enablePasswordEncryption +
+                ", passwordSource='" + passwordSource + '\'' +
                 ", illAlertHandler='" + illAlertHandler + '\'' +
                 ", filters=" + filters +
                 ", common=" + common +

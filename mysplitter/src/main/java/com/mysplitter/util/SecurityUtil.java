@@ -31,11 +31,9 @@ import java.security.spec.X509EncodedKeySpec;
 
 public class SecurityUtil {
 
-    private static final String DEFAULT_PRIVATE_KEY_STRING =
-            "MIIBVAIBADANBgkqhkiG9w0BAQEFAASCAT4wggE6AgEAAkEAocbCrurZGbC5GArEHKlAfDSZi7gFBnd4yxOt0rwTqKBFzGyhtQLu5PRKjEiOXVa95aeIIBJ6OhC2f8FjqFUpawIDAQABAkAPejKaBYHrwUqUEEOe8lpnB6lBAsQIUFnQI/vXU4MV+MhIzW0BLVZCiarIQqUXeOhThVWXKFt8GxCykrrUsQ6BAiEA4vMVxEHBovz1di3aozzFvSMdsjTcYRRo82hS5Ru2/OECIQC2fAPoXixVTVY7bNMeuxCP4954ZkXp7fEPDINCjcQDywIgcc8XLkkPcs3Jxk7uYofaXaPbg39wuJpEmzPIxi3k0OECIGubmdpOnin3HuCP/bbjbJLNNoUdGiEmFL5hDI4UdwAdAiEAtcAwbm08bKN7pwwvyqaCBC//VnEWaq39DCzxr+Z2EIk=";
-
+    @Deprecated
     public static final String DEFAULT_PUBLIC_KEY_STRING =
-            "MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBAKHGwq7q2RmwuRgKxBypQHw0mYu4BQZ3eMsTrdK8E6igRcxsobUC7uT0SoxIjl1WveWniCASejoQtn/BY6hVKWsCAwEAAQ==";
+            "";
 
     public static void main(String[] args) throws Exception {
         System.out.println();
@@ -50,7 +48,7 @@ public class SecurityUtil {
             System.out.println();
             System.out.println("[password " + i + "] [" + args[i - 1] + "]");
             String password = args[i - 1];
-            String[] arr = genKeyPair(512);
+            String[] arr = genKeyPair(2048);
             System.out.println();
             System.out.println("privateKey:\t" + arr[0]);
             System.out.println();
@@ -91,7 +89,7 @@ public class SecurityUtil {
 
     public static PublicKey getPublicKey(String publicKeyText) {
         if (publicKeyText == null || publicKeyText.length() == 0) {
-            publicKeyText = SecurityUtil.DEFAULT_PUBLIC_KEY_STRING;
+            throw new IllegalArgumentException("RSA public key must be configured explicitly.");
         }
 
         try {
@@ -160,8 +158,8 @@ public class SecurityUtil {
     }
 
     public static String encrypt(String key, String plainText) throws Exception {
-        if (key == null) {
-            key = DEFAULT_PRIVATE_KEY_STRING;
+        if (key == null || key.length() == 0) {
+            throw new IllegalArgumentException("RSA private key must be configured explicitly.");
         }
 
         byte[] keyBytes = Base64.base64ToByteArray(key);

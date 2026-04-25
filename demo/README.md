@@ -48,17 +48,18 @@ The committed `mysplitter.yml` is an example configuration. Before running local
 
 - `jdbcUrl`
 - `username`
-- `password`
-- `publicKey`, if password encryption remains enabled
+- `password`, when using local plain configuration
+- `passwordEnv` or `${ENV_OR_PROPERTY}` placeholders, when using environment-backed configuration
+- `publicKey`, only when temporarily keeping the legacy RSA compatibility mode
 
-For a quick local-only run, you can also disable password encryption and use a plain password:
+For a quick local-only run, choose plain password configuration explicitly:
 
 ```yaml
 mysplitter:
-  enablePasswordEncryption: false
+  passwordSource: plain
 ```
 
-Then remove the `publicKey` entries and set each `password` to the local MySQL password.
+Then remove the `publicKey` entries and set each `password` to the local MySQL password. For deployment-style checks, prefer `passwordSource: environment` with `passwordEnv: MYSQL_PASSWORD` or `password: ${MYSQL_PASSWORD}`.
 
 ## Build
 
@@ -122,4 +123,3 @@ The demo mappers use SQL prefixes to choose the logical database:
 ```
 
 `DatabaseRouter` strips the prefix before SQL reaches the physical database.
-

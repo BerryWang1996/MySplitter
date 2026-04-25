@@ -8,6 +8,7 @@ import org.junit.Test;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -84,9 +85,110 @@ public class ConfigurationUtilSafeYamlTest {
         }
     }
 
+    @Test
+    public void shouldKeepPlainYamlPasswordWhenConfigured() throws Exception {
+        MySplitterRootConfig rootConfig = loadChecked(singleNodeYaml(
+                "  passwordSource: plain\n",
+                "            password: local-secret\n"));
+
+        assertEquals("local-secret", nodeConfiguration(rootConfig).get("password"));
+    }
+
+    @Test
+    public void shouldResolvePasswordFromSystemPropertyPlaceholder() throws Exception {
+        System.setProperty("mysplitter.test.password", "external-secret");
+        try {
+            MySplitterRootConfig rootConfig = loadChecked(singleNodeYaml(
+                    "  passwordSource: environment\n",
+                    "            password: ${mysplitter.test.password}\n"));
+
+            assertEquals("external-secret", nodeConfiguration(rootConfig).get("password"));
+        } finally {
+            System.clearProperty("mysplitter.test.password");
+        }
+    }
+
+    @Test
+    public void shouldResolvePasswordFromPasswordEnvKey() throws Exception {
+        System.setProperty("mysplitter.test.passwordEnv", "env-key-secret");
+        try {
+            MySplitterRootConfig rootConfig = loadChecked(singleNodeYaml(
+                    "  passwordSource: environment\n",
+                    "            passwordEnv: mysplitter.test.passwordEnv\n"));
+
+            assertEquals("env-key-secret", nodeConfiguration(rootConfig).get("password"));
+        } finally {
+            System.clearProperty("mysplitter.test.passwordEnv");
+        }
+    }
+
+    @Test
+    public void shouldRejectPlainPasswordWhenEnvironmentModeIsConfigured() throws Exception {
+        try {
+            loadChecked(singleNodeYaml(
+                    "  passwordSource: environment\n",
+                    "            password: local-secret\n"));
+            fail("Expected environment passwordSource to reject plain password values.");
+        } catch (IllegalArgumentException e) {
+            assertTrue(e.getMessage().contains("passwordSource environment"));
+        }
+    }
+
+    @Test
+    public void shouldRejectLegacyRsaPasswordWithoutExplicitPublicKey() throws Exception {
+        try {
+            loadChecked(singleNodeYaml(
+                    "  enablePasswordEncryption: true\n",
+                    "            password: encrypted-secret\n"));
+            fail("Expected legacy RSA mode to require an explicit public key.");
+        } catch (IllegalArgumentException e) {
+            assertTrue(e.getMessage().contains("publicKey explicitly"));
+        }
+    }
+
+    @Test
+    public void shouldRejectSecurityUtilDefaultPrivateKeyUsage() throws Exception {
+        try {
+            SecurityUtil.encrypt("secret");
+            fail("Expected RSA encryption helper to require an explicit private key.");
+        } catch (IllegalArgumentException e) {
+            assertTrue(e.getMessage().contains("private key"));
+        }
+    }
+
     private MySplitterRootConfig load(String yaml) throws Exception {
         return ConfigurationUtil.getMySplitterConfig(
                 new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)),
                 "inline-test.yml");
+    }
+
+    private MySplitterRootConfig loadChecked(String yaml) throws Exception {
+        MySplitterRootConfig rootConfig = load(yaml);
+        ConfigurationUtil.checkMySplitterConfig(rootConfig);
+        return rootConfig;
+    }
+
+    private String singleNodeYaml(String mySplitterOptions, String configurationOptions) {
+        return "mysplitter:\n" +
+                mySplitterOptions +
+                "  common:\n" +
+                "    dataSourceClass: com.zaxxer.hikari.HikariDataSource\n" +
+                "  databases:\n" +
+                "    database-a:\n" +
+                "      integrates:\n" +
+                "        node-1:\n" +
+                "          configuration:\n" +
+                "            jdbcUrl: jdbc:h2:mem:test\n" +
+                "            username: sa\n" +
+                configurationOptions;
+    }
+
+    private Map<String, Object> nodeConfiguration(MySplitterRootConfig rootConfig) {
+        return rootConfig.getMysplitter()
+                .getDatabases()
+                .get("database-a")
+                .getIntegrates()
+                .get("node-1")
+                .getConfiguration();
     }
 }

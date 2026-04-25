@@ -54,6 +54,7 @@ Current checkpoint:
 - GitHub Actions now runs the canonical release gate on PRs, manual dispatch, and pushes to `master` / `vibe-coding`.
 - The `1.0.2` release commit and tag have been pushed to the remote `vibe-coding` branch.
 - The current tree is a formal `1.0.2` release version, not a `-SNAPSHOT` development version.
+- The first `1.0.3` hardening slices are underway: YAML loading now uses SafeConstructor-based primitive mapping, and password handling now has explicit `plain`, `environment`, and `legacy-rsa` source modes.
 
 The next goal is to close the `1.0.3` production-readiness blockers before broader `1.1.0` observability and runtime operations work.
 
@@ -68,8 +69,8 @@ The next goal is to close the `1.0.3` production-readiness blockers before broad
 - Closed: the Spring Boot baseline finding is stale; the parent build now uses Spring Boot `2.7.18`, and the starter ships both `spring.factories` and `AutoConfiguration.imports`.
 - Closed: the snapshot release blocker is stale; the current tree is versioned as `1.0.2`, and release tags point at formal release commits.
 - Mitigated: Docker-backed MySQL validation can still skip when Docker is unavailable, but the release gate now includes an always-on H2 routing integration path for baseline routing and transaction coverage.
-- Open for `1.0.3`: configuration password protection needs a clearer mode model. Development users may choose plain YAML values for convenience, but production users need documented external secret injection; the current RSA helper must not be presented as production-grade protection.
-- Open for `1.0.3`: YAML parsing still uses SnakeYAML `Constructor` on SnakeYAML `1.23`; this needs a safe parser model and dependency upgrade.
+- Closed for `1.0.3`: configuration password protection now has a clearer mode model. Development users may choose plain YAML values for convenience, while production users can resolve passwords from system properties or environment variables; the legacy RSA helper is documented as compatibility-only.
+- Closed for `1.0.3`: YAML parsing now uses SnakeYAML safe construction and manual primitive mapping instead of unsafe type construction.
 - Open for `1.0.3`: cross-physical-connection transactions can partially commit because commits and rollbacks are executed connection-by-connection without XA, compensation, or an explicit guardrail.
 - Open for `1.0.3`: `Statement` batch execution is unsafe across multiple routed statements because `executeBatch()` only delegates to the current physical statement.
 - Open for `1.0.3`: the default read/write parser is too naive for production SQL semantics such as comments, `WITH`, `SELECT FOR UPDATE`, vendor hints, and administrative statements.
@@ -397,8 +398,10 @@ Exit criteria:
 32. Done: added demo startup guidance for the `1.0.x` baseline.
 33. Done: cut and pushed the `1.0.2` release tag after validating the release gate.
 34. Done: recorded the `1.0.2` release state and cleaned up stale plan wording.
-35. Next: close `1.0.3` production-readiness blockers from the latest review.
-36. Later: start metrics and operational integration in `v1.1.0`.
+35. Done: hardened YAML loading with SnakeYAML safe construction and regression coverage.
+36. Done: added explicit password source modes for plain local config, environment-backed deployment config, and legacy RSA compatibility.
+37. Next: define and enforce transaction guardrails for logical transactions that touch multiple physical connections.
+38. Later: start metrics and operational integration in `v1.1.0`.
 
 ## Suggested Delivery Sequence
 

@@ -22,6 +22,8 @@ import com.mysplitter.advise.DatabasesRoutingHandlerAdvise;
 import com.mysplitter.advise.ReadAndWriteParserAdvise;
 import com.mysplitter.config.*;
 import com.mysplitter.exceptions.DataSourceClassNotDefine;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
@@ -37,13 +39,18 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * 配置文件工具类
  */
 public class ConfigurationUtil {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ConfigurationUtil.class);
 
     private static final List<String> SUPPORT_SWITCH_OPPORTUNITIES_LIST =
             Arrays.asList("on-error", "scheduled", "on-error-dissolve");
@@ -56,6 +63,15 @@ public class ConfigurationUtil {
 
     private static final List<String> SUPPORT_LB_NODE_MODE_LIST =
             Arrays.asList("read", "write");
+
+    private static final Pattern SECRET_PLACEHOLDER_PATTERN =
+            Pattern.compile("\\$\\{([^}:]+)(?::([^}]*))?\\}");
+
+    private enum PasswordSourceMode {
+        PLAIN,
+        ENVIRONMENT,
+        LEGACY_RSA
+    }
 
     private ConfigurationUtil() {
     }
@@ -111,6 +127,7 @@ public class ConfigurationUtil {
         config.setDatabasesRoutingHandler(asString(configMap.get("databasesRoutingHandler")));
         config.setReadAndWriteParser(asString(configMap.get("readAndWriteParser")));
         config.setEnablePasswordEncryption(asBoolean(configMap.get("enablePasswordEncryption"), false));
+        config.setPasswordSource(asString(configMap.get("passwordSource")));
         config.setIllAlertHandler(asString(configMap.get("illAlertHandler")));
         config.setFilters(asStringList(configMap.get("filters"), "mysplitter.filters"));
         config.setCommon(toCommonConfig(optionalMap(configMap.get("common"), "mysplitter.common")));
@@ -423,67 +440,143 @@ public class ConfigurationUtil {
         } else {
             ConfigurationUtil.isReadAndWriteParserLegal(mySplitterConfig.getReadAndWriteParser());
         }
-        // 检查是否设置数据库密码加密
-        if (mySplitterConfig.isEnablePasswordEncryption()) {
-            // 如果设置数据库密码加密解密每个数据库密码
-            for (String databaseKey : databases.keySet()) {
-                MySplitterDataBaseConfig mySplitterDataBaseConfig = databases.get(databaseKey);
-                Map<String, MySplitterDataSourceNodeConfig> integrates = mySplitterDataBaseConfig.getIntegrates();
-                if (integrates != null) {
-                    for (String integrateKey : integrates.keySet()) {
-                        MySplitterDataSourceNodeConfig nodeConfig = integrates.get(integrateKey);
-                        Object password = nodeConfig.getConfiguration().get("password");
-                        Object publicKey = nodeConfig.getConfiguration().get("publicKey");
-                        if (password != null && StringUtil.isNotBlank(password.toString())) {
-                            if (publicKey == null || StringUtil.isBlank(publicKey.toString())) {
-                                throw new IllegalArgumentException("You have setting the database password " +
-                                        "encryption, please set the public key!");
-                            }
-                            // 解密密码
-                            String decryptPassword = SecurityUtil.decrypt(publicKey.toString(), password.toString());
-                            // 将解密后的密码重新放入配置文件中
-                            nodeConfig.getConfiguration().put("password", decryptPassword);
-                        }
-                    }
-                }
-                Map<String, MySplitterDataSourceNodeConfig> writers = mySplitterDataBaseConfig.getWriters();
-                if (writers != null) {
-                    for (String writerKey : writers.keySet()) {
-                        MySplitterDataSourceNodeConfig nodeConfig = writers.get(writerKey);
-                        Object password = nodeConfig.getConfiguration().get("password");
-                        Object publicKey = nodeConfig.getConfiguration().get("publicKey");
-                        if (password != null && StringUtil.isNotBlank(password.toString())) {
-                            if (publicKey == null || StringUtil.isBlank(publicKey.toString())) {
-                                throw new IllegalArgumentException("You have setting the database password " +
-                                        "encryption, please set the public key!");
-                            }
-                            // 解密密码
-                            String decryptPassword = SecurityUtil.decrypt(publicKey.toString(), password.toString());
-                            // 将解密后的密码重新放入配置文件中
-                            nodeConfig.getConfiguration().put("password", decryptPassword);
-                        }
-                    }
-                }
-                Map<String, MySplitterDataSourceNodeConfig> readers = mySplitterDataBaseConfig.getReaders();
-                if (readers != null) {
-                    for (String readerKey : readers.keySet()) {
-                        MySplitterDataSourceNodeConfig nodeConfig = readers.get(readerKey);
-                        Object password = nodeConfig.getConfiguration().get("password");
-                        Object publicKey = nodeConfig.getConfiguration().get("publicKey");
-                        if (password != null && StringUtil.isNotBlank(password.toString())) {
-                            if (publicKey == null || StringUtil.isBlank(publicKey.toString())) {
-                                throw new IllegalArgumentException("You have setting the database password " +
-                                        "encryption, please set the public key!");
-                            }
-                            // 解密密码
-                            String decryptPassword = SecurityUtil.decrypt(publicKey.toString(), password.toString());
-                            // 将解密后的密码重新放入配置文件中
-                            nodeConfig.getConfiguration().put("password", decryptPassword);
-                        }
-                    }
-                }
+        applyPasswordSource(databases, resolvePasswordSourceMode(mySplitterConfig));
+    }
+
+    private static PasswordSourceMode resolvePasswordSourceMode(MySplitterConfig config) {
+        String passwordSource = config.getPasswordSource();
+        if (StringUtil.isBlank(passwordSource)) {
+            return config.isEnablePasswordEncryption() ? PasswordSourceMode.LEGACY_RSA : PasswordSourceMode.PLAIN;
+        }
+
+        String normalized = passwordSource.trim().toLowerCase(Locale.ENGLISH);
+        if ("plain".equals(normalized)) {
+            return PasswordSourceMode.PLAIN;
+        }
+        if ("environment".equals(normalized) || "env".equals(normalized)) {
+            return PasswordSourceMode.ENVIRONMENT;
+        }
+        if ("legacy-rsa".equals(normalized) || "rsa".equals(normalized)) {
+            return PasswordSourceMode.LEGACY_RSA;
+        }
+        throw new IllegalArgumentException("MySplitter passwordSource not support " + passwordSource +
+                ". Only supported one of [plain, environment, legacy-rsa].");
+    }
+
+    private static void applyPasswordSource(Map<String, MySplitterDataBaseConfig> databases,
+                                            PasswordSourceMode passwordSourceMode) throws Exception {
+        if (PasswordSourceMode.PLAIN.equals(passwordSourceMode)) {
+            return;
+        }
+        if (PasswordSourceMode.LEGACY_RSA.equals(passwordSourceMode)) {
+            LOGGER.warn("MySplitter legacy RSA passwordSource is enabled. This mode is kept for compatibility only; " +
+                    "use plain values for local development or environment/external secrets for production.");
+        }
+        for (String databaseKey : databases.keySet()) {
+            MySplitterDataBaseConfig databaseConfig = databases.get(databaseKey);
+            applyPasswordSourceToNodes(databaseKey, "integrates", databaseConfig.getIntegrates(), passwordSourceMode);
+            applyPasswordSourceToNodes(databaseKey, "writers", databaseConfig.getWriters(), passwordSourceMode);
+            applyPasswordSourceToNodes(databaseKey, "readers", databaseConfig.getReaders(), passwordSourceMode);
+        }
+    }
+
+    private static void applyPasswordSourceToNodes(String databaseKey,
+                                                   String nodeGroup,
+                                                   Map<String, MySplitterDataSourceNodeConfig> nodes,
+                                                   PasswordSourceMode passwordSourceMode) throws Exception {
+        if (nodes == null) {
+            return;
+        }
+        for (String nodeKey : nodes.keySet()) {
+            MySplitterDataSourceNodeConfig nodeConfig = nodes.get(nodeKey);
+            Map<String, Object> configuration = nodeConfig.getConfiguration();
+            if (configuration == null) {
+                continue;
+            }
+            String path = "mysplitter.databases." + databaseKey + "." + nodeGroup + "." + nodeKey + ".configuration";
+            if (PasswordSourceMode.LEGACY_RSA.equals(passwordSourceMode)) {
+                decryptLegacyRsaPassword(configuration, path);
+            } else if (PasswordSourceMode.ENVIRONMENT.equals(passwordSourceMode)) {
+                resolveEnvironmentPassword(configuration, path);
             }
         }
+    }
+
+    private static void decryptLegacyRsaPassword(Map<String, Object> configuration, String path) throws Exception {
+        Object password = configuration.get("password");
+        if (password == null || StringUtil.isBlank(password.toString())) {
+            return;
+        }
+        Object publicKey = configuration.get("publicKey");
+        if (publicKey == null || StringUtil.isBlank(publicKey.toString())) {
+            throw new IllegalArgumentException("Configuration " + path +
+                    " uses legacy-rsa passwordSource, please set publicKey explicitly.");
+        }
+        configuration.put("password", SecurityUtil.decrypt(publicKey.toString(), password.toString()));
+    }
+
+    private static void resolveEnvironmentPassword(Map<String, Object> configuration, String path) {
+        Object passwordEnv = configuration.get("passwordEnv");
+        if (passwordEnv != null && StringUtil.isNotBlank(passwordEnv.toString())) {
+            configuration.put("password", resolveRequiredSecret(passwordEnv.toString(), path + ".passwordEnv"));
+            return;
+        }
+
+        Object password = configuration.get("password");
+        if (password == null) {
+            return;
+        }
+        String passwordText = password.toString();
+        if (!containsSecretPlaceholder(passwordText)) {
+            throw new IllegalArgumentException("Configuration " + path +
+                    ".password uses passwordSource environment, please use passwordEnv or ${ENV_NAME} placeholder.");
+        }
+        configuration.put("password", resolveSecretPlaceholders(passwordText, path + ".password"));
+    }
+
+    private static boolean containsSecretPlaceholder(String value) {
+        return value != null && SECRET_PLACEHOLDER_PATTERN.matcher(value).find();
+    }
+
+    private static String resolveSecretPlaceholders(String value, String path) {
+        Matcher matcher = SECRET_PLACEHOLDER_PATTERN.matcher(value);
+        StringBuffer resolved = new StringBuffer();
+        while (matcher.find()) {
+            String secretName = matcher.group(1).trim();
+            String defaultValue = matcher.group(2);
+            String replacement = lookupSecret(secretName);
+            if (replacement == null) {
+                replacement = defaultValue;
+            }
+            if (replacement == null) {
+                throw new IllegalArgumentException("Configuration " + path +
+                        " references missing environment or system property " + secretName + ".");
+            }
+            matcher.appendReplacement(resolved, Matcher.quoteReplacement(replacement));
+        }
+        matcher.appendTail(resolved);
+        return resolved.toString();
+    }
+
+    private static String resolveRequiredSecret(String secretName, String path) {
+        String resolved = lookupSecret(secretName);
+        if (resolved == null) {
+            throw new IllegalArgumentException("Configuration " + path +
+                    " references missing environment or system property " + secretName + ".");
+        }
+        return resolved;
+    }
+
+    private static String lookupSecret(String secretName) {
+        String trimmedSecretName = secretName == null ? null : secretName.trim();
+        if (StringUtil.isBlank(trimmedSecretName)) {
+            return null;
+        }
+        String systemProperty = System.getProperty(trimmedSecretName);
+        if (systemProperty != null) {
+            return systemProperty;
+        }
+        return System.getenv(trimmedSecretName);
     }
 
     /**
