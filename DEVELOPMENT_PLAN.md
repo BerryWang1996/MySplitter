@@ -75,7 +75,7 @@ The next goal is to close the `1.0.3` production-readiness blockers before start
 - Closed for `1.0.3`: YAML parsing now uses SnakeYAML safe construction and manual primitive mapping instead of unsafe type construction.
 - Closed for `1.0.3`: cross-physical-connection local transactions now fail fast instead of attempting non-atomic best-effort commit/rollback across multiple physical connections.
 - Re-scoped: distributed multi-datasource transactions are now a core roadmap item. `1.0.3` keeps unsafe local multi-connection transactions blocked, while `1.1.0+` introduces a real transaction coordinator instead of pretending local JDBC commits are atomic.
-- Open for `1.0.3`: `Statement` batch execution is unsafe across multiple routed statements because `executeBatch()` only delegates to the current physical statement.
+- Closed for `1.0.3`: `Statement` batch execution now executes every routed physical batch and merges update counts back in the original `addBatch(...)` order.
 - Open for `1.0.3`: the default read/write parser is too naive for production SQL semantics such as comments, `WITH`, `SELECT FOR UPDATE`, vendor hints, and administrative statements.
 
 ## Planning Principles
@@ -294,7 +294,7 @@ Scope:
 - Keep backward compatibility for existing encrypted sample configs during a transition period, but add warnings and migration guidance.
 - Upgrade and harden YAML parsing so configuration loading does not use unsafe SnakeYAML construction.
 - Define and enforce transaction guardrails for logical transactions that touch multiple physical connections.
-- Correct `Statement` batch behavior across routes, or explicitly reject multi-route batches with a clear exception.
+- Correct `Statement` batch behavior across routes with deterministic result ordering.
 - Improve the default read/write parser enough to avoid dangerous reader routing for lock-sensitive or ambiguous SQL.
 - Add regression tests for each production-readiness finding.
 - Document remaining supported and unsupported production semantics.
@@ -316,7 +316,7 @@ Exit criteria:
 - Password handling documentation clearly separates local-development plain values from production external secret injection.
 - Existing users have a migration path from RSA config encryption to environment/secret placeholders.
 - Multi-route local transactions cannot be mistaken for atomic distributed transactions.
-- Batch execution either runs all routed batches with deterministic result ordering or fails fast when a batch spans multiple routes.
+- Batch execution runs all routed batches with deterministic result ordering.
 - Default SQL classification routes ambiguous and lock-sensitive SQL conservatively to writers.
 - The release gate includes regression coverage for the fixed semantics.
 
@@ -486,11 +486,12 @@ Exit criteria:
 35. Done: hardened YAML loading with SnakeYAML safe construction and regression coverage.
 36. Done: added explicit password source modes for plain local config, environment-backed deployment config, and legacy RSA compatibility.
 37. Done: defined and enforced transaction guardrails for logical transactions that touch multiple physical connections.
-38. Next: correct or reject multi-route `Statement` batch execution.
-39. Later: start distributed transaction SPI and XA MVP in `v1.1.0`.
-40. Later: add heterogeneous XA compatibility coverage in `v1.2.0`.
-41. Later: add AT-style automatic compensation in `v1.3.0`.
-42. Later: add TCC/Saga extension modes in `v1.4.0`.
+38. Done: corrected multi-route `Statement` batch execution with deterministic result ordering.
+39. Next: improve the default read/write parser so ambiguous and lock-sensitive SQL routes conservatively.
+40. Later: start distributed transaction SPI and XA MVP in `v1.1.0`.
+41. Later: add heterogeneous XA compatibility coverage in `v1.2.0`.
+42. Later: add AT-style automatic compensation in `v1.3.0`.
+43. Later: add TCC/Saga extension modes in `v1.4.0`.
 
 ## Suggested Delivery Sequence
 

@@ -24,7 +24,9 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLWarning;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 public class MySplitterStatementProxy implements Statement {
@@ -52,6 +54,8 @@ public class MySplitterStatementProxy implements Statement {
 
     private final Map<MySplitterRouteKey, Statement> statements =
             new LinkedHashMap<MySplitterRouteKey, Statement>();
+
+    private final List<MySplitterRouteKey> batchRouteKeys = new ArrayList<MySplitterRouteKey>();
 
     private final MySplitterStandByExecuteHolder statementStandByExecuteHolder;
 
@@ -144,6 +148,14 @@ public class MySplitterStatementProxy implements Statement {
         }
     }
 
+    private SQLException mergeSQLException(SQLException current, SQLException next) {
+        if (current == null) {
+            return next;
+        }
+        current.addSuppressed(next);
+        return current;
+    }
+
     @Override
     public ResultSet executeQuery(String sql) throws SQLException {
         MySplitterSqlWrapper sqlWrapper = new MySplitterSqlWrapper(sql);
@@ -179,6 +191,7 @@ public class MySplitterStatementProxy implements Statement {
             }
         } finally {
             this.statements.clear();
+            this.batchRouteKeys.clear();
             this.statementStandByExecuteHolder.releaseAll();
         }
         if (exceptionHolder != null) {
@@ -365,17 +378,77 @@ public class MySplitterStatementProxy implements Statement {
     public void addBatch(String sql) throws SQLException {
         MySplitterSqlWrapper sqlWrapper = new MySplitterSqlWrapper(sql);
         MySplitterRouteSelection routeSelection = getRouteSelection(sqlWrapper);
-        getStatement(routeSelection).addBatch(sqlWrapper.getSql());
+        Statement statement = getStatement(routeSelection);
+        statement.addBatch(sqlWrapper.getSql());
+        batchRouteKeys.add(routeSelection.getRouteKey());
     }
 
     @Override
     public void clearBatch() throws SQLException {
-        getCurrentStatement().clearBatch();
+        assertOpen();
+        SQLException exceptionHolder = null;
+        for (Statement statement : this.statements.values()) {
+            try {
+                statement.clearBatch();
+            } catch (SQLException e) {
+                exceptionHolder = mergeSQLException(exceptionHolder, e);
+            }
+        }
+        this.batchRouteKeys.clear();
+        if (exceptionHolder != null) {
+            throw exceptionHolder;
+        }
     }
 
     @Override
     public int[] executeBatch() throws SQLException {
-        return getCurrentStatement().executeBatch();
+        assertOpen();
+        if (this.batchRouteKeys.size() == 0) {
+            return new int[0];
+        }
+
+        Map<MySplitterRouteKey, Integer> expectedCounts = new LinkedHashMap<MySplitterRouteKey, Integer>();
+        for (MySplitterRouteKey batchRouteKey : this.batchRouteKeys) {
+            Integer expectedCount = expectedCounts.get(batchRouteKey);
+            expectedCounts.put(batchRouteKey, Integer.valueOf(expectedCount == null ? 1 : expectedCount.intValue() + 1));
+        }
+
+        Map<MySplitterRouteKey, int[]> routeResults = new LinkedHashMap<MySplitterRouteKey, int[]>();
+        SQLException exceptionHolder = null;
+        for (MySplitterRouteKey routeKey : expectedCounts.keySet()) {
+            Statement statement = this.statements.get(routeKey);
+            if (statement == null) {
+                exceptionHolder = mergeSQLException(exceptionHolder,
+                        new SQLException("Statement batch route " + routeKey + " has no target statement."));
+                continue;
+            }
+            try {
+                int[] result = statement.executeBatch();
+                int expectedCount = expectedCounts.get(routeKey).intValue();
+                if (result.length != expectedCount) {
+                    throw new SQLException("Statement batch route " + routeKey + " returned " + result.length +
+                            " results, expected " + expectedCount + ".");
+                }
+                routeResults.put(routeKey, result);
+            } catch (SQLException e) {
+                exceptionHolder = mergeSQLException(exceptionHolder, e);
+            }
+        }
+        if (exceptionHolder != null) {
+            throw exceptionHolder;
+        }
+
+        int[] mergedResults = new int[this.batchRouteKeys.size()];
+        Map<MySplitterRouteKey, Integer> routeOffsets = new LinkedHashMap<MySplitterRouteKey, Integer>();
+        for (int i = 0; i < this.batchRouteKeys.size(); i++) {
+            MySplitterRouteKey routeKey = this.batchRouteKeys.get(i);
+            Integer routeOffset = routeOffsets.get(routeKey);
+            int offset = routeOffset == null ? 0 : routeOffset.intValue();
+            mergedResults[i] = routeResults.get(routeKey)[offset];
+            routeOffsets.put(routeKey, Integer.valueOf(offset + 1));
+        }
+        this.batchRouteKeys.clear();
+        return mergedResults;
     }
 
     @Override
