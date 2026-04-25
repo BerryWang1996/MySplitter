@@ -1,6 +1,25 @@
 # Verification Commands
 
-Verified on 2026-04-24 for the current `vibe-coding` branch state.
+Verified on 2026-04-25 for the current `vibe-coding` branch state.
+
+## Canonical Release Gate
+
+Use this as the official release-signoff entry point from the repo root:
+
+```powershell
+.\scripts\release-gate.ps1
+```
+
+On Unix-like shells:
+
+```bash
+./scripts/release-gate.sh
+```
+
+Notes:
+
+- This is the canonical command for release validation because it executes the core-module verify path, starter tests, the dedicated `mysplitter-tests` regression module, demo compile smoke checks, and release packaging in one fail-fast sequence.
+- Module-level commands below are still useful for fast feedback, but they are no longer presented as a substitute for the full release gate.
 
 ## Core Module
 
@@ -13,8 +32,9 @@ Run the fast module-level checks for the core library:
 
 Notes:
 
-- `mysplitter` keeps reflection-based module tests so `mvn -pl mysplitter test` is not false-green.
+- `mysplitter` keeps reflection-based module tests so `mvn -pl mysplitter test` is not false-green for module-local regressions.
 - These checks are the fastest way to validate connection lifecycle and health-manager regressions inside the core module.
+- They do not replace the canonical release gate because they do not execute the separate `mysplitter-tests` regression module.
 
 ## Regression Suite
 

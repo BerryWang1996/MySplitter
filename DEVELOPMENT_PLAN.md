@@ -4,6 +4,15 @@
 
 Stage one stabilization is complete.
 
+The `1.0.0` release tag is cut, and the `1.0.1` maintenance release is the current release target.
+
+## Version Strategy
+
+- `1.0.x`: post-release hardening only. Focus on verification honesty, packaging, documentation closure, and low-risk compatibility fixes.
+- `1.1.x`: additive observability and runtime operations. No intentional breaking changes to the `1.0.x` public baseline.
+- `1.2.x`: quality-system expansion, especially CI and broader integration coverage.
+- `2.0.0`: reserved for breaking platform shifts such as a Java 17 baseline, Spring Boot 3.x, and Jakarta migration.
+
 Completed baseline work:
 
 - Removed high-risk initialization and shutdown behaviors such as `System.exit(...)` and uncontrolled stack trace printing.
@@ -38,8 +47,10 @@ Current checkpoint:
 - The demo consumer now compiles on Spring Boot `2.7.18` with the matching MyBatis baseline.
 - The `v1.0.0` compatibility matrix is now documented in `docs/v1.0-compatibility-matrix.md`.
 - End-to-end routing release checks now include an always-on H2 path, while the Docker-backed MySQL slice remains supplemental.
+- The `1.0.1` maintenance line now includes the release-gate hardening slice.
+- A repo-root release-gate script now drives the canonical release verification flow for the `1.0.x` maintenance line.
 
-The next goal is to start the `v1.1.0` observability slice from the now-landed release baseline.
+The next goal is to decide whether the new `1.0.1` release gate should also be wired into CI before moving on to broader `1.1.0` feature work.
 
 ## Review Reconciliation
 
@@ -196,6 +207,56 @@ Exit criteria:
 - Demo can run without snapshot-only dependencies.
 - Version compatibility matrix is documented.
 
+### v1.0.1 - Release Gate Hardening
+
+Status: complete.
+
+Goal: make post-release verification honest, repeatable, and easy to run as one release gate.
+
+Scope:
+
+- Add a root-level release verification path that executes the core-module checks, starter checks, and the dedicated `mysplitter-tests` regression module together.
+- Remove the remaining ambiguity where `mvn -pl mysplitter test` is honest for the module itself but does not represent the full regression surface.
+- Document one canonical release-check command for local use and future CI integration.
+- Keep the current `1.0.0` API and configuration model stable while tightening the build contract around it.
+
+Primary areas:
+
+- `pom.xml`
+- `mysplitter/pom.xml`
+- `mysplitter-tests/pom.xml`
+- `docs/verification-commands.md`
+- future CI configuration files
+
+Exit criteria:
+
+- There is one documented release-gate command that validates the full supported regression surface.
+- Core-module validation and cross-module validation are clearly separated and intentionally named.
+- A broken `mysplitter-tests` suite can no longer be mistaken for a green release candidate.
+
+### v1.0.2 - Compatibility And Documentation Closure
+
+Goal: tighten the release story around the `1.0.x` baseline without expanding the feature surface.
+
+Scope:
+
+- Refine compatibility notes for Java, Spring Boot, and pool support.
+- Improve README and demo startup guidance.
+- Add release notes / upgrade notes for users coming from the `0.9.x` line.
+- Clean up any remaining low-risk dependency or packaging inconsistencies found during `1.0.1`.
+
+Primary areas:
+
+- `README.md`
+- `docs/`
+- `demo/`
+- release metadata files
+
+Exit criteria:
+
+- A new user can understand the supported baseline and verification path from the repo docs alone.
+- The `1.0.x` maintenance line has explicit compatibility and upgrade notes.
+
 ### v1.1.0 - Observability and Runtime Operations
 
 Goal: make routing and failover visible in production environments.
@@ -266,12 +327,19 @@ Exit criteria:
 23. Done: upgraded the demo consumer in the same pass so the sample app matches the release starter baseline.
 24. Done: documented the `v1.0.0` compatibility matrix covering Java, Spring Boot, demo, and pool support tiers.
 25. Done: added an always-on H2 routing integration slice so release validation no longer relies entirely on Docker availability.
+26. Done: cut the `1.0.0` release tag.
+27. Done: added a root-level release-gate verification path for the `1.0.1` maintenance line.
+28. Done: added repo-root `release-gate` scripts for Windows and Unix-like shells so the full release verification path is executable as one command.
+29. Next: write release / upgrade notes for users adopting the `1.0.x` baseline.
+30. Next: decide whether the release-gate script is wrapped by CI directly or mirrored as native CI steps.
 
 ## Suggested Delivery Sequence
 
-1. Keep the landed `v1.0.0` baseline green with module, regression, starter, and demo verification commands.
-2. Start metrics and operational integration in `v1.1.0`.
-3. Build out the full regression suite and CI in `v1.2.0`.
+1. Finish `1.0.2` compatibility and documentation cleanup for the maintenance line.
+2. Decide how the new release-gate command is enforced in CI.
+3. Start metrics and operational integration in `v1.1.0`.
+4. Build out the full regression suite and CI in `v1.2.0`.
+5. Plan the eventual Java 17 / Boot 3.x break in `2.0.0` rather than leaking it into the `1.x` line.
 
 ## Risks To Watch
 
