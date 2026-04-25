@@ -25,7 +25,7 @@ import com.mysplitter.exceptions.DataSourceClassNotDefine;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
-import org.yaml.snakeyaml.constructor.Constructor;
+import org.yaml.snakeyaml.constructor.SafeConstructor;
 import org.yaml.snakeyaml.representer.Representer;
 import org.yaml.snakeyaml.resolver.Resolver;
 
@@ -33,7 +33,9 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -80,16 +82,211 @@ public class ConfigurationUtil {
     }
 
     private static MySplitterRootConfig loadMySplitterConfig(InputStream inputStream) {
-        return newYaml().loadAs(inputStream, MySplitterRootConfig.class);
+        Object yamlRoot = newYaml().load(inputStream);
+        if (yamlRoot == null) {
+            return new MySplitterRootConfig();
+        }
+        return toRootConfig(asMap(yamlRoot, "root"));
     }
 
     private static Yaml newYaml() {
-        return new Yaml(new Constructor() {
-            @Override
-            public void setAllowDuplicateKeys(boolean allowDuplicateKeys) {
-                super.setAllowDuplicateKeys(false);
-            }
-        }, new Representer(), new DumperOptions(), new LoaderOptions(), new Resolver());
+        LoaderOptions loaderOptions = new LoaderOptions();
+        loaderOptions.setAllowDuplicateKeys(false);
+        DumperOptions dumperOptions = new DumperOptions();
+        return new Yaml(new SafeConstructor(loaderOptions), new Representer(dumperOptions),
+                dumperOptions, loaderOptions, new Resolver());
+    }
+
+    private static MySplitterRootConfig toRootConfig(Map<?, ?> rootMap) {
+        MySplitterRootConfig rootConfig = new MySplitterRootConfig();
+        Object mySplitterValue = rootMap.get("mysplitter");
+        if (mySplitterValue != null) {
+            rootConfig.setMysplitter(toMySplitterConfig(asMap(mySplitterValue, "mysplitter")));
+        }
+        return rootConfig;
+    }
+
+    private static MySplitterConfig toMySplitterConfig(Map<?, ?> configMap) {
+        MySplitterConfig config = new MySplitterConfig();
+        config.setDatabasesRoutingHandler(asString(configMap.get("databasesRoutingHandler")));
+        config.setReadAndWriteParser(asString(configMap.get("readAndWriteParser")));
+        config.setEnablePasswordEncryption(asBoolean(configMap.get("enablePasswordEncryption"), false));
+        config.setIllAlertHandler(asString(configMap.get("illAlertHandler")));
+        config.setFilters(asStringList(configMap.get("filters"), "mysplitter.filters"));
+        config.setCommon(toCommonConfig(optionalMap(configMap.get("common"), "mysplitter.common")));
+        config.setDatabases(toDatabaseMap(configMap.get("databases"), "mysplitter.databases"));
+        return config;
+    }
+
+    private static MySplitterCommonConfig toCommonConfig(Map<?, ?> commonMap) {
+        if (commonMap == null) {
+            return null;
+        }
+        MySplitterCommonConfig commonConfig = new MySplitterCommonConfig();
+        commonConfig.setDataSourceClass(asString(commonMap.get("dataSourceClass")));
+        commonConfig.setLoadBalance(toLoadBalanceMap(commonMap.get("loadBalance"), "mysplitter.common.loadBalance"));
+        return commonConfig;
+    }
+
+    private static LinkedHashMap<String, MySplitterDataBaseConfig> toDatabaseMap(Object value, String path) {
+        Map<?, ?> databasesMap = optionalMap(value, path);
+        if (databasesMap == null) {
+            return null;
+        }
+        LinkedHashMap<String, MySplitterDataBaseConfig> databases =
+                new LinkedHashMap<String, MySplitterDataBaseConfig>();
+        for (Map.Entry<?, ?> entry : databasesMap.entrySet()) {
+            String databaseName = keyToString(entry.getKey(), path);
+            databases.put(databaseName, toDatabaseConfig(optionalMap(entry.getValue(), path + "." + databaseName),
+                    path + "." + databaseName));
+        }
+        return databases;
+    }
+
+    private static MySplitterDataBaseConfig toDatabaseConfig(Map<?, ?> databaseMap, String path) {
+        if (databaseMap == null) {
+            return null;
+        }
+        MySplitterDataBaseConfig dataBaseConfig = new MySplitterDataBaseConfig();
+        dataBaseConfig.setDataSourceClass(asString(databaseMap.get("dataSourceClass")));
+        dataBaseConfig.setLoadBalance(toLoadBalanceMap(databaseMap.get("loadBalance"), path + ".loadBalance"));
+        dataBaseConfig.setIntegrates(toDataSourceNodeMap(databaseMap.get("integrates"), path + ".integrates"));
+        dataBaseConfig.setReaders(toDataSourceNodeMap(databaseMap.get("readers"), path + ".readers"));
+        dataBaseConfig.setWriters(toDataSourceNodeMap(databaseMap.get("writers"), path + ".writers"));
+        return dataBaseConfig;
+    }
+
+    private static Map<String, MySplitterLoadBalanceConfig> toLoadBalanceMap(Object value, String path) {
+        Map<?, ?> loadBalanceMap = optionalMap(value, path);
+        if (loadBalanceMap == null) {
+            return null;
+        }
+        Map<String, MySplitterLoadBalanceConfig> loadBalances =
+                new LinkedHashMap<String, MySplitterLoadBalanceConfig>();
+        for (Map.Entry<?, ?> entry : loadBalanceMap.entrySet()) {
+            String name = keyToString(entry.getKey(), path);
+            loadBalances.put(name, toLoadBalanceConfig(optionalMap(entry.getValue(), path + "." + name),
+                    path + "." + name));
+        }
+        return loadBalances;
+    }
+
+    private static MySplitterLoadBalanceConfig toLoadBalanceConfig(Map<?, ?> loadBalanceMap, String path) {
+        if (loadBalanceMap == null) {
+            return null;
+        }
+        MySplitterLoadBalanceConfig loadBalanceConfig = new MySplitterLoadBalanceConfig();
+        loadBalanceConfig.setEnabled(asBoolean(loadBalanceMap.get("enabled"), false));
+        loadBalanceConfig.setStrategy(asString(loadBalanceMap.get("strategy")));
+        loadBalanceConfig.setDatabaseName(asString(loadBalanceMap.get("databaseName")));
+        String failTimeout = asString(loadBalanceMap.get("failTimeout"));
+        if (failTimeout != null) {
+            loadBalanceConfig.setFailTimeout(failTimeout);
+        }
+        return loadBalanceConfig;
+    }
+
+    private static LinkedHashMap<String, MySplitterDataSourceNodeConfig> toDataSourceNodeMap(Object value, String path) {
+        Map<?, ?> nodesMap = optionalMap(value, path);
+        if (nodesMap == null) {
+            return null;
+        }
+        LinkedHashMap<String, MySplitterDataSourceNodeConfig> nodes =
+                new LinkedHashMap<String, MySplitterDataSourceNodeConfig>();
+        for (Map.Entry<?, ?> entry : nodesMap.entrySet()) {
+            String nodeName = keyToString(entry.getKey(), path);
+            nodes.put(nodeName, toDataSourceNodeConfig(optionalMap(entry.getValue(), path + "." + nodeName),
+                    path + "." + nodeName));
+        }
+        return nodes;
+    }
+
+    private static MySplitterDataSourceNodeConfig toDataSourceNodeConfig(Map<?, ?> nodeMap, String path) {
+        if (nodeMap == null) {
+            return null;
+        }
+        MySplitterDataSourceNodeConfig nodeConfig = new MySplitterDataSourceNodeConfig();
+        nodeConfig.setDataSourceClass(asString(nodeMap.get("dataSourceClass")));
+        nodeConfig.setWeight(asInteger(nodeMap.get("weight"), path + ".weight"));
+        nodeConfig.setConfiguration(toObjectMap(nodeMap.get("configuration"), path + ".configuration"));
+        return nodeConfig;
+    }
+
+    private static Map<String, Object> toObjectMap(Object value, String path) {
+        Map<?, ?> sourceMap = optionalMap(value, path);
+        if (sourceMap == null) {
+            return null;
+        }
+        Map<String, Object> targetMap = new LinkedHashMap<String, Object>();
+        for (Map.Entry<?, ?> entry : sourceMap.entrySet()) {
+            targetMap.put(keyToString(entry.getKey(), path), entry.getValue());
+        }
+        return targetMap;
+    }
+
+    private static List<String> asStringList(Object value, String path) {
+        if (value == null) {
+            return null;
+        }
+        if (!(value instanceof List)) {
+            throw new IllegalArgumentException("Configuration " + path + " must be a list.");
+        }
+        List<?> sourceList = (List<?>) value;
+        List<String> targetList = new ArrayList<String>();
+        for (Object item : sourceList) {
+            targetList.add(asString(item));
+        }
+        return targetList;
+    }
+
+    private static Map<?, ?> optionalMap(Object value, String path) {
+        if (value == null) {
+            return null;
+        }
+        return asMap(value, path);
+    }
+
+    private static Map<?, ?> asMap(Object value, String path) {
+        if (!(value instanceof Map)) {
+            throw new IllegalArgumentException("Configuration " + path + " must be a map.");
+        }
+        return (Map<?, ?>) value;
+    }
+
+    private static String keyToString(Object key, String path) {
+        String stringKey = asString(key);
+        if (StringUtil.isBlank(stringKey)) {
+            throw new IllegalArgumentException("Configuration " + path + " contains an empty key.");
+        }
+        return stringKey;
+    }
+
+    private static String asString(Object value) {
+        return value == null ? null : value.toString();
+    }
+
+    private static Integer asInteger(Object value, String path) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number) {
+            return Integer.valueOf(((Number) value).intValue());
+        }
+        try {
+            return Integer.valueOf(value.toString());
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Configuration " + path + " must be an integer.", e);
+        }
+    }
+
+    private static boolean asBoolean(Object value, boolean defaultValue) {
+        if (value == null) {
+            return defaultValue;
+        }
+        if (value instanceof Boolean) {
+            return ((Boolean) value).booleanValue();
+        }
+        return Boolean.valueOf(value.toString()).booleanValue();
     }
 
     public static void checkMySplitterConfig(MySplitterRootConfig mySplitterRootConfig) throws Exception {
