@@ -76,7 +76,7 @@ The next goal is to close the `1.0.3` production-readiness blockers before start
 - Closed for `1.0.3`: cross-physical-connection local transactions now fail fast instead of attempting non-atomic best-effort commit/rollback across multiple physical connections.
 - Re-scoped: distributed multi-datasource transactions are now a core roadmap item. `1.0.3` keeps unsafe local multi-connection transactions blocked, while `1.1.0+` introduces a real transaction coordinator instead of pretending local JDBC commits are atomic.
 - Closed for `1.0.3`: `Statement` batch execution now executes every routed physical batch and merges update counts back in the original `addBatch(...)` order.
-- Open for `1.0.3`: the default read/write parser is too naive for production SQL semantics such as comments, `WITH`, `SELECT FOR UPDATE`, vendor hints, and administrative statements.
+- Closed for `1.0.3`: the default read/write parser now routes only clearly safe plain `SELECT` statements to readers and sends lock-sensitive or ambiguous SQL to writers.
 
 ## Planning Principles
 
@@ -487,11 +487,12 @@ Exit criteria:
 36. Done: added explicit password source modes for plain local config, environment-backed deployment config, and legacy RSA compatibility.
 37. Done: defined and enforced transaction guardrails for logical transactions that touch multiple physical connections.
 38. Done: corrected multi-route `Statement` batch execution with deterministic result ordering.
-39. Next: improve the default read/write parser so ambiguous and lock-sensitive SQL routes conservatively.
-40. Later: start distributed transaction SPI and XA MVP in `v1.1.0`.
-41. Later: add heterogeneous XA compatibility coverage in `v1.2.0`.
-42. Later: add AT-style automatic compensation in `v1.3.0`.
-43. Later: add TCC/Saga extension modes in `v1.4.0`.
+39. Done: improved the default read/write parser so ambiguous and lock-sensitive SQL routes conservatively.
+40. Next: run the full release gate for the `1.0.3` production-readiness line and review release readiness.
+41. Later: start distributed transaction SPI and XA MVP in `v1.1.0`.
+42. Later: add heterogeneous XA compatibility coverage in `v1.2.0`.
+43. Later: add AT-style automatic compensation in `v1.3.0`.
+44. Later: add TCC/Saga extension modes in `v1.4.0`.
 
 ## Suggested Delivery Sequence
 
