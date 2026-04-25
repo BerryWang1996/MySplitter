@@ -314,7 +314,8 @@ public class MySplitterDataSourceManager {
                 dataSourceRegistry.createGroup(dbKey, "readers", createLoadBalanceSelector(loadBalanceConfig, readers));
         for (String readerKey : readers.keySet()) {
             MySplitterDataSourceNodeConfig nodeConfig = readers.get(readerKey);
-            DataSourceWrapper wrapper = new DataSourceWrapper(readerKey, dbKey, nodeConfig, loadBalanceConfig);
+            DataSourceWrapper wrapper = new DataSourceWrapper(readerKey, dbKey, "readers", nodeConfig,
+                    loadBalanceConfig);
             group.register(wrapper, nodeConfig.getWeight());
         }
     }
@@ -326,7 +327,8 @@ public class MySplitterDataSourceManager {
                 dataSourceRegistry.createGroup(dbKey, "writers", createLoadBalanceSelector(loadBalanceConfig, writers));
         for (String writerKey : writers.keySet()) {
             MySplitterDataSourceNodeConfig nodeConfig = writers.get(writerKey);
-            DataSourceWrapper wrapper = new DataSourceWrapper(writerKey, dbKey, nodeConfig, loadBalanceConfig);
+            DataSourceWrapper wrapper = new DataSourceWrapper(writerKey, dbKey, "writers", nodeConfig,
+                    loadBalanceConfig);
             group.register(wrapper, nodeConfig.getWeight());
         }
     }
@@ -341,7 +343,7 @@ public class MySplitterDataSourceManager {
                 dataSourceRegistry.createGroup(dbKey, "integrates", new NoLoadBalanceSelector<DataSourceWrapper>());
         for (String integrateKey : integrates.keySet()) {
             MySplitterDataSourceNodeConfig nodeConfig = integrates.get(integrateKey);
-            DataSourceWrapper wrapper = new DataSourceWrapper(integrateKey, dbKey, nodeConfig, null);
+            DataSourceWrapper wrapper = new DataSourceWrapper(integrateKey, dbKey, "integrates", nodeConfig, null);
             group.register(wrapper, nodeConfig.getWeight());
         }
     }

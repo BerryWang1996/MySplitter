@@ -18,16 +18,19 @@ package com.mysplitter;
 
 import com.mysplitter.config.MySplitterDataSourceNodeConfig;
 import com.mysplitter.config.MySplitterLoadBalanceConfig;
+import com.mysplitter.transaction.XaResourceDescriptor;
 import com.mysplitter.util.ClassLoaderUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.sql.DataSource;
+import javax.sql.XADataSource;
 import java.beans.BeanInfo;
 import java.beans.Introspector;
 import java.beans.MethodDescriptor;
 import java.beans.PropertyDescriptor;
 import java.lang.reflect.Method;
+import java.sql.SQLException;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -39,9 +42,13 @@ public class DataSourceWrapper {
 
     private volatile DataSource realDataSource;
 
+    private volatile XaResourceDescriptor xaResourceDescriptor;
+
     private final String nodeName;
 
     private final String dataBaseName;
+
+    private final String nodeGroup;
 
     private final MySplitterDataSourceNodeConfig nodeConfig;
 
@@ -51,14 +58,31 @@ public class DataSourceWrapper {
                              String dataBaseName,
                              MySplitterDataSourceNodeConfig nodeConfig,
                              MySplitterLoadBalanceConfig loadBalanceConfig) {
+        this(nodeName, dataBaseName, null, nodeConfig, loadBalanceConfig);
+    }
+
+    public DataSourceWrapper(String nodeName,
+                             String dataBaseName,
+                             String nodeGroup,
+                             MySplitterDataSourceNodeConfig nodeConfig,
+                             MySplitterLoadBalanceConfig loadBalanceConfig) {
         this.nodeName = nodeName;
         this.dataBaseName = dataBaseName;
+        this.nodeGroup = nodeGroup;
         this.nodeConfig = nodeConfig;
         this.loadBalanceConfig = loadBalanceConfig;
     }
 
     public DataSource getRealDataSource() {
         return realDataSource;
+    }
+
+    public XaResourceDescriptor getXaResourceDescriptor() {
+        return xaResourceDescriptor;
+    }
+
+    public boolean isXaCapable() {
+        return xaResourceDescriptor != null && xaResourceDescriptor.isXaCapable();
     }
 
     public synchronized void initRealDataSource() throws Exception {
@@ -92,9 +116,11 @@ public class DataSourceWrapper {
                 }
                 writeMethod.invoke(dataSource, convertValue(parameterTypes[0], value));
             }
+            this.xaResourceDescriptor = resolveXaResourceDescriptor(dataSource, configuration);
             this.realDataSource = dataSource;
         } catch (Exception e) {
             this.realDataSource = null;
+            this.xaResourceDescriptor = null;
             isInitialized.set(false);
             throw e;
         }
@@ -122,6 +148,7 @@ public class DataSourceWrapper {
             releaseException = e;
         } finally {
             this.realDataSource = null;
+            this.xaResourceDescriptor = null;
             isInitialized.set(false);
         }
         if (releaseException != null) {
@@ -157,12 +184,63 @@ public class DataSourceWrapper {
         return value;
     }
 
+    private XaResourceDescriptor resolveXaResourceDescriptor(DataSource dataSource,
+                                                             Map<String, Object> configuration) throws Exception {
+        String resourceId = createResourceId();
+        String dataSourceClassName = dataSource.getClass().getName();
+        String xaDataSourceClassName = asNonBlankString(configuration.get("xaDataSourceClass"));
+        if (xaDataSourceClassName != null) {
+            Class<?> xaDataSourceClass = Thread.currentThread().getContextClassLoader().loadClass(xaDataSourceClassName);
+            if (!XADataSource.class.isAssignableFrom(xaDataSourceClass)) {
+                throw new IllegalArgumentException("Configuration of datasource node " + nodeName +
+                        " has xaDataSourceClass " + xaDataSourceClassName +
+                        ", but it does not implement javax.sql.XADataSource.");
+            }
+            return XaResourceDescriptor.capable(resourceId, dataSourceClassName, xaDataSourceClassName);
+        }
+        if (dataSource instanceof XADataSource) {
+            return XaResourceDescriptor.capable(resourceId, dataSourceClassName, dataSourceClassName);
+        }
+        try {
+            if (dataSource.isWrapperFor(XADataSource.class)) {
+                XADataSource xaDataSource = dataSource.unwrap(XADataSource.class);
+                if (xaDataSource != null) {
+                    return XaResourceDescriptor.capable(resourceId, dataSourceClassName,
+                            xaDataSource.getClass().getName());
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.debug("Data source node {} cannot unwrap XADataSource.", nodeName, e);
+        }
+        return XaResourceDescriptor.unavailable(resourceId, dataSourceClassName,
+                "No xaDataSourceClass is configured and the DataSource cannot unwrap javax.sql.XADataSource.");
+    }
+
+    private String asNonBlankString(Object value) {
+        if (value == null) {
+            return null;
+        }
+        String text = value.toString().trim();
+        return text.length() == 0 ? null : text;
+    }
+
+    private String createResourceId() {
+        if (nodeGroup == null || nodeGroup.trim().length() == 0) {
+            return dataBaseName + ":" + nodeName;
+        }
+        return dataBaseName + ":" + nodeGroup + ":" + nodeName;
+    }
+
     public String getNodeName() {
         return nodeName;
     }
 
     public String getDataBaseName() {
         return dataBaseName;
+    }
+
+    public String getNodeGroup() {
+        return nodeGroup;
     }
 
     public MySplitterDataSourceNodeConfig getNodeConfig() {
@@ -178,6 +256,7 @@ public class DataSourceWrapper {
         return "DataSourceWrapper{" +
                 "nodeName='" + nodeName + '\'' +
                 ", dataBaseName='" + dataBaseName + '\'' +
+                ", nodeGroup='" + nodeGroup + '\'' +
                 '}';
     }
 }

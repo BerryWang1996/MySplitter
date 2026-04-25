@@ -66,7 +66,8 @@ Current `1.1.0` implementation checkpoint:
 - Done: keep `transaction.mode: local` as the safe default.
 - Done: recognize `transaction.mode: xa` as the planned distributed transaction mode while failing clearly until the XA transaction manager is implemented.
 - In progress: introduce the transaction manager SPI, branch transaction model, and durable transaction log abstraction.
-- Next: add the XA branch resource model and `XADataSource` capability detection.
+- In progress: add the XA branch resource model and `XADataSource` capability detection.
+- Next: add an `XADataSource` connection adapter that can build `XAConnection`/`XAResource` branches without disrupting the current `DataSource` route path.
 
 ## Review Reconciliation
 
@@ -498,7 +499,7 @@ Exit criteria:
 38. Done: corrected multi-route `Statement` batch execution with deterministic result ordering.
 39. Done: improved the default read/write parser so ambiguous and lock-sensitive SQL routes conservatively.
 40. Done: ran the full release gate for the `1.0.3` production-readiness line, tagged the release, and pushed it.
-41. In progress: start distributed transaction SPI and XA MVP in `v1.1.0` by landing the transaction configuration contract and local transaction manager abstraction first.
+41. In progress: start distributed transaction SPI and XA MVP in `v1.1.0` by landing the transaction configuration contract, local transaction manager abstraction, XA resource descriptors, and XA branch primitives first.
 42. Later: add heterogeneous XA compatibility coverage in `v1.2.0`.
 43. Later: add AT-style automatic compensation in `v1.3.0`.
 44. Later: add TCC/Saga extension modes in `v1.4.0`.

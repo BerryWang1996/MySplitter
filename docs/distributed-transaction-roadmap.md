@@ -65,6 +65,8 @@ Goal: make multi-datasource transactions a first-class MySplitter subsystem.
 - Keep `local` as the default mode and fail clearly for `xa` until the transaction manager can provide real two-phase semantics.
 - Add `GlobalTransactionManager`, `BranchTransaction`, `TransactionCoordinator`, and `TransactionLogStore` interfaces.
 - Route existing local commit, rollback, and single-physical-connection guardrails through the transaction manager abstraction.
+- Add XA resource descriptors so each configured datasource node can report whether an `XADataSource` adapter is available.
+- Add XA branch primitives around `XAResource`, `Xid`, prepare, commit, rollback, and read-only branch handling.
 - Add JDBC `XADataSource` adapter support.
 - Enlist each routed physical datasource as a branch.
 - Implement two-phase commit and rollback.
@@ -135,6 +137,12 @@ mysplitter:
     recovery:
       enabled: true
       interval: 10s
+  databases:
+    database-a:
+      writers:
+        writer-1:
+          configuration:
+            xaDataSourceClass: com.mysql.jdbc.jdbc2.optional.MysqlXADataSource
 ```
 
 For `at`:
