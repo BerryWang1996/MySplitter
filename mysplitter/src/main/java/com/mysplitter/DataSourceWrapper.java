@@ -18,6 +18,8 @@ package com.mysplitter;
 
 import com.mysplitter.config.MySplitterDataSourceNodeConfig;
 import com.mysplitter.config.MySplitterLoadBalanceConfig;
+import com.mysplitter.transaction.XaConnectionBranch;
+import com.mysplitter.transaction.XaDataSourceAdapter;
 import com.mysplitter.transaction.XaResourceDescriptor;
 import com.mysplitter.util.ClassLoaderUtil;
 import org.slf4j.Logger;
@@ -31,6 +33,7 @@ import java.beans.MethodDescriptor;
 import java.beans.PropertyDescriptor;
 import java.lang.reflect.Method;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -43,6 +46,8 @@ public class DataSourceWrapper {
     private volatile DataSource realDataSource;
 
     private volatile XaResourceDescriptor xaResourceDescriptor;
+
+    private volatile XaDataSourceAdapter xaDataSourceAdapter;
 
     private final String nodeName;
 
@@ -85,6 +90,20 @@ public class DataSourceWrapper {
         return xaResourceDescriptor != null && xaResourceDescriptor.isXaCapable();
     }
 
+    public XaConnectionBranch openXaBranch(String globalTransactionId,
+                                           String branchId,
+                                           String username,
+                                           String password) throws SQLException {
+        XaDataSourceAdapter adapter = xaDataSourceAdapter;
+        if (adapter == null) {
+            String reason = xaResourceDescriptor == null ? "XA resource descriptor is not initialized." :
+                    xaResourceDescriptor.getUnavailableReason();
+            throw new SQLFeatureNotSupportedException("Datasource node " + nodeName + " in database " +
+                    dataBaseName + " is not XA capable. " + reason);
+        }
+        return adapter.openBranch(globalTransactionId, branchId, username, password);
+    }
+
     public synchronized void initRealDataSource() throws Exception {
         if (!isInitialized.compareAndSet(false, true)) {
             return;
@@ -121,6 +140,7 @@ public class DataSourceWrapper {
         } catch (Exception e) {
             this.realDataSource = null;
             this.xaResourceDescriptor = null;
+            this.xaDataSourceAdapter = null;
             isInitialized.set(false);
             throw e;
         }
@@ -149,6 +169,7 @@ public class DataSourceWrapper {
         } finally {
             this.realDataSource = null;
             this.xaResourceDescriptor = null;
+            this.xaDataSourceAdapter = null;
             isInitialized.set(false);
         }
         if (releaseException != null) {
@@ -190,28 +211,28 @@ public class DataSourceWrapper {
         String dataSourceClassName = dataSource.getClass().getName();
         String xaDataSourceClassName = asNonBlankString(configuration.get("xaDataSourceClass"));
         if (xaDataSourceClassName != null) {
-            Class<?> xaDataSourceClass = Thread.currentThread().getContextClassLoader().loadClass(xaDataSourceClassName);
-            if (!XADataSource.class.isAssignableFrom(xaDataSourceClass)) {
-                throw new IllegalArgumentException("Configuration of datasource node " + nodeName +
-                        " has xaDataSourceClass " + xaDataSourceClassName +
-                        ", but it does not implement javax.sql.XADataSource.");
-            }
-            return XaResourceDescriptor.capable(resourceId, dataSourceClassName, xaDataSourceClassName);
+            xaDataSourceAdapter = XaDataSourceAdapter.fromClass(resourceId, xaDataSourceClassName, configuration);
+            return XaResourceDescriptor.capable(resourceId, dataSourceClassName,
+                    xaDataSourceAdapter.getXaDataSourceClassName());
         }
         if (dataSource instanceof XADataSource) {
-            return XaResourceDescriptor.capable(resourceId, dataSourceClassName, dataSourceClassName);
+            xaDataSourceAdapter = new XaDataSourceAdapter(resourceId, (XADataSource) dataSource);
+            return XaResourceDescriptor.capable(resourceId, dataSourceClassName,
+                    xaDataSourceAdapter.getXaDataSourceClassName());
         }
         try {
             if (dataSource.isWrapperFor(XADataSource.class)) {
                 XADataSource xaDataSource = dataSource.unwrap(XADataSource.class);
                 if (xaDataSource != null) {
+                    xaDataSourceAdapter = new XaDataSourceAdapter(resourceId, xaDataSource);
                     return XaResourceDescriptor.capable(resourceId, dataSourceClassName,
-                            xaDataSource.getClass().getName());
+                            xaDataSourceAdapter.getXaDataSourceClassName());
                 }
             }
         } catch (SQLException e) {
             LOGGER.debug("Data source node {} cannot unwrap XADataSource.", nodeName, e);
         }
+        xaDataSourceAdapter = null;
         return XaResourceDescriptor.unavailable(resourceId, dataSourceClassName,
                 "No xaDataSourceClass is configured and the DataSource cannot unwrap javax.sql.XADataSource.");
     }

@@ -1,6 +1,7 @@
 package com.mysplitter;
 
 import com.mysplitter.config.MySplitterDataSourceNodeConfig;
+import com.mysplitter.transaction.XaConnectionBranch;
 import com.mysplitter.transaction.XaResourceDescriptor;
 import org.junit.Test;
 
@@ -8,12 +9,16 @@ import javax.sql.DataSource;
 import javax.sql.XAConnection;
 import javax.sql.XADataSource;
 import java.io.PrintWriter;
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Logger;
+import javax.transaction.xa.XAResource;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -76,6 +81,48 @@ public class DataSourceWrapperXaResourceTest {
         XaResourceDescriptor descriptor = wrapper.getXaResourceDescriptor();
         assertTrue(wrapper.isXaCapable());
         assertEquals(DemoXaDataSource.class.getName(), descriptor.getXaDataSourceClassName());
+    }
+
+    @Test
+    public void shouldOpenXaBranchFromConfiguredXaDataSourceClass() throws Exception {
+        DemoXaDataSource.reset();
+        Map<String, Object> configuration = configuration();
+        Map<String, Object> xaProperties = new HashMap<String, Object>();
+        xaProperties.put("url", "jdbc:demo");
+        xaProperties.put("port", Integer.valueOf(3306));
+        configuration.put("xaDataSourceClass", DemoXaDataSource.class.getName());
+        configuration.put("xaProperties", xaProperties);
+        DataSourceWrapper wrapper = createWrapper(configuration);
+
+        wrapper.initRealDataSource();
+        XaConnectionBranch branch = wrapper.openXaBranch("global-1", "branch-1", "user-a", "secret");
+        try {
+            assertEquals("database-main:writers:writer-node", branch.getBranchTransaction().getResourceId());
+            assertEquals("global-1", branch.getBranchTransaction().getGlobalTransactionId());
+            assertEquals("branch-1", branch.getBranchTransaction().getBranchId());
+            assertEquals("jdbc:demo", DemoXaDataSource.lastUrl);
+            assertEquals(3306, DemoXaDataSource.lastPort);
+            assertEquals("user-a", DemoXaDataSource.lastUser);
+            assertEquals("secret", DemoXaDataSource.lastPassword);
+        } finally {
+            branch.close();
+        }
+        assertTrue(DemoXaDataSource.lastXaConnection.closed);
+        assertTrue(DemoXaDataSource.lastXaConnection.connectionClosed);
+    }
+
+    @Test
+    public void shouldRejectOpeningXaBranchWhenNodeIsNotXaCapable() throws Exception {
+        DataSourceWrapper wrapper = createWrapper(configuration());
+
+        wrapper.initRealDataSource();
+
+        try {
+            wrapper.openXaBranch("global-1", "branch-1", null, null);
+            fail("Expected non-XA datasource node to reject XA branch opening.");
+        } catch (SQLFeatureNotSupportedException e) {
+            assertTrue(e.getMessage().contains("not XA capable"));
+        }
     }
 
     private DataSourceWrapper createWrapper(Map<String, Object> configuration) {
@@ -155,14 +202,43 @@ public class DataSourceWrapperXaResourceTest {
 
     public static final class DemoXaDataSource implements XADataSource {
 
+        private static String lastUrl;
+
+        private static int lastPort;
+
+        private static String lastUser;
+
+        private static String lastPassword;
+
+        private static DemoXaConnection lastXaConnection;
+
+        public static void reset() {
+            lastUrl = null;
+            lastPort = 0;
+            lastUser = null;
+            lastPassword = null;
+            lastXaConnection = null;
+        }
+
+        public void setUrl(String url) {
+            lastUrl = url;
+        }
+
+        public void setPort(int port) {
+            lastPort = port;
+        }
+
         @Override
         public XAConnection getXAConnection() throws SQLException {
-            return null;
+            lastXaConnection = new DemoXaConnection();
+            return lastXaConnection;
         }
 
         @Override
         public XAConnection getXAConnection(String user, String password) throws SQLException {
-            return null;
+            lastUser = user;
+            lastPassword = password;
+            return getXAConnection();
         }
 
         @Override
@@ -187,5 +263,103 @@ public class DataSourceWrapperXaResourceTest {
         public Logger getParentLogger() throws SQLFeatureNotSupportedException {
             throw new SQLFeatureNotSupportedException();
         }
+    }
+
+    private static final class DemoXaConnection implements XAConnection {
+
+        private boolean closed;
+
+        private boolean connectionClosed;
+
+        @Override
+        public Connection getConnection() throws SQLException {
+            return (Connection) Proxy.newProxyInstance(
+                    Connection.class.getClassLoader(),
+                    new Class<?>[]{Connection.class},
+                    new InvocationHandler() {
+                        @Override
+                        public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+                            if ("close".equals(method.getName())) {
+                                connectionClosed = true;
+                                return null;
+                            }
+                            if ("isClosed".equals(method.getName())) {
+                                return Boolean.valueOf(connectionClosed);
+                            }
+                            if ("unwrap".equals(method.getName())) {
+                                throw new SQLException("Not a wrapper.");
+                            }
+                            if ("isWrapperFor".equals(method.getName())) {
+                                return Boolean.FALSE;
+                            }
+                            return defaultValue(method.getReturnType());
+                        }
+                    });
+        }
+
+        @Override
+        public XAResource getXAResource() throws SQLException {
+            return (XAResource) Proxy.newProxyInstance(
+                    XAResource.class.getClassLoader(),
+                    new Class<?>[]{XAResource.class},
+                    new InvocationHandler() {
+                        @Override
+                        public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+                            return defaultValue(method.getReturnType());
+                        }
+                    });
+        }
+
+        @Override
+        public void close() throws SQLException {
+            closed = true;
+        }
+
+        @Override
+        public void addConnectionEventListener(javax.sql.ConnectionEventListener listener) {
+        }
+
+        @Override
+        public void removeConnectionEventListener(javax.sql.ConnectionEventListener listener) {
+        }
+
+        @Override
+        public void addStatementEventListener(javax.sql.StatementEventListener listener) {
+        }
+
+        @Override
+        public void removeStatementEventListener(javax.sql.StatementEventListener listener) {
+        }
+    }
+
+    private static Object defaultValue(Class<?> returnType) {
+        if (returnType == null || Void.TYPE.equals(returnType)) {
+            return null;
+        }
+        if (Boolean.TYPE.equals(returnType)) {
+            return Boolean.FALSE;
+        }
+        if (Integer.TYPE.equals(returnType)) {
+            return Integer.valueOf(0);
+        }
+        if (Long.TYPE.equals(returnType)) {
+            return Long.valueOf(0L);
+        }
+        if (Double.TYPE.equals(returnType)) {
+            return Double.valueOf(0D);
+        }
+        if (Float.TYPE.equals(returnType)) {
+            return Float.valueOf(0F);
+        }
+        if (Short.TYPE.equals(returnType)) {
+            return Short.valueOf((short) 0);
+        }
+        if (Byte.TYPE.equals(returnType)) {
+            return Byte.valueOf((byte) 0);
+        }
+        if (Character.TYPE.equals(returnType)) {
+            return Character.valueOf((char) 0);
+        }
+        return null;
     }
 }
