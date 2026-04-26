@@ -81,6 +81,12 @@ Exit criteria:
 - Crash/restart recovery can finish prepared branches.
 - Unsupported datasources fail clearly before transaction work starts.
 
+Current implementation checkpoint:
+
+- The transaction manager SPI, XA branch primitives, XA datasource adapter, embedded coordinator, and in-memory log store are in place.
+- Routed SQL connection opening now flows through the transaction manager, so internal XA tests can open, reuse, end, commit, rollback, and close enlisted branches from the logical connection context.
+- `transaction.mode: xa` is still intentionally blocked at configuration validation until durable log recovery and end-to-end database integration are complete.
+
 ### v1.2.0 - Heterogeneous XA Compatibility Matrix
 
 Goal: prove XA behavior across database brands.

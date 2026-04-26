@@ -16,6 +16,7 @@
 
 package com.mysplitter.transaction;
 
+import com.mysplitter.DataSourceWrapper;
 import com.mysplitter.MySplitterConnectionContext;
 import com.mysplitter.MySplitterRouteKey;
 import com.mysplitter.config.MySplitterTransactionConfig;
@@ -45,6 +46,27 @@ public class LocalTransactionManager implements GlobalTransactionManager {
     public void beforeOpenAdministrativeConnection(MySplitterConnectionContext connectionContext)
             throws SQLException {
         connectionContext.assertCanOpenAdministrativeConnectionInTransaction();
+    }
+
+    @Override
+    public Connection openRouteConnection(MySplitterConnectionContext connectionContext,
+                                          MySplitterRouteKey routeKey,
+                                          DataSourceWrapper dataSourceWrapper,
+                                          String username,
+                                          String password) throws SQLException {
+        beforeOpenRoute(connectionContext, routeKey);
+        Connection connection = openConnection(dataSourceWrapper, username, password);
+        try {
+            connectionContext.getConnectionState().apply(connection);
+            connectionContext.registerConnection(routeKey, connection);
+            return connection;
+        } catch (SQLException e) {
+            closeQuietly(connection, e);
+            throw e;
+        } catch (RuntimeException e) {
+            closeQuietly(connection, e);
+            throw e;
+        }
     }
 
     @Override
@@ -83,5 +105,25 @@ public class LocalTransactionManager implements GlobalTransactionManager {
         }
         current.addSuppressed(next);
         return current;
+    }
+
+    private Connection openConnection(DataSourceWrapper dataSourceWrapper,
+                                      String username,
+                                      String password) throws SQLException {
+        if (username != null || password != null) {
+            return dataSourceWrapper.getRealDataSource().getConnection(username, password);
+        }
+        return dataSourceWrapper.getRealDataSource().getConnection();
+    }
+
+    private void closeQuietly(Connection connection, Exception originalException) {
+        if (connection == null) {
+            return;
+        }
+        try {
+            connection.close();
+        } catch (SQLException closeException) {
+            originalException.addSuppressed(closeException);
+        }
     }
 }

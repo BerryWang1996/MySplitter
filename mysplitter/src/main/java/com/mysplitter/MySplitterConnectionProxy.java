@@ -17,6 +17,7 @@
 package com.mysplitter;
 
 import com.mysplitter.transaction.GlobalTransactionManager;
+import com.mysplitter.transaction.XaConnectionBranch;
 
 import java.beans.BeanInfo;
 import java.beans.Introspector;
@@ -154,6 +155,13 @@ public class MySplitterConnectionProxy implements Connection {
             for (Connection connection : connectionContext.listAllConnections()) {
                 try {
                     operation.apply(connection);
+                } catch (SQLException e) {
+                    exceptionHolder = mergeSQLException(exceptionHolder, e);
+                }
+            }
+            for (XaConnectionBranch xaBranch : connectionContext.listXaBranches()) {
+                try {
+                    xaBranch.close();
                 } catch (SQLException e) {
                     exceptionHolder = mergeSQLException(exceptionHolder, e);
                 }

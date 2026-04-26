@@ -65,11 +65,13 @@ Current `1.1.0` implementation checkpoint:
 - Done: add the public `mysplitter.transaction` configuration contract.
 - Done: keep `transaction.mode: local` as the safe default.
 - Done: recognize `transaction.mode: xa` as the planned distributed transaction mode while failing clearly until the XA transaction manager is implemented.
-- In progress: introduce the transaction manager SPI, branch transaction model, and durable transaction log abstraction.
-- In progress: add the XA branch resource model and `XADataSource` capability detection.
-- In progress: add an `XADataSource` connection adapter that can build `XAConnection`/`XAResource` branches without disrupting the current `DataSource` route path.
-- In progress: enlist XA branches into a coordinator-owned global transaction.
-- Next: wire routed SQL execution to open and reuse enlisted XA branches inside the logical connection context.
+- Done: introduce the transaction manager SPI, branch transaction model, and transaction log abstraction.
+- Done: add the XA branch resource model and `XADataSource` capability detection.
+- Done: add an `XADataSource` connection adapter that can build `XAConnection`/`XAResource` branches without disrupting the current `DataSource` route path.
+- Done: enlist XA branches into a coordinator-owned global transaction.
+- Done: wire routed SQL execution through the transaction manager so XA branches can be opened, started, enlisted, reused, ended, committed, rolled back, and closed from the logical connection context.
+- In progress: keep `transaction.mode: xa` configuration gated until durable recovery and end-to-end XA integration are complete.
+- Next: persist global and branch transaction state and add recovery for prepared or failed branches.
 
 ## Review Reconciliation
 

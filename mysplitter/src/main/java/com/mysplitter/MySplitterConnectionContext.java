@@ -16,6 +16,8 @@
 
 package com.mysplitter;
 
+import com.mysplitter.transaction.XaConnectionBranch;
+
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -32,9 +34,16 @@ public class MySplitterConnectionContext {
 
     private final Map<Object, Connection> connections = new LinkedHashMap<Object, Connection>();
 
+    private final Map<MySplitterRouteKey, XaConnectionBranch> xaBranches =
+            new LinkedHashMap<MySplitterRouteKey, XaConnectionBranch>();
+
     private final Map<String, MySplitterRouteKey> pinnedRouteKeys = new HashMap<String, MySplitterRouteKey>();
 
     private Object currentConnectionKey;
+
+    private String globalTransactionId;
+
+    private long xaBranchSequence;
 
     public MySplitterConnectionState getConnectionState() {
         return connectionState;
@@ -59,6 +68,41 @@ public class MySplitterConnectionContext {
         currentConnectionKey = routeKey;
     }
 
+    public synchronized String getGlobalTransactionId() {
+        return globalTransactionId;
+    }
+
+    public synchronized void setGlobalTransactionId(String globalTransactionId) {
+        this.globalTransactionId = globalTransactionId;
+    }
+
+    public synchronized String nextXaBranchId(MySplitterRouteKey routeKey) {
+        xaBranchSequence++;
+        return sanitize(routeKey.getDatabaseName()) + "-" + sanitize(routeKey.getNodeGroup()) + "-" +
+                sanitize(routeKey.getNodeName()) + "-" + xaBranchSequence;
+    }
+
+    public synchronized XaConnectionBranch getXaBranch(MySplitterRouteKey routeKey) {
+        return xaBranches.get(routeKey);
+    }
+
+    public synchronized void registerXaBranch(MySplitterRouteKey routeKey, XaConnectionBranch xaBranch) {
+        xaBranches.put(routeKey, xaBranch);
+        registerConnection(routeKey, xaBranch.getConnection());
+    }
+
+    public synchronized List<XaConnectionBranch> listXaBranches() {
+        return new ArrayList<XaConnectionBranch>(xaBranches.values());
+    }
+
+    public synchronized void clearTransactionResources() {
+        connections.clear();
+        xaBranches.clear();
+        pinnedRouteKeys.clear();
+        currentConnectionKey = null;
+        globalTransactionId = null;
+    }
+
     public synchronized void assertCanOpenRouteInTransaction(MySplitterRouteKey routeKey) throws SQLException {
         if (!isTransactionActive()) {
             return;
@@ -73,6 +117,7 @@ public class MySplitterConnectionContext {
 
     public synchronized void removeConnection(MySplitterRouteKey routeKey) {
         connections.remove(routeKey);
+        xaBranches.remove(routeKey);
         if (routeKey.equals(currentConnectionKey)) {
             currentConnectionKey = null;
         }
@@ -138,8 +183,10 @@ public class MySplitterConnectionContext {
 
     public synchronized void clear() {
         connections.clear();
+        xaBranches.clear();
         pinnedRouteKeys.clear();
         currentConnectionKey = null;
+        globalTransactionId = null;
     }
 
     private SQLException multipleConnectionTransactionException(String existingConnectionKey,
@@ -155,5 +202,21 @@ public class MySplitterConnectionContext {
             return "administrative";
         }
         return String.valueOf(connectionKey);
+    }
+
+    private String sanitize(String value) {
+        if (value == null) {
+            return "none";
+        }
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) {
+                builder.append(c);
+            } else {
+                builder.append('-');
+            }
+        }
+        return builder.toString();
     }
 }

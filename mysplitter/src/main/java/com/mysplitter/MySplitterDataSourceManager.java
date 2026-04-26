@@ -138,12 +138,10 @@ public class MySplitterDataSourceManager {
                 pinRouteIfNecessary(connectionContext, routeKey);
                 return new MySplitterRouteSelection(routeKey, existing);
             }
-            transactionManager.beforeOpenRoute(connectionContext, routeKey);
             try {
                 doFilters(dataSourceWrapper, sql.getSql());
-                Connection connection = openConnection(dataSourceWrapper, username, password);
-                connectionContext.getConnectionState().apply(connection);
-                connectionContext.registerConnection(routeKey, connection);
+                Connection connection = transactionManager.openRouteConnection(connectionContext, routeKey,
+                        dataSourceWrapper, username, password);
                 pinRouteIfNecessary(connectionContext, routeKey);
                 return new MySplitterRouteSelection(routeKey, connection);
             } catch (Exception e) {
@@ -395,16 +393,15 @@ public class MySplitterDataSourceManager {
                 pinRouteIfNecessary(connectionContext, routeKey);
                 return new MySplitterRouteSelection(routeKey, existing);
             }
-            connectionContext.assertCanOpenRouteInTransaction(routeKey);
             try {
                 doFilters(dataSourceWrapper, sql);
-                Connection connection = openConnection(dataSourceWrapper, username, password);
-                connectionContext.getConnectionState().apply(connection);
+                Connection connection = transactionManager.openRouteConnection(connectionContext, routeKey,
+                        dataSourceWrapper, username, password);
                 if (!dataSourceHealthManager.markHealthyIfCurrentVersionMatches(group, dataSourceWrapper, illVersion)) {
                     closeQuietly(connection, dataSourceWrapper);
+                    connectionContext.removeConnection(routeKey);
                     continue;
                 }
-                connectionContext.registerConnection(routeKey, connection);
                 pinRouteIfNecessary(connectionContext, routeKey);
                 return new MySplitterRouteSelection(routeKey, connection);
             } catch (Exception e) {
@@ -436,15 +433,6 @@ public class MySplitterDataSourceManager {
         LOGGER.warn("MySplitter failed to get connection from database {}, operation {}, node {}. Retrying with other nodes.",
                 group.getDatabaseName(), group.getNodeGroup(), dataSourceWrapper.getNodeName(), exception);
         dataSourceHealthManager.markIll(group, dataSourceWrapper, exception);
-    }
-
-    private Connection openConnection(DataSourceWrapper dataSourceWrapper,
-                                      String username,
-                                      String password) throws SQLException {
-        if (username != null || password != null) {
-            return dataSourceWrapper.getRealDataSource().getConnection(username, password);
-        }
-        return dataSourceWrapper.getRealDataSource().getConnection();
     }
 
     private void doFilters(DataSourceWrapper dataSourceWrapper, String sql) throws SQLException {

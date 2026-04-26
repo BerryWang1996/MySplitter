@@ -16,9 +16,11 @@
 
 package com.mysplitter.transaction;
 
+import com.mysplitter.DataSourceWrapper;
 import com.mysplitter.MySplitterConnectionContext;
 import com.mysplitter.MySplitterRouteKey;
 
+import java.sql.Connection;
 import java.sql.SQLException;
 
 public interface GlobalTransactionManager {
@@ -31,6 +33,12 @@ public interface GlobalTransactionManager {
             throws SQLException;
 
     void beforeOpenAdministrativeConnection(MySplitterConnectionContext connectionContext) throws SQLException;
+
+    Connection openRouteConnection(MySplitterConnectionContext connectionContext,
+                                   MySplitterRouteKey routeKey,
+                                   DataSourceWrapper dataSourceWrapper,
+                                   String username,
+                                   String password) throws SQLException;
 
     void commit(MySplitterConnectionContext connectionContext) throws SQLException;
 

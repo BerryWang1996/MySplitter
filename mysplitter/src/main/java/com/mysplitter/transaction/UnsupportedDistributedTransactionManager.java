@@ -16,9 +16,11 @@
 
 package com.mysplitter.transaction;
 
+import com.mysplitter.DataSourceWrapper;
 import com.mysplitter.MySplitterConnectionContext;
 import com.mysplitter.MySplitterRouteKey;
 
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 
@@ -49,6 +51,15 @@ public class UnsupportedDistributedTransactionManager implements GlobalTransacti
     @Override
     public void beforeOpenAdministrativeConnection(MySplitterConnectionContext connectionContext)
             throws SQLException {
+        throw unsupported();
+    }
+
+    @Override
+    public Connection openRouteConnection(MySplitterConnectionContext connectionContext,
+                                          MySplitterRouteKey routeKey,
+                                          DataSourceWrapper dataSourceWrapper,
+                                          String username,
+                                          String password) throws SQLException {
         throw unsupported();
     }
 
