@@ -68,6 +68,7 @@ Goal: make multi-datasource transactions a first-class MySplitter subsystem.
 - Add XA resource descriptors so each configured datasource node can report whether an `XADataSource` adapter is available.
 - Add XA branch primitives around `XAResource`, `Xid`, prepare, commit, rollback, and read-only branch handling.
 - Add JDBC `XADataSource` adapter support that can create `XAConnection`, physical `Connection`, `XAResource`, and branch transaction objects.
+- Add an embedded coordinator that owns global transaction ids, branch enlistment, prepare/commit/rollback ordering, and log-state transitions.
 - Enlist each routed physical datasource as a branch.
 - Implement two-phase commit and rollback.
 - Persist global and branch transaction state.
