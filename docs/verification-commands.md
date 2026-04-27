@@ -67,7 +67,7 @@ Run the Docker-backed MySQL and PostgreSQL prepared-branch recovery slices, incl
 
 Notes:
 
-- These are `1.1.0-SNAPSHOT` development checks for the experimental XA path, not `1.0.x` release-gate requirements.
+- These are `1.1.0` release checks for the experimental XA path, not `1.0.x` release-gate requirements.
 - Docker Desktop must be running for the MySQL and PostgreSQL recovery slices.
 
 ## Starter Module

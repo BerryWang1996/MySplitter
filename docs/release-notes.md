@@ -1,8 +1,8 @@
 # Release Notes
 
-## 1.1.0-SNAPSHOT
+## 1.1.0
 
-`1.1.0-SNAPSHOT` is the distributed transaction foundation line. XA is implemented as a gated experimental MVP for development validation, not as a production-default transaction mode.
+`1.1.0` is the distributed transaction foundation release. XA is implemented as a gated experimental MVP for development validation, not as a production-default transaction mode.
 
 Highlights:
 

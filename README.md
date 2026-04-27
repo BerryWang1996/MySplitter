@@ -96,7 +96,7 @@ mysplitter:
 ## Current Configuration Model
 
 - `filters` is supported and executed for every routed SQL, including reused and transaction-pinned routes.
-- `transaction.mode: local` is the production default. Experimental XA support is under active `1.1.0-SNAPSHOT` development and remains gated by `mysplitter.experimental.xa.enabled=true`.
+- `transaction.mode: local` is the production default. Experimental XA support is available in `1.1.0` and remains gated by `mysplitter.experimental.xa.enabled=true`.
 - `passwordSource: plain` keeps local YAML passwords explicit for development convenience.
 - `passwordSource: environment` resolves datasource passwords from `${ENV_OR_PROPERTY}` placeholders or `passwordEnv`.
 - `enablePasswordEncryption: true` is still accepted as legacy RSA compatibility mode, but it is not production-grade secret management.

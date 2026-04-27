@@ -4,7 +4,7 @@
 
 Stage one stabilization is complete.
 
-The `1.0.0`, `1.0.1`, `1.0.2`, and `1.0.3` release tags are cut. The current tree is now in `1.1.0-SNAPSHOT` development for the distributed transaction foundation on `vibe-coding`.
+The `1.0.0`, `1.0.1`, `1.0.2`, and `1.0.3` release tags are cut. The current tree is being prepared for the `1.1.0` experimental XA release on `vibe-coding`.
 
 ## Version Strategy
 
@@ -55,10 +55,10 @@ Current checkpoint:
 - The `1.0.1` release commit and tag have been pushed to the remote `vibe-coding` branch.
 - GitHub Actions now runs the canonical release gate on PRs, manual dispatch, and pushes to `master` / `vibe-coding`.
 - The `1.0.2` and `1.0.3` release commits and tags have been pushed to the remote `vibe-coding` branch.
-- The current tree is a `1.1.0-SNAPSHOT` development version after the formal `1.0.3` release.
+- The current tree is being promoted from `1.1.0-SNAPSHOT` to the formal `1.1.0` experimental XA release after the `1.0.3` release.
 - The `1.0.3` hardening slices are complete: YAML loading now uses SafeConstructor-based primitive mapping, password handling now has explicit `plain`, `environment`, and `legacy-rsa` source modes, local transactions now fail fast before spanning multiple physical connections, routed statement batches execute deterministically, and the default SQL parser routes ambiguous SQL to writers.
 
-The `1.1.0` distributed transaction foundation is now code-complete as a gated experimental XA MVP. The tree remains on `1.1.0-SNAPSHOT` until the release commit/tag step.
+The `1.1.0` distributed transaction foundation is code-complete as a gated experimental XA MVP and is ready for the release commit/tag step.
 
 Current `1.1.0` implementation checkpoint:
 
@@ -86,13 +86,14 @@ Current `1.1.0` implementation checkpoint:
 - Done: Docker-gated PostgreSQL XA file-log recovery coverage now executes successfully for prepared-branch commit and rollback with `max_prepared_transactions` enabled.
 - Done: add XA failure-injection coverage for prepare failure, commit failure, rollback failure, recovery commit failure, recovery rollback failure, and XA recover-scan failure so failed branches remain honestly recoverable.
 - Done: add Docker-gated PostgreSQL recovery failure injection for database-unavailable recovery, proving prepared file-log branches remain recoverable when the real database cannot be reached.
-- Done: document XA compatibility and operations notes for the gated `v1.1.0-SNAPSHOT` implementation.
+- Done: document XA compatibility and operations notes for the gated `v1.1.0` implementation.
 - Decided: keep `transaction.mode: xa` gated as an experimental `v1.1.0` MVP. The implementation is usable for development validation, but production promotion waits for admin visibility, stronger operational tooling, and explicit release support terms.
 - Done: add configuration tests that lock the gate behavior: XA is rejected by default and allowed only when `mysplitter.experimental.xa.enabled=true`.
 - Done: prepare the `v1.1.0` experimental XA signoff checklist and expose the gated XA path in README/release notes without presenting it as production-ready.
 - Done: complete the code-review cleanup pass for the XA recovery error path so recovery failures retain branch context and close failures remain suppressed instead of masking the root cause.
 - Done: run the repo-level release gate for the `1.1.0-SNAPSHOT` experimental XA MVP; core, starter, regression suite, demo compile, and release packaging all pass.
-- Next: commit the current `1.1.0-SNAPSHOT` development milestone. Do not tag a formal release until the version is intentionally changed from snapshot to `1.1.0`.
+- Done: promote the tree to `1.1.0` and rerun the repo-level release gate; core, starter, regression suite, demo compile, and release packaging all pass under the formal release version.
+- Next: commit the `1.1.0` release, tag `v1.1.0`, and push the branch/tag.
 
 ## Review Reconciliation
 
@@ -103,7 +104,7 @@ Current `1.1.0` implementation checkpoint:
 - Not present in the current tree: the previous `systemPath` self-dependency issue is no longer in `mysplitter/pom.xml`.
 - Closed: the health-manager race finding referenced an older `LinkedHashSet` design; the current implementation uses concurrent maps and has dedicated concurrent transition coverage.
 - Closed: the Spring Boot baseline finding is stale; the parent build now uses Spring Boot `2.7.18`, and the starter ships both `spring.factories` and `AutoConfiguration.imports`.
-- Closed for the maintenance line: the old snapshot release blocker is stale for `1.0.3`; the current tree is intentionally back in `1.1.0-SNAPSHOT` development for the next distributed-transaction milestone.
+- Closed for the maintenance line: the old snapshot release blocker is stale for `1.0.3`; the current tree is now being promoted to the `1.1.0` distributed-transaction milestone.
 - Mitigated: Docker-backed MySQL validation can still skip when Docker is unavailable, but the release gate now includes an always-on H2 routing integration path for baseline routing and transaction coverage.
 - Closed for `1.0.3`: configuration password protection now has a clearer mode model. Development users may choose plain YAML values for convenience, while production users can resolve passwords from system properties or environment variables; the legacy RSA helper is documented as compatibility-only.
 - Closed for `1.0.3`: YAML parsing now uses SnakeYAML safe construction and manual primitive mapping instead of unsafe type construction.
