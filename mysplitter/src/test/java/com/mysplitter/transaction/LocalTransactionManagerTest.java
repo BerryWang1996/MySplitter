@@ -95,6 +95,17 @@ public class LocalTransactionManagerTest {
         }
     }
 
+    @Test
+    public void shouldCreateXaManagerWhenRuntimeRegistryIsSupplied() throws Exception {
+        MySplitterTransactionConfig transactionConfig = new MySplitterTransactionConfig();
+        transactionConfig.setMode("XA");
+
+        GlobalTransactionManager transactionManager =
+                TransactionManagers.create(transactionConfig, new XaResourceRegistry());
+
+        assertEquals("xa", transactionManager.getMode());
+    }
+
     private Connection countingConnection(final AtomicInteger commits,
                                           final AtomicInteger rollbacks,
                                           final SQLException commitException,

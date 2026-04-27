@@ -68,4 +68,26 @@ public final class MySplitterXid implements Xid {
                 ", branchQualifier='" + new String(branchQualifier, StandardCharsets.UTF_8) + '\'' +
                 '}';
     }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (!(obj instanceof Xid)) {
+            return false;
+        }
+        Xid other = (Xid) obj;
+        return FORMAT_ID == other.getFormatId() &&
+                Arrays.equals(globalTransactionId, other.getGlobalTransactionId()) &&
+                Arrays.equals(branchQualifier, other.getBranchQualifier());
+    }
+
+    @Override
+    public int hashCode() {
+        int result = FORMAT_ID;
+        result = 31 * result + Arrays.hashCode(globalTransactionId);
+        result = 31 * result + Arrays.hashCode(branchQualifier);
+        return result;
+    }
 }

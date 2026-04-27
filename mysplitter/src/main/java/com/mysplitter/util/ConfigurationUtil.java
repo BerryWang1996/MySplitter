@@ -70,6 +70,8 @@ public class ConfigurationUtil {
     private static final Pattern SECRET_PLACEHOLDER_PATTERN =
             Pattern.compile("\\$\\{([^}:]+)(?::([^}]*))?\\}");
 
+    private static final String EXPERIMENTAL_XA_PROPERTY = "mysplitter.experimental.xa.enabled";
+
     private enum PasswordSourceMode {
         PLAIN,
         ENVIRONMENT,
@@ -159,6 +161,7 @@ public class ConfigurationUtil {
         MySplitterTransactionCoordinatorConfig coordinatorConfig = new MySplitterTransactionCoordinatorConfig();
         coordinatorConfig.setType(asString(coordinatorMap.get("type")));
         coordinatorConfig.setLogStore(asString(coordinatorMap.get("logStore")));
+        coordinatorConfig.setLogFile(asString(coordinatorMap.get("logFile")));
         return coordinatorConfig;
     }
 
@@ -498,10 +501,16 @@ public class ConfigurationUtil {
                     ". Only supported one of " + SUPPORT_TRANSACTION_MODE_LIST + ".");
         }
         transactionConfig.setMode(normalizedMode);
-        if (MySplitterTransactionConfig.MODE_XA.equals(normalizedMode)) {
-            throw new IllegalArgumentException("MySplitter transaction.mode xa is planned but not implemented yet. " +
-                    "Keep transaction.mode local until the XA transaction manager lands in v1.1.0.");
+        if (MySplitterTransactionConfig.MODE_XA.equals(normalizedMode) && !isExperimentalXaEnabled()) {
+            throw new IllegalArgumentException("MySplitter transaction.mode xa is implemented internally but still " +
+                    "gated until XA operational recovery caveats and compatibility limits are closed in v1.1.0. " +
+                    "Keep transaction.mode local for production use, or set " + EXPERIMENTAL_XA_PROPERTY +
+                    "=true for development-only validation.");
         }
+    }
+
+    private static boolean isExperimentalXaEnabled() {
+        return Boolean.parseBoolean(System.getProperty(EXPERIMENTAL_XA_PROPERTY, "false"));
     }
 
     private static PasswordSourceMode resolvePasswordSourceMode(MySplitterConfig config) {

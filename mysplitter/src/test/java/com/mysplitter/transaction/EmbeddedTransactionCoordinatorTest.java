@@ -30,6 +30,7 @@ public class EmbeddedTransactionCoordinatorTest {
         assertEquals(0, firstBranch.rollbacks);
         assertEquals(0, secondBranch.rollbacks);
         assertStatuses(logStore.snapshot(), TransactionStatus.COMMITTED, TransactionStatus.COMMITTED);
+        assertDecisions(logStore.snapshot(), TransactionDecision.COMMIT, TransactionDecision.COMMIT);
     }
 
     @Test
@@ -57,6 +58,7 @@ public class EmbeddedTransactionCoordinatorTest {
         assertEquals(1, firstBranch.rollbacks);
         assertEquals(1, secondBranch.rollbacks);
         assertStatuses(logStore.snapshot(), TransactionStatus.ROLLED_BACK, TransactionStatus.ROLLED_BACK);
+        assertDecisions(logStore.snapshot(), TransactionDecision.ROLLBACK, TransactionDecision.ROLLBACK);
         assertEquals(0, logStore.findRecoverable().size());
     }
 
@@ -79,9 +81,30 @@ public class EmbeddedTransactionCoordinatorTest {
             assertEquals("commit failed", e.getMessage());
         }
         assertStatuses(logStore.snapshot(), TransactionStatus.COMMITTED, TransactionStatus.FAILED);
+        assertDecisions(logStore.snapshot(), TransactionDecision.COMMIT, TransactionDecision.COMMIT);
         List<TransactionLogEntry> recoverable = logStore.findRecoverable();
         assertEquals(1, recoverable.size());
         assertEquals("branch-2", recoverable.get(0).getBranchId());
+    }
+
+    @Test
+    public void shouldNotLeaveReadOnlyBranchesRecoverable() throws Exception {
+        InMemoryTransactionLogStore logStore = new InMemoryTransactionLogStore();
+        EmbeddedTransactionCoordinator coordinator = new EmbeddedTransactionCoordinator(logStore);
+        String globalTransactionId = coordinator.begin();
+        RecordingBranch readOnlyBranch = new RecordingBranch(globalTransactionId, "branch-1", "resource-1");
+        readOnlyBranch.readOnly = true;
+        RecordingBranch writableBranch = new RecordingBranch(globalTransactionId, "branch-2", "resource-2");
+
+        coordinator.enlist(readOnlyBranch);
+        coordinator.enlist(writableBranch);
+        coordinator.commit(globalTransactionId);
+
+        assertEquals(1, readOnlyBranch.prepares);
+        assertEquals(1, readOnlyBranch.commits);
+        assertStatuses(logStore.snapshot(), TransactionStatus.COMMITTED, TransactionStatus.COMMITTED);
+        assertDecisions(logStore.snapshot(), TransactionDecision.COMMIT, TransactionDecision.COMMIT);
+        assertEquals(0, logStore.findRecoverable().size());
     }
 
     @Test
@@ -101,6 +124,34 @@ public class EmbeddedTransactionCoordinatorTest {
         assertTrue("Second branch should rollback before first branch.",
                 secondBranch.rollbackOrder < firstBranch.rollbackOrder);
         assertStatuses(logStore.snapshot(), TransactionStatus.ROLLED_BACK, TransactionStatus.ROLLED_BACK);
+        assertDecisions(logStore.snapshot(), TransactionDecision.ROLLBACK, TransactionDecision.ROLLBACK);
+    }
+
+    @Test
+    public void shouldKeepFailedRollbackBranchRecoverable() throws Exception {
+        InMemoryTransactionLogStore logStore = new InMemoryTransactionLogStore();
+        EmbeddedTransactionCoordinator coordinator = new EmbeddedTransactionCoordinator(logStore);
+        String globalTransactionId = coordinator.begin();
+        RecordingBranch firstBranch = new RecordingBranch(globalTransactionId, "branch-1", "resource-1");
+        RecordingBranch secondBranch = new RecordingBranch(globalTransactionId, "branch-2", "resource-2");
+        secondBranch.rollbackException = new SQLException("rollback failed");
+
+        coordinator.enlist(firstBranch);
+        coordinator.enlist(secondBranch);
+
+        try {
+            coordinator.rollback(globalTransactionId);
+            fail("Expected rollback failure to fail global rollback.");
+        } catch (SQLException e) {
+            assertEquals("rollback failed", e.getMessage());
+        }
+        assertEquals(1, firstBranch.rollbacks);
+        assertEquals(1, secondBranch.rollbacks);
+        assertStatuses(logStore.snapshot(), TransactionStatus.ROLLED_BACK, TransactionStatus.FAILED);
+        assertDecisions(logStore.snapshot(), TransactionDecision.ROLLBACK, TransactionDecision.ROLLBACK);
+        List<TransactionLogEntry> recoverable = logStore.findRecoverable();
+        assertEquals(1, recoverable.size());
+        assertEquals("branch-2", recoverable.get(0).getBranchId());
     }
 
     @Test
@@ -126,6 +177,14 @@ public class EmbeddedTransactionCoordinatorTest {
         assertEquals(second, entries.get(1).getStatus());
     }
 
+    private void assertDecisions(List<TransactionLogEntry> entries,
+                                 TransactionDecision first,
+                                 TransactionDecision second) {
+        assertEquals(2, entries.size());
+        assertEquals(first, entries.get(0).getDecision());
+        assertEquals(second, entries.get(1).getDecision());
+    }
+
     private static final class RecordingBranch implements BranchTransaction {
 
         private static int rollbackSequence;
@@ -147,6 +206,10 @@ public class EmbeddedTransactionCoordinatorTest {
         private SQLException prepareException;
 
         private SQLException commitException;
+
+        private SQLException rollbackException;
+
+        private boolean readOnly;
 
         private RecordingBranch(String globalTransactionId, String branchId, String resourceId) {
             this.globalTransactionId = globalTransactionId;
@@ -170,11 +233,12 @@ public class EmbeddedTransactionCoordinatorTest {
         }
 
         @Override
-        public void prepare() throws SQLException {
+        public boolean prepare() throws SQLException {
             prepares++;
             if (prepareException != null) {
                 throw prepareException;
             }
+            return readOnly;
         }
 
         @Override
@@ -189,6 +253,9 @@ public class EmbeddedTransactionCoordinatorTest {
         public void rollback() throws SQLException {
             rollbacks++;
             rollbackOrder = ++rollbackSequence;
+            if (rollbackException != null) {
+                throw rollbackException;
+            }
         }
     }
 }

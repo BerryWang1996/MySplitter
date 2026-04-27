@@ -167,6 +167,11 @@ public class XaTransactionManager implements GlobalTransactionManager {
         }
     }
 
+    @Override
+    public void recover() throws SQLException {
+        transactionCoordinator.recover();
+    }
+
     private Connection openLocalAutoCommitConnection(MySplitterConnectionContext connectionContext,
                                                     MySplitterRouteKey routeKey,
                                                     DataSourceWrapper dataSourceWrapper,

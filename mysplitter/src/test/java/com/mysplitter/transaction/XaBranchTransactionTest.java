@@ -21,7 +21,7 @@ public class XaBranchTransactionTest {
 
         branch.start(XAResource.TMNOFLAGS);
         branch.end(XAResource.TMSUCCESS);
-        branch.prepare();
+        assertEquals(false, branch.prepare());
         branch.commit();
 
         assertEquals(1, xaResource.starts);
@@ -37,7 +37,7 @@ public class XaBranchTransactionTest {
         RecordingXaResource xaResource = new RecordingXaResource(XAResource.XA_RDONLY);
         XaBranchTransaction branch = new XaBranchTransaction("global-1", "branch-1", "resource-1", xaResource);
 
-        branch.prepare();
+        assertEquals(true, branch.prepare());
         branch.commit();
         branch.rollback();
 

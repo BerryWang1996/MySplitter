@@ -164,12 +164,17 @@ public class MySplitterRoutingIntegrationTest {
 
     private Map<String, Object> createDataSourceConfiguration() {
         Map<String, Object> configuration = new HashMap<String, Object>();
-        configuration.put("jdbcUrl", MYSQL_CONTAINER.getJdbcUrl());
+        configuration.put("jdbcUrl", jdbcUrl());
         configuration.put("username", MYSQL_CONTAINER.getUsername());
         configuration.put("password", MYSQL_CONTAINER.getPassword());
         configuration.put("driverClassName", MYSQL_CONTAINER.getDriverClassName());
         configuration.put("connectionTimeout", Long.valueOf(1000L));
         return configuration;
+    }
+
+    private String jdbcUrl() {
+        String jdbcUrl = MYSQL_CONTAINER.getJdbcUrl();
+        return jdbcUrl + (jdbcUrl.contains("?") ? "&" : "?") + "useSSL=false";
     }
 
     private long queryConnectionId(Connection connection) throws Exception {

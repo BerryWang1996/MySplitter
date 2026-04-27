@@ -16,19 +16,11 @@
 
 package com.mysplitter.transaction;
 
-import java.sql.SQLException;
+public enum TransactionDecision {
 
-public interface BranchTransaction {
+    UNKNOWN,
 
-    String getGlobalTransactionId();
+    COMMIT,
 
-    String getBranchId();
-
-    String getResourceId();
-
-    boolean prepare() throws SQLException;
-
-    void commit() throws SQLException;
-
-    void rollback() throws SQLException;
+    ROLLBACK
 }

@@ -17,7 +17,9 @@
 package com.mysplitter;
 
 import com.mysplitter.selector.LoadBalanceSelector;
+import com.mysplitter.transaction.XaResourceRegistry;
 
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -57,6 +59,14 @@ public class MySplitterDataSourceRegistry {
             wrappers.addAll(group.listAll());
         }
         return new ArrayList<DataSourceWrapper>(wrappers);
+    }
+
+    public XaResourceRegistry createXaResourceRegistry() throws SQLException {
+        XaResourceRegistry xaResourceRegistry = new XaResourceRegistry();
+        for (DataSourceWrapper wrapper : listAllNodes()) {
+            xaResourceRegistry.register(wrapper);
+        }
+        return xaResourceRegistry;
     }
 
     public void clear() {

@@ -25,5 +25,7 @@ public interface TransactionLogStore {
 
     void update(TransactionLogEntry entry) throws SQLException;
 
+    void decide(String globalTransactionId, TransactionDecision decision) throws SQLException;
+
     List<TransactionLogEntry> findRecoverable() throws SQLException;
 }

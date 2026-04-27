@@ -24,6 +24,8 @@ public class MySplitterTransactionCoordinatorConfig implements Serializable {
 
     private String logStore;
 
+    private String logFile;
+
     public String getType() {
         return type;
     }
@@ -40,11 +42,20 @@ public class MySplitterTransactionCoordinatorConfig implements Serializable {
         this.logStore = logStore;
     }
 
+    public String getLogFile() {
+        return logFile;
+    }
+
+    public void setLogFile(String logFile) {
+        this.logFile = logFile;
+    }
+
     @Override
     public String toString() {
         return "MySplitterTransactionCoordinatorConfig{" +
                 "type='" + type + '\'' +
                 ", logStore='" + logStore + '\'' +
+                ", logFile='" + logFile + '\'' +
                 '}';
     }
 }

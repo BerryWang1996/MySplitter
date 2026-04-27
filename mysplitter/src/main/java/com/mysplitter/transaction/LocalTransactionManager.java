@@ -99,6 +99,11 @@ public class LocalTransactionManager implements GlobalTransactionManager {
         }
     }
 
+    @Override
+    public void recover() throws SQLException {
+        // Local mode does not own a durable transaction recovery log.
+    }
+
     private SQLException mergeSQLException(SQLException current, SQLException next) {
         if (current == null) {
             return next;

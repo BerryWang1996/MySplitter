@@ -35,11 +35,19 @@ public class EmbeddedTransactionCoordinator implements TransactionCoordinator {
 
     private final TransactionLogStore transactionLogStore;
 
+    private final XaRecoveryExecutor recoveryExecutor;
+
     public EmbeddedTransactionCoordinator(TransactionLogStore transactionLogStore) {
+        this(transactionLogStore, null);
+    }
+
+    public EmbeddedTransactionCoordinator(TransactionLogStore transactionLogStore,
+                                          XaRecoveryExecutor recoveryExecutor) {
         if (transactionLogStore == null) {
             throw new IllegalArgumentException("MySplitter transactionLogStore is null.");
         }
         this.transactionLogStore = transactionLogStore;
+        this.recoveryExecutor = recoveryExecutor;
     }
 
     @Override
@@ -63,7 +71,8 @@ public class EmbeddedTransactionCoordinator implements TransactionCoordinator {
             throw new SQLException("MySplitter global transaction " + globalTransactionId + " does not exist.");
         }
         globalTransaction.enlist(branchTransaction);
-        transactionLogStore.append(toLogEntry(branchTransaction, TransactionStatus.ACTIVE));
+        transactionLogStore.append(toLogEntry(branchTransaction, TransactionStatus.ACTIVE,
+                globalTransaction.getDecision()));
     }
 
     @Override
@@ -71,14 +80,31 @@ public class EmbeddedTransactionCoordinator implements TransactionCoordinator {
         GlobalTransaction globalTransaction = requireGlobalTransaction(globalTransactionId);
         SQLException prepareException = prepareBranches(globalTransaction);
         if (prepareException != null) {
+            SQLException decisionException = markDecisionSafely(globalTransaction, TransactionDecision.ROLLBACK);
             SQLException rollbackException = rollbackBranches(globalTransaction, TransactionStatus.ROLLED_BACK);
             globalTransaction.status = TransactionStatus.FAILED;
+            if (decisionException != null) {
+                prepareException.addSuppressed(decisionException);
+            }
             if (rollbackException != null) {
                 prepareException.addSuppressed(rollbackException);
             }
             throw prepareException;
         }
 
+        SQLException decisionException = markDecisionSafely(globalTransaction, TransactionDecision.COMMIT);
+        if (decisionException != null) {
+            SQLException rollbackDecisionException = markDecisionSafely(globalTransaction, TransactionDecision.ROLLBACK);
+            SQLException rollbackException = rollbackBranches(globalTransaction, TransactionStatus.ROLLED_BACK);
+            globalTransaction.status = TransactionStatus.FAILED;
+            if (rollbackDecisionException != null) {
+                decisionException.addSuppressed(rollbackDecisionException);
+            }
+            if (rollbackException != null) {
+                decisionException.addSuppressed(rollbackException);
+            }
+            throw decisionException;
+        }
         SQLException commitException = commitBranches(globalTransaction);
         if (commitException != null) {
             globalTransaction.status = TransactionStatus.FAILED;
@@ -91,10 +117,12 @@ public class EmbeddedTransactionCoordinator implements TransactionCoordinator {
     @Override
     public void rollback(String globalTransactionId) throws SQLException {
         GlobalTransaction globalTransaction = requireGlobalTransaction(globalTransactionId);
+        SQLException exceptionHolder = markDecisionSafely(globalTransaction, TransactionDecision.ROLLBACK);
         SQLException rollbackException = rollbackBranches(globalTransaction, TransactionStatus.ROLLED_BACK);
-        if (rollbackException != null) {
+        exceptionHolder = mergeSQLException(exceptionHolder, rollbackException);
+        if (exceptionHolder != null) {
             globalTransaction.status = TransactionStatus.FAILED;
-            throw rollbackException;
+            throw exceptionHolder;
         }
         globalTransaction.status = TransactionStatus.ROLLED_BACK;
         globalTransactions.remove(globalTransactionId);
@@ -102,18 +130,22 @@ public class EmbeddedTransactionCoordinator implements TransactionCoordinator {
 
     @Override
     public void recover() throws SQLException {
-        // Durable recovery will be implemented when the persistent log store lands.
-        transactionLogStore.findRecoverable();
+        if (recoveryExecutor == null) {
+            transactionLogStore.findRecoverable();
+            return;
+        }
+        recoveryExecutor.recover();
     }
 
     private SQLException prepareBranches(GlobalTransaction globalTransaction) throws SQLException {
         SQLException exceptionHolder = null;
         for (BranchTransaction branchTransaction : globalTransaction.listBranches()) {
             try {
-                branchTransaction.prepare();
-                transactionLogStore.update(toLogEntry(branchTransaction, TransactionStatus.PREPARED));
+                boolean readOnly = branchTransaction.prepare();
+                updateBranchLog(globalTransaction, branchTransaction,
+                        readOnly ? TransactionStatus.COMMITTED : TransactionStatus.PREPARED);
             } catch (SQLException e) {
-                transactionLogStore.update(toLogEntry(branchTransaction, TransactionStatus.FAILED));
+                updateBranchLog(globalTransaction, branchTransaction, TransactionStatus.FAILED);
                 exceptionHolder = mergeSQLException(exceptionHolder, e);
             }
         }
@@ -125,9 +157,9 @@ public class EmbeddedTransactionCoordinator implements TransactionCoordinator {
         for (BranchTransaction branchTransaction : globalTransaction.listBranches()) {
             try {
                 branchTransaction.commit();
-                transactionLogStore.update(toLogEntry(branchTransaction, TransactionStatus.COMMITTED));
+                updateBranchLog(globalTransaction, branchTransaction, TransactionStatus.COMMITTED);
             } catch (SQLException e) {
-                transactionLogStore.update(toLogEntry(branchTransaction, TransactionStatus.FAILED));
+                updateBranchLog(globalTransaction, branchTransaction, TransactionStatus.FAILED);
                 exceptionHolder = mergeSQLException(exceptionHolder, e);
             }
         }
@@ -142,9 +174,9 @@ public class EmbeddedTransactionCoordinator implements TransactionCoordinator {
             BranchTransaction branchTransaction = branches.get(i);
             try {
                 branchTransaction.rollback();
-                transactionLogStore.update(toLogEntry(branchTransaction, successStatus));
+                updateBranchLog(globalTransaction, branchTransaction, successStatus);
             } catch (SQLException e) {
-                transactionLogStore.update(toLogEntry(branchTransaction, TransactionStatus.FAILED));
+                updateBranchLog(globalTransaction, branchTransaction, TransactionStatus.FAILED);
                 exceptionHolder = mergeSQLException(exceptionHolder, e);
             }
         }
@@ -162,12 +194,35 @@ public class EmbeddedTransactionCoordinator implements TransactionCoordinator {
         return globalTransaction;
     }
 
-    private TransactionLogEntry toLogEntry(BranchTransaction branchTransaction, TransactionStatus status) {
+    private void markDecision(GlobalTransaction globalTransaction, TransactionDecision decision) throws SQLException {
+        transactionLogStore.decide(globalTransaction.getGlobalTransactionId(), decision);
+        globalTransaction.setDecision(decision);
+    }
+
+    private SQLException markDecisionSafely(GlobalTransaction globalTransaction, TransactionDecision decision) {
+        try {
+            markDecision(globalTransaction, decision);
+            return null;
+        } catch (SQLException e) {
+            return e;
+        }
+    }
+
+    private void updateBranchLog(GlobalTransaction globalTransaction,
+                                 BranchTransaction branchTransaction,
+                                 TransactionStatus status) throws SQLException {
+        transactionLogStore.update(toLogEntry(branchTransaction, status, globalTransaction.getDecision()));
+    }
+
+    private TransactionLogEntry toLogEntry(BranchTransaction branchTransaction,
+                                           TransactionStatus status,
+                                           TransactionDecision decision) {
         TransactionLogEntry entry = new TransactionLogEntry();
         entry.setGlobalTransactionId(branchTransaction.getGlobalTransactionId());
         entry.setBranchId(branchTransaction.getBranchId());
         entry.setResourceId(branchTransaction.getResourceId());
         entry.setStatus(status);
+        entry.setDecision(decision == null ? TransactionDecision.UNKNOWN : decision);
         return entry;
     }
 
@@ -187,6 +242,8 @@ public class EmbeddedTransactionCoordinator implements TransactionCoordinator {
                 new LinkedHashMap<String, BranchTransaction>();
 
         private TransactionStatus status = TransactionStatus.ACTIVE;
+
+        private TransactionDecision decision = TransactionDecision.UNKNOWN;
 
         private GlobalTransaction(String globalTransactionId) {
             this.globalTransactionId = globalTransactionId;
@@ -208,6 +265,22 @@ public class EmbeddedTransactionCoordinator implements TransactionCoordinator {
 
         private synchronized List<BranchTransaction> listBranches() {
             return new ArrayList<BranchTransaction>(branchTransactions.values());
+        }
+
+        private synchronized TransactionDecision getDecision() {
+            return decision;
+        }
+
+        private String getGlobalTransactionId() {
+            return globalTransactionId;
+        }
+
+        private synchronized void setDecision(TransactionDecision decision) {
+            this.decision = decision == null ? TransactionDecision.UNKNOWN : decision;
+        }
+
+        private String branchKey(BranchTransaction branchTransaction) {
+            return branchTransaction.getResourceId() + ":" + branchTransaction.getBranchId();
         }
     }
 }

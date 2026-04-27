@@ -51,6 +51,25 @@ Notes:
 - The suite now includes an always-on H2 routing integration path, so reader routing and transactional writer pinning are validated even when Docker is unavailable.
 - The Docker-backed MySQL Testcontainers slice remains a supplemental path and still skips cleanly when Docker is unavailable.
 
+## XA Development Checks
+
+Run the always-on H2 XA slice:
+
+```powershell
+.\mvnw.cmd -q -pl mysplitter-tests -am "-Dtest=MySplitterH2XaIntegrationTest" "-Dsurefire.failIfNoSpecifiedTests=false" test
+```
+
+Run the Docker-backed MySQL and PostgreSQL prepared-branch recovery slices, including PostgreSQL unavailable recovery failure:
+
+```powershell
+.\mvnw.cmd -q -pl mysplitter-tests -am "-Dtest=MySplitterMySqlXaRecoveryIntegrationTest,MySplitterPostgreSqlXaRecoveryIntegrationTest,MySplitterPostgreSqlXaRecoveryFailureIntegrationTest" "-Dsurefire.failIfNoSpecifiedTests=false" test
+```
+
+Notes:
+
+- These are `1.1.0-SNAPSHOT` development checks for the experimental XA path, not `1.0.x` release-gate requirements.
+- Docker Desktop must be running for the MySQL and PostgreSQL recovery slices.
+
 ## Starter Module
 
 Run the starter-module bootstrap checks that lock in configuration resource loading behavior:

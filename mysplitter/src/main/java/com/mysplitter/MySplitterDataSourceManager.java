@@ -22,6 +22,7 @@ import com.mysplitter.advise.ReadAndWriteParserAdvise;
 import com.mysplitter.config.MySplitterDataBaseConfig;
 import com.mysplitter.config.MySplitterDataSourceNodeConfig;
 import com.mysplitter.config.MySplitterLoadBalanceConfig;
+import com.mysplitter.config.MySplitterTransactionConfig;
 import com.mysplitter.exceptions.NoHealthyDataSourceException;
 import com.mysplitter.selector.LoadBalanceSelector;
 import com.mysplitter.selector.NoLoadBalanceSelector;
@@ -29,7 +30,9 @@ import com.mysplitter.selector.RandomLoadBalanceSelector;
 import com.mysplitter.selector.RoundRobinLoadBalanceSelector;
 import com.mysplitter.transaction.GlobalTransactionManager;
 import com.mysplitter.transaction.TransactionManagers;
+import com.mysplitter.transaction.XaResourceRegistry;
 import com.mysplitter.util.ClassLoaderUtil;
+import com.mysplitter.util.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,6 +43,9 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class MySplitterDataSourceManager {
@@ -63,6 +69,8 @@ public class MySplitterDataSourceManager {
     private MySplitterDataSourceHealthManager dataSourceHealthManager;
 
     private GlobalTransactionManager transactionManager;
+
+    private ScheduledExecutorService transactionRecoveryExecutor;
 
     MySplitterDataSourceManager(MySplitterDataSource router) throws Exception {
         this.router = router;
@@ -212,16 +220,21 @@ public class MySplitterDataSourceManager {
         }
         LOGGER.debug("MySplitterDataSourceManager is initializing.");
         this.databaseManager = new MySplitterDatabaseManager(this.router);
-        createTransactionManager();
         createReadAndWriteParser();
         createDataSourceIllAlerter();
         createHealthManager();
         createDataSourceFilters();
         createDataSources();
+        createTransactionManager();
+        startTransactionRecovery();
     }
 
     void close() throws Exception {
         Exception closeException = null;
+        if (transactionRecoveryExecutor != null) {
+            transactionRecoveryExecutor.shutdownNow();
+            transactionRecoveryExecutor = null;
+        }
         try {
             if (dataSourceHealthManager != null) {
                 dataSourceHealthManager.close();
@@ -250,9 +263,43 @@ public class MySplitterDataSourceManager {
         return transactionManager;
     }
 
-    private void createTransactionManager() {
-        transactionManager = TransactionManagers.create(this.router.getMySplitterConfig().getMysplitter()
-                .getTransaction());
+    private void createTransactionManager() throws SQLException {
+        MySplitterTransactionConfig transactionConfig = this.router.getMySplitterConfig().getMysplitter()
+                .getTransaction();
+        if (transactionConfig != null &&
+                MySplitterTransactionConfig.MODE_XA.equalsIgnoreCase(transactionConfig.getMode())) {
+            XaResourceRegistry xaResourceRegistry = dataSourceRegistry.createXaResourceRegistry();
+            transactionManager = TransactionManagers.create(transactionConfig, xaResourceRegistry);
+            return;
+        }
+        transactionManager = TransactionManagers.create(transactionConfig);
+    }
+
+    private void startTransactionRecovery() {
+        final MySplitterTransactionConfig transactionConfig = this.router.getMySplitterConfig().getMysplitter()
+                .getTransaction();
+        if (transactionConfig == null ||
+                !MySplitterTransactionConfig.MODE_XA.equalsIgnoreCase(transactionConfig.getMode()) ||
+                transactionConfig.getRecovery() == null ||
+                !transactionConfig.getRecovery().isEnabled()) {
+            return;
+        }
+        String interval = transactionConfig.getRecovery().getInterval();
+        if (StringUtil.isBlank(interval)) {
+            interval = "10s";
+        }
+        transactionRecoveryExecutor = new ScheduledThreadPoolExecutor(1,
+                new DaemonThreadFactory("mysplitter xa recovery"));
+        transactionRecoveryExecutor.scheduleWithFixedDelay(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    transactionManager.recover();
+                } catch (SQLException e) {
+                    LOGGER.warn("MySplitter XA recovery scan failed.", e);
+                }
+            }
+        }, 0L, parseTimePeriod(interval), parseTimeTimeUnit(interval));
     }
 
     private void createReadAndWriteParser() throws Exception {
@@ -513,6 +560,24 @@ public class MySplitterDataSourceManager {
             return (SQLException) exception;
         }
         return new SQLException(message, exception);
+    }
+
+    private Integer parseTimePeriod(String time) {
+        return Integer.parseInt(time.substring(0, time.length() - 1));
+    }
+
+    private TimeUnit parseTimeTimeUnit(String time) {
+        String suffix = time.substring(time.length() - 1);
+        if ("s".equalsIgnoreCase(suffix)) {
+            return TimeUnit.SECONDS;
+        }
+        if ("m".equalsIgnoreCase(suffix)) {
+            return TimeUnit.MINUTES;
+        }
+        if ("h".equalsIgnoreCase(suffix)) {
+            return TimeUnit.HOURS;
+        }
+        return TimeUnit.SECONDS;
     }
 
     Map<String, Object> getStatus() {

@@ -43,4 +43,6 @@ public interface GlobalTransactionManager {
     void commit(MySplitterConnectionContext connectionContext) throws SQLException;
 
     void rollback(MySplitterConnectionContext connectionContext) throws SQLException;
+
+    void recover() throws SQLException;
 }

@@ -73,6 +73,11 @@ public class UnsupportedDistributedTransactionManager implements GlobalTransacti
         throw unsupported();
     }
 
+    @Override
+    public void recover() throws SQLException {
+        throw unsupported();
+    }
+
     private SQLFeatureNotSupportedException unsupported() {
         return new SQLFeatureNotSupportedException("MySplitter transaction.mode " + mode +
                 " is planned but not implemented yet.");

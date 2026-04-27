@@ -28,6 +28,8 @@ public class TransactionLogEntry implements Serializable {
 
     private TransactionStatus status;
 
+    private TransactionDecision decision = TransactionDecision.UNKNOWN;
+
     public String getGlobalTransactionId() {
         return globalTransactionId;
     }
@@ -60,6 +62,14 @@ public class TransactionLogEntry implements Serializable {
         this.status = status;
     }
 
+    public TransactionDecision getDecision() {
+        return decision;
+    }
+
+    public void setDecision(TransactionDecision decision) {
+        this.decision = decision;
+    }
+
     @Override
     public String toString() {
         return "TransactionLogEntry{" +
@@ -67,6 +77,7 @@ public class TransactionLogEntry implements Serializable {
                 ", branchId='" + branchId + '\'' +
                 ", resourceId='" + resourceId + '\'' +
                 ", status=" + status +
+                ", decision=" + decision +
                 '}';
     }
 }

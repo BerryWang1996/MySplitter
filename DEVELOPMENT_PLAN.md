@@ -40,7 +40,7 @@ Current checkpoint:
 - Concurrent health-state transitions now have dedicated regression coverage, including stale recovery and version-matched healing scenarios.
 - Bounded failover now uses per-call candidate snapshots so a node that fails during one route/default-connection attempt is not immediately retried again in the same call as an ill-node fallback.
 - The `v0.12` routing/health design is now documented in `docs/v0.12-routing-health-design.md`.
-- Failover observability remains deferred to `v1.1.0`; `v1.0.3` is now prioritized first to close production-readiness blockers found during review.
+- Failover observability remains deferred to the later observability/operations milestone; `v1.0.3` was prioritized first to close production-readiness blockers found during review.
 - The `v1.0.0` release-baseline slices are now documented in `docs/v1.0-release-baseline-plan.md`.
 - The Java 8 baseline is now landed in the Maven build and regression dependency stack.
 - Cold-reactor compile smoke checks are now green for both `mysplitter-spring-boot-starter` and `demo` without relying on install-first verification.
@@ -58,7 +58,7 @@ Current checkpoint:
 - The current tree is a `1.1.0-SNAPSHOT` development version after the formal `1.0.3` release.
 - The `1.0.3` hardening slices are complete: YAML loading now uses SafeConstructor-based primitive mapping, password handling now has explicit `plain`, `environment`, and `legacy-rsa` source modes, local transactions now fail fast before spanning multiple physical connections, routed statement batches execute deterministically, and the default SQL parser routes ambiguous SQL to writers.
 
-The next goal is to land the `1.1.0` distributed transaction foundation.
+The `1.1.0` distributed transaction foundation is now code-complete as a gated experimental XA MVP. The tree remains on `1.1.0-SNAPSHOT` until the release commit/tag step.
 
 Current `1.1.0` implementation checkpoint:
 
@@ -70,8 +70,29 @@ Current `1.1.0` implementation checkpoint:
 - Done: add an `XADataSource` connection adapter that can build `XAConnection`/`XAResource` branches without disrupting the current `DataSource` route path.
 - Done: enlist XA branches into a coordinator-owned global transaction.
 - Done: wire routed SQL execution through the transaction manager so XA branches can be opened, started, enlisted, reused, ended, committed, rolled back, and closed from the logical connection context.
-- In progress: keep `transaction.mode: xa` configuration gated until durable recovery and end-to-end XA integration are complete.
-- Next: persist global and branch transaction state and add recovery for prepared or failed branches.
+- Done: add an append-only file transaction log store that can rebuild latest branch state after process restart and keep prepared/failed branches discoverable for recovery.
+- Done: persist global commit/rollback decisions with branch log records so recovery never guesses whether an in-doubt XA branch should commit or rollback.
+- Done: add an XA resource registry and recovery executor foundation that can drive `XAResource.recover(...)` and finish logged branches with durable decisions.
+- Done: allow the embedded coordinator `recover()` path to delegate to the XA recovery executor when a registry-backed executor is supplied.
+- Done: add the internal XA runtime factory path for registry-backed `XaTransactionManager` creation with `memory` or `file` transaction logs, while keeping the public YAML mode gated.
+- Done: reorder datasource-manager initialization so XA runtime creation happens after datasource adapters are initialized and the XA resource registry can be built.
+- Done: add the datasource-manager recovery scheduler hook for `transaction.recovery.enabled` so a configured XA manager can run startup and periodic recovery scans.
+- Done: add an always-on H2 XA integration baseline for two routed datasource branches, covering both global commit and global rollback through the routed `MySplitterDataSource` path.
+- Done: fail datasource initialization when `transaction.mode: xa` is enabled but any configured datasource node cannot provide an XA adapter, so unsupported nodes are rejected before transaction work starts.
+- Done: make XA recovery scans use the portable `TMSTARTRSCAN` / `TMNOFLAGS` / `TMENDRSCAN` sequence instead of relying on a single combined recover flag.
+- Done: treat `XA_RDONLY` prepare results as completed branches so read-only branches are not left falsely recoverable after a crash.
+- Done: Docker-gated MySQL XA file-log recovery coverage now executes successfully for prepared-branch commit and rollback through Testcontainers.
+- Done: MySQL Testcontainers coverage now disables SSL explicitly for the legacy MySQL 5.1 driver on JDK 17+.
+- Done: Docker-gated PostgreSQL XA file-log recovery coverage now executes successfully for prepared-branch commit and rollback with `max_prepared_transactions` enabled.
+- Done: add XA failure-injection coverage for prepare failure, commit failure, rollback failure, recovery commit failure, recovery rollback failure, and XA recover-scan failure so failed branches remain honestly recoverable.
+- Done: add Docker-gated PostgreSQL recovery failure injection for database-unavailable recovery, proving prepared file-log branches remain recoverable when the real database cannot be reached.
+- Done: document XA compatibility and operations notes for the gated `v1.1.0-SNAPSHOT` implementation.
+- Decided: keep `transaction.mode: xa` gated as an experimental `v1.1.0` MVP. The implementation is usable for development validation, but production promotion waits for admin visibility, stronger operational tooling, and explicit release support terms.
+- Done: add configuration tests that lock the gate behavior: XA is rejected by default and allowed only when `mysplitter.experimental.xa.enabled=true`.
+- Done: prepare the `v1.1.0` experimental XA signoff checklist and expose the gated XA path in README/release notes without presenting it as production-ready.
+- Done: complete the code-review cleanup pass for the XA recovery error path so recovery failures retain branch context and close failures remain suppressed instead of masking the root cause.
+- Done: run the repo-level release gate for the `1.1.0-SNAPSHOT` experimental XA MVP; core, starter, regression suite, demo compile, and release packaging all pass.
+- Next: commit the current `1.1.0-SNAPSHOT` development milestone. Do not tag a formal release until the version is intentionally changed from snapshot to `1.1.0`.
 
 ## Review Reconciliation
 
@@ -82,7 +103,7 @@ Current `1.1.0` implementation checkpoint:
 - Not present in the current tree: the previous `systemPath` self-dependency issue is no longer in `mysplitter/pom.xml`.
 - Closed: the health-manager race finding referenced an older `LinkedHashSet` design; the current implementation uses concurrent maps and has dedicated concurrent transition coverage.
 - Closed: the Spring Boot baseline finding is stale; the parent build now uses Spring Boot `2.7.18`, and the starter ships both `spring.factories` and `AutoConfiguration.imports`.
-- Closed: the snapshot release blocker is stale; the current tree is versioned as `1.0.3`, and release tags point at formal release commits.
+- Closed for the maintenance line: the old snapshot release blocker is stale for `1.0.3`; the current tree is intentionally back in `1.1.0-SNAPSHOT` development for the next distributed-transaction milestone.
 - Mitigated: Docker-backed MySQL validation can still skip when Docker is unavailable, but the release gate now includes an always-on H2 routing integration path for baseline routing and transaction coverage.
 - Closed for `1.0.3`: configuration password protection now has a clearer mode model. Development users may choose plain YAML values for convenience, while production users can resolve passwords from system properties or environment variables; the legacy RSA helper is documented as compatibility-only.
 - Closed for `1.0.3`: YAML parsing now uses SnakeYAML safe construction and manual primitive mapping instead of unsafe type construction.
@@ -342,6 +363,9 @@ Goal: make multi-datasource transactions a first-class MySplitter subsystem, wit
 Design reference:
 
 - `docs/distributed-transaction-roadmap.md`
+- `docs/v1.1-xa-compatibility-matrix.md`
+- `docs/v1.1-xa-operations.md`
+- `docs/v1.1-experimental-xa-signoff.md`
 
 Scope:
 
@@ -350,7 +374,7 @@ Scope:
 - Add transaction manager, branch transaction, coordinator, and transaction log SPI.
 - Add JDBC `XADataSource` adapter support.
 - Enlist each routed physical datasource as a branch in one global transaction.
-- Implement two-phase prepare, commit, rollback, and durable recovery.
+- Implement two-phase prepare, commit, rollback, durable logging, durable decision records, and recovery execution.
 - Integrate with Spring transactions in the starter.
 - Fail clearly when a datasource or driver cannot support the selected distributed transaction mode.
 
@@ -368,6 +392,7 @@ Exit criteria:
 - Crash/restart recovery can finish prepared branches.
 - Unsupported datasources fail before transaction work starts.
 - The compatibility and operational limits are documented.
+- MySQL and PostgreSQL have Docker-backed prepared-branch recovery coverage before the public XA mode gate is relaxed.
 
 ### v1.2.0 - Heterogeneous XA Compatibility Matrix
 
@@ -375,9 +400,10 @@ Goal: prove XA behavior across multiple database brands and failure modes.
 
 Scope:
 
-- Add Testcontainers suites for MySQL, PostgreSQL, and at least one additional database target if licensing/tooling allows.
+- Maintain Testcontainers suites for MySQL and PostgreSQL, and add at least one additional database target if licensing/tooling allows.
 - Document driver and datasource requirements per database brand.
 - Add failure-injection coverage for prepare failure, commit failure, rollback failure, and recovery.
+- Extend failure-injection coverage from unit-level state-machine tests into real database scenarios where the drivers and containers can expose the failure mode deterministically.
 - Add metrics and logs for global transaction state.
 
 Primary areas:
@@ -503,15 +529,15 @@ Exit criteria:
 38. Done: corrected multi-route `Statement` batch execution with deterministic result ordering.
 39. Done: improved the default read/write parser so ambiguous and lock-sensitive SQL routes conservatively.
 40. Done: ran the full release gate for the `1.0.3` production-readiness line, tagged the release, and pushed it.
-41. In progress: start distributed transaction SPI and XA MVP in `v1.1.0` by landing the transaction configuration contract, local transaction manager abstraction, XA resource descriptors, XA branch primitives, XA connection adapter, and embedded coordinator first.
-42. Later: add heterogeneous XA compatibility coverage in `v1.2.0`.
+41. Done: completed the distributed transaction SPI and experimental XA MVP in `v1.1.0` by landing the transaction configuration contract, local transaction manager abstraction, XA resource descriptors, XA branch primitives, XA connection adapter, embedded coordinator, routed XA branch lifecycle, append-only file transaction log, durable decision records, XA resource registry, recovery executor foundation, portable recovery scan sequence, read-only branch completion handling, H2 routed XA commit/rollback integration, Docker-gated MySQL/PostgreSQL XA recovery coverage, PostgreSQL unavailable recovery failure injection, XA gate tests, compatibility notes, operations notes, and the experimental signoff checklist.
+42. Later: expand heterogeneous XA compatibility and failure coverage in `v1.2.0`.
 43. Later: add AT-style automatic compensation in `v1.3.0`.
 44. Later: add TCC/Saga extension modes in `v1.4.0`.
 
 ## Suggested Delivery Sequence
 
 1. Finish `v1.0.3` production-readiness hardening.
-2. Start distributed transaction SPI and XA MVP in `v1.1.0`.
+2. Complete distributed transaction SPI and the gated experimental XA MVP in `v1.1.0`.
 3. Build out the heterogeneous database transaction matrix in `v1.2.0`.
 4. Add AT compensation after XA state, logging, and recovery are reliable.
 5. Plan the eventual Java 17 / Boot 3.x break in `2.0.0` rather than leaking it into the `1.x` line.

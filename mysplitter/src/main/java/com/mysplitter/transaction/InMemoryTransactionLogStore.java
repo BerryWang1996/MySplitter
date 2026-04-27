@@ -27,6 +27,9 @@ public class InMemoryTransactionLogStore implements TransactionLogStore {
     private final Map<String, TransactionLogEntry> entries =
             new LinkedHashMap<String, TransactionLogEntry>();
 
+    private final Map<String, TransactionDecision> decisions =
+            new LinkedHashMap<String, TransactionDecision>();
+
     @Override
     public synchronized void append(TransactionLogEntry entry) throws SQLException {
         TransactionLogEntry copiedEntry = copy(entry);
@@ -48,12 +51,23 @@ public class InMemoryTransactionLogStore implements TransactionLogStore {
     }
 
     @Override
+    public synchronized void decide(String globalTransactionId, TransactionDecision decision) throws SQLException {
+        if (isBlank(globalTransactionId)) {
+            throw new IllegalArgumentException("MySplitter transaction log globalTransactionId is empty.");
+        }
+        if (decision == null || TransactionDecision.UNKNOWN.equals(decision)) {
+            throw new IllegalArgumentException("MySplitter transaction decision must be COMMIT or ROLLBACK.");
+        }
+        decisions.put(globalTransactionId, decision);
+    }
+
+    @Override
     public synchronized List<TransactionLogEntry> findRecoverable() throws SQLException {
         List<TransactionLogEntry> recoverableEntries = new ArrayList<TransactionLogEntry>();
         for (TransactionLogEntry entry : entries.values()) {
             if (TransactionStatus.PREPARED.equals(entry.getStatus()) ||
                     TransactionStatus.FAILED.equals(entry.getStatus())) {
-                recoverableEntries.add(copy(entry));
+                recoverableEntries.add(copyWithDecision(entry));
             }
         }
         return recoverableEntries;
@@ -62,7 +76,7 @@ public class InMemoryTransactionLogStore implements TransactionLogStore {
     public synchronized List<TransactionLogEntry> snapshot() {
         List<TransactionLogEntry> snapshot = new ArrayList<TransactionLogEntry>();
         for (TransactionLogEntry entry : entries.values()) {
-            snapshot.add(copy(entry));
+            snapshot.add(copyWithDecision(entry));
         }
         return snapshot;
     }
@@ -76,10 +90,24 @@ public class InMemoryTransactionLogStore implements TransactionLogStore {
         copiedEntry.setBranchId(entry.getBranchId());
         copiedEntry.setResourceId(entry.getResourceId());
         copiedEntry.setStatus(entry.getStatus());
+        copiedEntry.setDecision(entry.getDecision() == null ? TransactionDecision.UNKNOWN : entry.getDecision());
+        return copiedEntry;
+    }
+
+    private TransactionLogEntry copyWithDecision(TransactionLogEntry entry) {
+        TransactionLogEntry copiedEntry = copy(entry);
+        TransactionDecision globalDecision = decisions.get(copiedEntry.getGlobalTransactionId());
+        if (globalDecision != null && TransactionDecision.UNKNOWN.equals(copiedEntry.getDecision())) {
+            copiedEntry.setDecision(globalDecision);
+        }
         return copiedEntry;
     }
 
     private String keyOf(TransactionLogEntry entry) {
         return entry.getGlobalTransactionId() + ":" + entry.getResourceId() + ":" + entry.getBranchId();
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.trim().length() == 0;
     }
 }

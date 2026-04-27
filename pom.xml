@@ -123,6 +123,7 @@
         <test.druid.version>1.1.12</test.druid.version>
         <test.h2.version>2.1.214</test.h2.version>
         <test.mysql-connector.version>5.1.46</test.mysql-connector.version>
+        <test.postgresql.version>42.2.27</test.postgresql.version>
         <test.commons-dbcp2.version>2.5.0</test.commons-dbcp2.version>
         <test.c3p0.version>0.9.5.2</test.c3p0.version>
         <test.bonecp.version>0.8.0.RELEASE</test.bonecp.version>
@@ -170,6 +171,12 @@
                 <groupId>mysql</groupId>
                 <artifactId>mysql-connector-java</artifactId>
                 <version>${test.mysql-connector.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.postgresql</groupId>
+                <artifactId>postgresql</artifactId>
+                <version>${test.postgresql.version}</version>
                 <scope>test</scope>
             </dependency>
             <dependency>

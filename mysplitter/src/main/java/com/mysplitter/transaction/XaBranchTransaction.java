@@ -85,9 +85,10 @@ public class XaBranchTransaction implements BranchTransaction {
     }
 
     @Override
-    public void prepare() throws SQLException {
+    public boolean prepare() throws SQLException {
         try {
             readOnly = xaResource.prepare(xid) == XAResource.XA_RDONLY;
+            return readOnly;
         } catch (XAException e) {
             throw toSQLException("prepare", e);
         }

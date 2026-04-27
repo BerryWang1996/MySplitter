@@ -17,6 +17,8 @@ import static org.junit.Assert.fail;
 
 public class ConfigurationUtilSafeYamlTest {
 
+    private static final String EXPERIMENTAL_XA_PROPERTY = "mysplitter.experimental.xa.enabled";
+
     @Test
     public void shouldLoadConfigurationThroughSafeYamlMapping() throws Exception {
         MySplitterRootConfig rootConfig = load(
@@ -101,6 +103,7 @@ public class ConfigurationUtilSafeYamlTest {
                         "    coordinator:\n" +
                         "      type: embedded\n" +
                         "      logStore: jdbc\n" +
+                        "      logFile: ./target/mysplitter-xa.log\n" +
                         "    recovery:\n" +
                         "      enabled: true\n" +
                         "      interval: 10s\n",
@@ -109,6 +112,8 @@ public class ConfigurationUtilSafeYamlTest {
         assertEquals("local", rootConfig.getMysplitter().getTransaction().getMode());
         assertEquals("embedded", rootConfig.getMysplitter().getTransaction().getCoordinator().getType());
         assertEquals("jdbc", rootConfig.getMysplitter().getTransaction().getCoordinator().getLogStore());
+        assertEquals("./target/mysplitter-xa.log",
+                rootConfig.getMysplitter().getTransaction().getCoordinator().getLogFile());
         assertTrue(rootConfig.getMysplitter().getTransaction().getRecovery().isEnabled());
         assertEquals("10s", rootConfig.getMysplitter().getTransaction().getRecovery().getInterval());
     }
@@ -127,15 +132,30 @@ public class ConfigurationUtilSafeYamlTest {
     }
 
     @Test
-    public void shouldRecognizeXaTransactionModeButFailUntilImplemented() throws Exception {
+    public void shouldGateXaTransactionModeByDefault() throws Exception {
         try {
             loadChecked(singleNodeYaml(
                     "  transaction:\n" +
                             "    mode: xa\n",
                     ""));
-            fail("Expected XA mode to fail clearly until the transaction manager is implemented.");
+            fail("Expected XA mode to stay gated by default.");
         } catch (IllegalArgumentException e) {
-            assertTrue(e.getMessage().contains("xa is planned but not implemented yet"));
+            assertTrue(e.getMessage().contains("xa is implemented internally but still"));
+        }
+    }
+
+    @Test
+    public void shouldAllowXaTransactionModeWhenExperimentalGateIsEnabled() throws Exception {
+        System.setProperty(EXPERIMENTAL_XA_PROPERTY, "true");
+        try {
+            MySplitterRootConfig rootConfig = loadChecked(singleNodeYaml(
+                    "  transaction:\n" +
+                            "    mode: XA\n",
+                    ""));
+
+            assertEquals("xa", rootConfig.getMysplitter().getTransaction().getMode());
+        } finally {
+            System.clearProperty(EXPERIMENTAL_XA_PROPERTY);
         }
     }
 

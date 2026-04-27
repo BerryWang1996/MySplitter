@@ -1,5 +1,24 @@
 # Release Notes
 
+## 1.1.0-SNAPSHOT
+
+`1.1.0-SNAPSHOT` is the distributed transaction foundation line. XA is implemented as a gated experimental MVP for development validation, not as a production-default transaction mode.
+
+Highlights:
+
+- Added the transaction SPI, embedded coordinator, branch model, XA datasource adapter, durable transaction log abstraction, and XA recovery executor.
+- Added routed H2 XA integration coverage for two-branch commit and rollback through `MySplitterDataSource`.
+- Added Docker-backed MySQL and PostgreSQL prepared-branch file-log recovery coverage.
+- Added PostgreSQL database-unavailable recovery failure coverage to prove prepared file-log branches remain recoverable.
+- Added unit-level failure injection for prepare, commit, rollback, recovery commit, recovery rollback, and recover-scan failures.
+- Kept `transaction.mode: xa` behind `mysplitter.experimental.xa.enabled=true`; production deployments should continue using `transaction.mode: local`.
+
+Signoff references:
+
+- See `docs/v1.1-experimental-xa-signoff.md`.
+- See `docs/v1.1-xa-compatibility-matrix.md`.
+- See `docs/v1.1-xa-operations.md`.
+
 ## 1.0.3
 
 `1.0.3` is a production-readiness hardening release focused on closing P1 review findings before the distributed transaction roadmap begins.

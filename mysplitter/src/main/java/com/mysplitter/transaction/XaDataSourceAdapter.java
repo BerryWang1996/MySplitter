@@ -102,6 +102,19 @@ public class XaDataSourceAdapter {
         }
     }
 
+    public XaRecoveryResource openRecoveryResource(String username, String password) throws SQLException {
+        XAConnection xaConnection = openXaConnection(username, password);
+        try {
+            return new XaRecoveryResource(resourceId, xaConnection, xaConnection.getXAResource());
+        } catch (SQLException e) {
+            closeQuietly(null, xaConnection);
+            throw e;
+        } catch (RuntimeException e) {
+            closeQuietly(null, xaConnection);
+            throw e;
+        }
+    }
+
     private XAConnection openXaConnection(String username, String password) throws SQLException {
         if (username != null || password != null) {
             return xaDataSource.getXAConnection(username, password);

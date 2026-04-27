@@ -16,19 +16,25 @@
 
 package com.mysplitter.transaction;
 
-import java.sql.SQLException;
+public class XaRecoveryReport {
 
-public interface BranchTransaction {
+    private int recoveredBranchCount;
 
-    String getGlobalTransactionId();
+    private int unresolvedBranchCount;
 
-    String getBranchId();
+    public int getRecoveredBranchCount() {
+        return recoveredBranchCount;
+    }
 
-    String getResourceId();
+    public int getUnresolvedBranchCount() {
+        return unresolvedBranchCount;
+    }
 
-    boolean prepare() throws SQLException;
+    void incrementRecoveredBranchCount() {
+        recoveredBranchCount++;
+    }
 
-    void commit() throws SQLException;
-
-    void rollback() throws SQLException;
+    void incrementUnresolvedBranchCount() {
+        unresolvedBranchCount++;
+    }
 }

@@ -71,7 +71,7 @@ Goal: make multi-datasource transactions a first-class MySplitter subsystem.
 - Add an embedded coordinator that owns global transaction ids, branch enlistment, prepare/commit/rollback ordering, and log-state transitions.
 - Enlist each routed physical datasource as a branch.
 - Implement two-phase commit and rollback.
-- Persist global and branch transaction state.
+- Persist global decisions and branch transaction state.
 - Add recovery for in-doubt branches.
 - Integrate with Spring transactions in the starter.
 
@@ -85,13 +85,34 @@ Current implementation checkpoint:
 
 - The transaction manager SPI, XA branch primitives, XA datasource adapter, embedded coordinator, and in-memory log store are in place.
 - Routed SQL connection opening now flows through the transaction manager, so internal XA tests can open, reuse, end, commit, rollback, and close enlisted branches from the logical connection context.
-- `transaction.mode: xa` is still intentionally blocked at configuration validation until durable log recovery and end-to-end database integration are complete.
+- An append-only file transaction log store can persist branch status and global decision changes, then rebuild latest branch state after process restart.
+- An XA resource registry and recovery executor foundation can map logged `resourceId` values to XA-capable datasource adapters and use `XAResource.recover(...)` to finish branches that already have a durable commit/rollback decision.
+- The embedded coordinator can delegate its `recover()` call to that recovery executor when runtime wiring supplies one.
+- Datasource-manager initialization now creates the XA runtime only after datasource adapters are initialized, so a registry-backed XA manager can be built without guessing resource ids.
+- `transaction.recovery.enabled` now has a datasource-manager scheduler hook for startup and periodic XA recovery scans when an XA manager is configured.
+- XA recovery scans now use the portable `TMSTARTRSCAN` / `TMNOFLAGS` / `TMENDRSCAN` sequence instead of assuming a driver accepts combined recover flags.
+- `XA_RDONLY` prepare results are recorded as completed branches, preventing read-only branches from being reported as in-doubt work.
+- An always-on H2 XA integration baseline now verifies two routed branches through commit and rollback using the `MySplitterDataSource` path.
+- XA mode now rejects non-XA-capable datasource nodes during datasource initialization instead of waiting until routed SQL reaches an unsupported node.
+- A Docker-gated MySQL recovery suite now passes for file-log recovery decisions covering prepared branch commit and rollback.
+- MySQL Testcontainers coverage disables SSL explicitly for the legacy MySQL 5.1 driver on JDK 17+.
+- A Docker-gated PostgreSQL recovery suite now passes for file-log recovery decisions covering prepared branch commit and rollback when `max_prepared_transactions` is enabled.
+- XA failure-injection coverage now verifies prepare failure, commit failure, rollback failure, recovery commit failure, recovery rollback failure, and recover-scan failure without losing recoverable branch state.
+- A Docker-gated PostgreSQL recovery failure suite now verifies that prepared file-log branches stay recoverable when the real database is unavailable during recovery.
+- XA operations notes now document file-log retention, unresolved branch behavior, resource-id stability, and current production caveats.
+- `transaction.mode: xa` remains intentionally blocked by default in `v1.1.0`; it is available only through `mysplitter.experimental.xa.enabled=true` for development validation.
+
+Remaining before opening `transaction.mode: xa`:
+
+- Keep the MySQL/PostgreSQL compatibility matrix current in `docs/v1.1-xa-compatibility-matrix.md`.
+- Keep operational recovery behavior current in `docs/v1.1-xa-operations.md`.
+- Add admin visibility, stronger operational tooling, and explicit release support terms before promoting XA beyond the current experimental gate.
 
 ### v1.2.0 - Heterogeneous XA Compatibility Matrix
 
 Goal: prove XA behavior across database brands.
 
-- Add Testcontainers suites for MySQL, PostgreSQL, and at least one additional database target if licensing/tooling allows.
+- Maintain Testcontainers suites for MySQL and PostgreSQL, and add at least one additional database target if licensing/tooling allows.
 - Document driver and datasource requirements per database.
 - Add failure injection tests for prepare failure, commit failure, rollback failure, and recovery.
 - Add metrics and logs for global transaction state.
@@ -140,7 +161,8 @@ mysplitter:
     mode: xa
     coordinator:
       type: embedded
-      logStore: jdbc
+      logStore: file
+      logFile: ./target/mysplitter-xa.log
     recovery:
       enabled: true
       interval: 10s

@@ -20,6 +20,7 @@ import com.mysplitter.config.MySplitterDataSourceNodeConfig;
 import com.mysplitter.config.MySplitterLoadBalanceConfig;
 import com.mysplitter.transaction.XaConnectionBranch;
 import com.mysplitter.transaction.XaDataSourceAdapter;
+import com.mysplitter.transaction.XaRecoveryResource;
 import com.mysplitter.transaction.XaResourceDescriptor;
 import com.mysplitter.util.ClassLoaderUtil;
 import org.slf4j.Logger;
@@ -90,6 +91,10 @@ public class DataSourceWrapper {
         return xaResourceDescriptor != null && xaResourceDescriptor.isXaCapable();
     }
 
+    public XaDataSourceAdapter getXaDataSourceAdapter() {
+        return xaDataSourceAdapter;
+    }
+
     public XaConnectionBranch openXaBranch(String globalTransactionId,
                                            String branchId,
                                            String username,
@@ -102,6 +107,17 @@ public class DataSourceWrapper {
                     dataBaseName + " is not XA capable. " + reason);
         }
         return adapter.openBranch(globalTransactionId, branchId, username, password);
+    }
+
+    public XaRecoveryResource openXaRecoveryResource(String username, String password) throws SQLException {
+        XaDataSourceAdapter adapter = xaDataSourceAdapter;
+        if (adapter == null) {
+            String reason = xaResourceDescriptor == null ? "XA resource descriptor is not initialized." :
+                    xaResourceDescriptor.getUnavailableReason();
+            throw new SQLFeatureNotSupportedException("Datasource node " + nodeName + " in database " +
+                    dataBaseName + " is not XA capable. " + reason);
+        }
+        return adapter.openRecoveryResource(username, password);
     }
 
     public synchronized void initRealDataSource() throws Exception {
