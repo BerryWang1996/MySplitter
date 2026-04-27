@@ -4,7 +4,7 @@
 
 Stage one stabilization is complete.
 
-The `1.0.0`, `1.0.1`, `1.0.2`, and `1.0.3` release tags are cut. The current tree is being prepared for the `1.1.0` experimental XA release on `vibe-coding`.
+The `1.0.0`, `1.0.1`, `1.0.2`, `1.0.3`, and `1.1.0` release tags are cut. The current tree is now in `1.2.0-SNAPSHOT` development for the heterogeneous XA compatibility matrix on `vibe-coding`.
 
 ## Version Strategy
 
@@ -55,10 +55,10 @@ Current checkpoint:
 - The `1.0.1` release commit and tag have been pushed to the remote `vibe-coding` branch.
 - GitHub Actions now runs the canonical release gate on PRs, manual dispatch, and pushes to `master` / `vibe-coding`.
 - The `1.0.2` and `1.0.3` release commits and tags have been pushed to the remote `vibe-coding` branch.
-- The current tree is being promoted from `1.1.0-SNAPSHOT` to the formal `1.1.0` experimental XA release after the `1.0.3` release.
+- The current tree has been promoted from `1.1.0-SNAPSHOT` to the formal `1.1.0` experimental XA release after the `1.0.3` release.
 - The `1.0.3` hardening slices are complete: YAML loading now uses SafeConstructor-based primitive mapping, password handling now has explicit `plain`, `environment`, and `legacy-rsa` source modes, local transactions now fail fast before spanning multiple physical connections, routed statement batches execute deterministically, and the default SQL parser routes ambiguous SQL to writers.
 
-The `1.1.0` distributed transaction foundation is code-complete as a gated experimental XA MVP and is ready for the release commit/tag step.
+The `1.1.0` distributed transaction foundation is complete as a gated experimental XA MVP. The next development target is `1.2.0`, focused on expanding the heterogeneous XA compatibility and failure-recovery matrix.
 
 Current `1.1.0` implementation checkpoint:
 
@@ -93,7 +93,9 @@ Current `1.1.0` implementation checkpoint:
 - Done: complete the code-review cleanup pass for the XA recovery error path so recovery failures retain branch context and close failures remain suppressed instead of masking the root cause.
 - Done: run the repo-level release gate for the `1.1.0-SNAPSHOT` experimental XA MVP; core, starter, regression suite, demo compile, and release packaging all pass.
 - Done: promote the tree to `1.1.0` and rerun the repo-level release gate; core, starter, regression suite, demo compile, and release packaging all pass under the formal release version.
-- Next: commit the `1.1.0` release, tag `v1.1.0`, and push the branch/tag.
+- Done: commit the `1.1.0` release and tag `v1.1.0`.
+- Done: bump the branch to `1.2.0-SNAPSHOT` and rerun the repo-level release gate successfully.
+- Next: push the `vibe-coding` branch and `v1.1.0` tag.
 
 ## Review Reconciliation
 
@@ -502,7 +504,7 @@ Exit criteria:
 10. Done: bounded failover in `MySplitterDataSourceManager` now avoids immediate same-call retries of nodes that already failed earlier in the same acquisition path.
 11. Done: reran and documented the stable verification command set for core, integration, starter, and demo modules in `docs/verification-commands.md`.
 12. Done: updated versioned design notes so `v0.12` completion criteria match the code that is already landed.
-13. Done: deferred failover observability to `v1.1.0` to keep `v1.0.0` focused on release-baseline compatibility work.
+13. Done: deferred failover observability to a later operations-focused milestone to keep `v1.0.0` focused on release-baseline compatibility work.
 14. Done: broke `v1.0.0` into concrete upgrade slices for Java baseline, Spring Boot starter compatibility, and pool support policy in `docs/v1.0-release-baseline-plan.md`.
 15. Done: landed the Java 8 baseline in Maven build configuration and core regression dependencies.
 16. Done: reran the full verification command set after the Java baseline upgrade.
